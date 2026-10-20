@@ -1,0 +1,66 @@
+@import '@xyflow/react/dist/style.css';
+
+:root {
+  font-family: "Avenir Next", Avenir, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #203130;
+  background: #f3f5f2;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  font-weight: 400;
+
+  --ink: #203130;
+  --ink-soft: #586765;
+  --muted: #8b9792;
+  --line: #e4e9e4;
+  --canvas: #f3f5f2;
+  --surface: #fff;
+  --forest: #183b35;
+  --forest-deep: #142e2b;
+  --pollen: #e7ad50;
+  --pollen-pale: #fbf3e5;
+  --violet: #8177bd;
+  --mint: #dceee5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 360px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #e7ad50;
+  outline-offset: 3px;
+}
+
+::selection {
+  color: #142e2b;
+  background: #f2d9a7;
+}
