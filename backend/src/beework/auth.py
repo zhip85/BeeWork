@@ -1,4 +1,5 @@
 import secrets
+from datetime import datetime, timezone
 from uuid import UUID
 
 import jwt
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from beework.config import settings
 from beework.db import get_db
-from beework.models import Membership, Tenant, User
+from beework.models import AuthSession, Membership, Tenant, User
 from beework.security import decode_access_token
 
 ACCESS_COOKIE = "beework_session"
@@ -22,7 +23,7 @@ def get_current_user(
     if not session_cookie:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="请先登录")
     try:
-        user_id = decode_access_token(session_cookie)
+        user_id, token_id = decode_access_token(session_cookie)
     except (jwt.InvalidTokenError, ValueError, KeyError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -32,6 +33,19 @@ def get_current_user(
     user = db.get(User, user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号不可用")
+    auth_session = db.scalar(
+        select(AuthSession).where(
+            AuthSession.token_id == token_id,
+            AuthSession.user_id == user.id,
+            AuthSession.revoked_at.is_(None),
+            AuthSession.expires_at > datetime.now(timezone.utc),
+        )
+    )
+    if auth_session is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="登录已失效，请重新登录",
+        )
     return user
 
 
@@ -57,7 +71,10 @@ def get_tenant_membership(
     tenant_id_header: str | None = Header(default=None, alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
 ) -> Membership:
-    query = select(Membership).where(Membership.user_id == user.id)
+    query = select(Membership).where(
+        Membership.user_id == user.id,
+        Membership.status == "active",
+    )
     if tenant_id_header:
         try:
             tenant_id = UUID(tenant_id_header)
@@ -73,6 +90,8 @@ def get_tenant_membership(
     tenant = db.get(Tenant, membership.tenant_id)
     if not tenant or tenant.status != "active":
         raise HTTPException(status_code=403, detail="此企业工作区已停用")
+    if membership.status != "active":
+        raise HTTPException(status_code=403, detail="你的企业成员资格已暂停")
     return membership
 
 

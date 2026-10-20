@@ -2,11 +2,13 @@ from typing import Any
 
 import psycopg
 import redis
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.engine import make_url
 
 from beework.config import settings
+from beework.auth import get_current_user
+from beework.models import User, audit_source_ip
 from beework.routes import router as api_router
 from beework.runtime.demo_graph import demo_graph
 
@@ -16,6 +18,15 @@ app = FastAPI(
     description="BeeWork enterprise AI platform development API",
 )
 app.include_router(api_router)
+
+
+@app.middleware("http")
+async def set_request_audit_context(request: Request, call_next):
+    token = audit_source_ip.set(request.client.host if request.client else None)
+    try:
+        return await call_next(request)
+    finally:
+        audit_source_ip.reset(token)
 
 
 class DemoRunRequest(BaseModel):
@@ -67,6 +78,9 @@ def readiness() -> dict[str, Any]:
 
 
 @app.post("/api/v1/runtime/demo", response_model=DemoRunResponse)
-def run_demo(request: DemoRunRequest) -> DemoRunResponse:
+def run_demo(
+    request: DemoRunRequest,
+    _user: User = Depends(get_current_user),
+) -> DemoRunResponse:
     result = demo_graph.invoke({"message": request.message})
     return DemoRunResponse(result=result["message"])
