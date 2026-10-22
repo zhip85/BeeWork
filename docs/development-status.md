@@ -91,7 +91,9 @@
 ### RAGFlow 与 Langfuse
 
 - `backend/src/beework/integrations/ragflow.py`：数据集、文档上传、解析、状态、删除、检索的 API 客户端；`langfuse.py`：连通性检查。
-- **只有契约测试（httpx MockTransport），尚未对接真实 RAGFlow/Langfuse 实例**。已决定使用 RAGFlow Cloud（需付费版才有 API Key）与 Langfuse Cloud；Cloud API 与自托管版的兼容性在 T-030 第 0 步实测。
+- RAGFlow：**只有契约测试，尚未对接真实实例**。已决定使用 RAGFlow Cloud（需付费版才有 API Key）；Cloud API 与自托管版的兼容性在 T-030 第 0 步实测。
+- Langfuse：**已对接 Langfuse Cloud**（`cloud.langfuse.com`，密钥在本地 `.env`，不入库）。平台集成状态显示已连接；用 OpenTelemetry 接口写入测试 span，16 秒后可通过 `GET /api/public/v2/observations` 读到。
+- **Langfuse Cloud 旧接口将于 2026-11-16 下线**：`POST /api/public/ingestion` 只剩 score 事件，`GET /api/public/traces/*` 已返回 410。规范已要求只用 SDK ≥3（OpenTelemetry）写入、v2 接口读取，LiteLLM 侧用 `langfuse_otel` 回调。
 
 ### 本轮验证记录（2026-10-22）
 
@@ -108,8 +110,7 @@
 开发任务已拆分到 [`tasks/README.md`](./tasks/README.md)（试点版 V0.1 共 22 个任务，含依赖、外部条件与推荐并行批次）。需要用户提供的外部条件：
 
 1. 首发模型供应商 API Key（至少 1 个对话模型；T-025/T-027/T-028 的真实调用验收需要）。
-2. Langfuse Cloud 项目的 Host / Public / Secret Key（T-025）。
-3. RAGFlow Cloud 付费版 API Key（T-030 起）。
+2. RAGFlow Cloud 付费版 API Key（T-030 起）。
 
 ## 5. 交接记录
 

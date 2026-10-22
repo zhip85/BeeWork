@@ -125,7 +125,7 @@ BeeWork 自研控制面和 LangGraph 运行时；模型网关、知识引擎和�
 |---|---|---|---|
 | LiteLLM 1.106.0 | AI 网关：模型路由、租户虚拟 Key、限流、花费记录 | 本地 Compose 服务 `litellm`（<http://localhost:4000>，镜像按 digest 固定），数据存在同一 PostgreSQL 的 `litellm` 库 | `LITELLM_BASE_URL`、`LITELLM_MASTER_KEY`、`LITELLM_SALT_KEY` |
 | RAGFlow | 知识引擎：解析、切片、向量化、检索 | RAGFlow Cloud（付费版才提供 API Key）；本机内存不足以自托管 | `RAGFLOW_BASE_URL`、`RAGFLOW_API_KEY` |
-| Langfuse | 调用追踪与评测 | Langfuse Cloud | `LANGFUSE_HOST`、`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY` |
+| Langfuse | 调用追踪与评测 | Langfuse Cloud（只用 OpenTelemetry 写入与 `/api/public/v2/*` 读取；旧接口 2026-11-16 下线） | `LANGFUSE_HOST`、`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY` |
 
 平台总览页显示三者的连接状态。模型目录保存后自动同步到 LiteLLM；“链路检查”用平台或租户的网关凭证请求 LiteLLM `/v1/models`，只校验凭证与模型权限、不调用供应商；“真实调用”需要在模型目录中填写有效的供应商 API Key。整条链路可用 `docker compose exec api python /app/scripts/check_gateway_e2e.py` 验证（会在模型目录留下已停用的 `E2E Mock Chat` 测试条目）。
 

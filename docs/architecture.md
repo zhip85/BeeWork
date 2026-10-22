@@ -146,7 +146,8 @@ scripts/                 # test-postgres.sh、check_gateway_e2e.py 等
 - 助理/智能体配置以**版本化 JSON DSL** 保存（`dsl_version` 字段），发布时冻结为不可变快照；Worker 只执行快照。
 - 编译器把 DSL 转成 `StateGraph`；节点只能是受控实现（LLM、知识检索、条件、变量、受信工具、人工审批、追问）。**禁止**在 DSL 中保存或执行任意代码。
 - 模型调用：`langchain-openai` 的 `ChatOpenAI(base_url=LiteLLM/v1, api_key=租户环境虚拟 Key, model="bw-{model_id}")`，因此限流、权限和计费都在网关侧生效。
-- 追踪：Langfuse 的 LangChain `CallbackHandler`，trace 带 `tenant_id`、`assistant_id`、`version`、`run_id` 元数据，不上传未脱敏的敏感正文（按 SET-070）。
+- 追踪：Langfuse Python SDK **v3 及以上**（基于 OpenTelemetry）的 LangChain `CallbackHandler`，trace 带 `tenant_id`、`assistant_id`、`version`、`run_id` 元数据，不上传未脱敏的敏感正文（按 SET-070）。
+- **Langfuse Cloud 的旧接口将于 2026-11-16 下线**：旧版写入接口 `POST /api/public/ingestion`（只剩 score 事件）和 `GET /api/public/traces/*`（已返回 410）都不能用。写入只走 OpenTelemetry（`/api/public/otel/v1/traces`，SDK v3 默认如此），读取只用 `GET /api/public/v2/observations` 与 `/api/public/v2/metrics`。旧版 SDK（v2）和 LiteLLM 的 `langfuse` 回调都依赖旧接口，禁止使用；LiteLLM 侧用 `langfuse_otel` 回调。
 - 需要中断/恢复的图（Chatflow 追问、人工审批）使用 PostgreSQL checkpointer，与业务库同实例、独立 schema。
 
 ## 4. 前端约定

@@ -1,7 +1,7 @@
 # T-025 LangGraph 运行时 v1
 
 **阶段**：3（核心）　**依赖**：T-002、T-020　**PRD**：5.5（第 1–2、4、8、10–11 步的最小子集）、4.4、NFR-001、NFR-012
-**外部条件**：真实调用需供应商 Key（在平台模型目录配置）；Langfuse Cloud 的 Host/Public/Secret Key
+**外部条件**：真实调用需供应商 Key（在平台模型目录配置）；Langfuse Cloud 已配置在本地 `.env` 并验证（OpenTelemetry 写入 + v2 读取可用）
 
 ## 目标
 
@@ -12,7 +12,7 @@
 - `runtime/dsl.py`：`AssistantDSLv1`（Pydantic）：`prompt`、`model_alias`、`knowledge`（T-033 用）、`greeting`、`limits`（max_tokens、超时）。从草稿或版本快照构造。
 - `runtime/compiler.py`：`compile_assistant(dsl) -> CompiledGraph`。v1 图：`input_guard`（最小检查：长度、空消息；PII 留给 E-50）→ `retrieve`（T-033 前为空操作）→ `generate`（ChatOpenAI → LiteLLM）→ `output`。节点只能来自注册表，不允许任意代码。
 - 模型客户端：`langchain-openai` 的 `ChatOpenAI(base_url=f"{LITELLM_BASE_URL}/v1", api_key=租户环境虚拟 Key, model=model_alias, streaming=True)`；请求 `metadata`/`extra_body` 带 `tenant_id`、`assistant_id`、`version`、`run_id`、`source`，供 T-011 归因。
-- 追踪：`langfuse` 的 LangChain `CallbackHandler`，`trace_id=run_id`；未配置 Langfuse 时跳过。依赖版本锁定在 `requirements.txt`。
+- 追踪：`langfuse` Python SDK **≥ 3**（基于 OpenTelemetry）的 LangChain `CallbackHandler`，trace 与 `run_id` 关联；未配置 Langfuse 时跳过。依赖版本锁定在 `requirements.txt`。**不得使用 SDK v2 或 `POST /api/public/ingestion`**，Langfuse Cloud 于 2026-11-16 下线旧接口（见 architecture.md 3.8）。验证 trace 时用 `GET /api/public/v2/observations` 读取。
 - `runs` 表：`tenant_id`、`assistant_id`、`version_id`（草稿调试时为空 + `draft_row_version`）、`environment`、`source`（debug/test/live/api）、`status`（queued/running/succeeded/failed/cancelled）、`input`、`output`、`error`、`latency_ms`、`tokens_in/out`、`trace_url`、`created_by`。
 - 流程：`POST /assistants/{id}/runs`（调试，草稿）→ 建 run + 入队 `runtime.execute` → 立即返回 `run_id`；Worker 执行并用 `publish_run_event` 推送 `token`、`step`、`done`、`error` 事件；`GET /runs/{run_id}/events`（SSE，T-002 的 `stream_run_events`）；`POST /runs/{run_id}/cancel`。
 - 准入（5.5 第 2 步）：租户状态（只读/停用不服务，`tenant_access_mode`）、助理状态、环境网关同步状态、点数配额（T-010 `check_quota`）。

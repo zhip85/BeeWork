@@ -98,7 +98,7 @@ end
 | **运行时编排（自研核心）** | **LangGraph 1.x** + 版本化 DSL 编译器 | 平台核心。助理/Agent/Chatflow/Workflow 编译为 LangGraph 图；模型调用一律经 LiteLLM，检索一律经 RAGFlow，轨迹经 Langfuse 回调上报。 |
 | AI 网关 | **LiteLLM Proxy 1.106.0**（Compose 内运行，`docker.litellm.ai/berriai/litellm`，按 digest 固定） | 平台模型目录 → LiteLLM deployment（别名 `bw-{模型ID}`，经 `/model/new`）；租户每个环境 → 一个 LiteLLM team + 虚拟 Key（只放行该环境启用的模型）；限流、降级、用量/花费由 LiteLLM 记录，BeeWork 定期汇总为点数。 |
 | 知识引擎 | **RAGFlow Cloud**（`cloud.ragflow.io`，付费版提供 API Key）；后续可改自托管 | 知识库 → RAGFlow dataset；文档上传/解析/切片/向量化/检索都调用 RAGFlow API（`/api/v1/datasets`、`/documents`、`/chunks`、`/retrieval`）。OCR/版面分析由 RAGFlow 内置的 DeepDoc 或其可选的 MinerU 完成，BeeWork 不再自建 PaddleOCR/MinerU/Milvus 流水线。使用 RAGFlow Cloud 时云端无法访问本机 LiteLLM，Embedding 使用 RAGFlow 自带模型、不经网关计量；改为自托管后再指向 LiteLLM 的 OpenAI 兼容接口。 |
-| 调用追踪 | **Langfuse Cloud** | LangGraph 运行时用 Langfuse 回调上报，`trace_id = run_id`；LiteLLM 可开启 langfuse 回调记录网关层调用。BeeWork 运营页按 run_id 查询/跳转，不自建 trace 存储。 |
+| 调用追踪 | **Langfuse Cloud**（只用 OpenTelemetry 写入与 v2 读取接口；旧接口 2026-11-16 下线） | LangGraph 运行时用 Langfuse 回调上报，`trace_id = run_id`；LiteLLM 可开启 langfuse 回调记录网关层调用。BeeWork 运营页按 run_id 查询/跳转，不自建 trace 存储。 |
 | 评测 | Langfuse datasets/evaluations 优先；Ragas/Promptfoo 作为离线工具 | 阶段 7 再接入，评测结果回写 BeeWork 的评测记录。 |
 | PII 检测 | Presidio（官方 analyzer/anonymizer 镜像，REST）+ 中文规则 | 阶段 5 接入；规则继承与覆盖仍由 BeeWork 管理，Presidio 只负责识别。 |
 | 关系库 / 缓存 | PostgreSQL / Valkey | PostgreSQL 为业务事实源；LiteLLM 在同一实例的独立数据库 `litellm` 中保存自身数据。 |
@@ -220,7 +220,7 @@ PRD V1.0 范围很大，按“一模块过门禁再进下一模块”串行推�
 | 首发模型供应商与 API Key（至少 1 个对话模型 + 1 个 Embedding 模型） | 阶段 2 真实调用验收、阶段 3 | 阶段 3 开工前 |
 | 首发部署区域与 KMS | 生产密钥管理、NFR-007 | 试点上线前 |
 | RAGFlow：**已决定用 RAGFlow Cloud**；待办：开通付费版（Starter/Pro 才有 API Key），确认 API 兼容性、数据集上限与数据存储区域（T-030 第 0 步） | 阶段 4 | 阶段 4 开工前 |
-| Langfuse：**已决定用 Langfuse Cloud**；待办：创建项目并提供 Host / Public / Secret Key；确认数据区域（EU/US） | 阶段 3 trace 验收 | T-025 开工前 |
+| Langfuse：**已就绪**——Langfuse Cloud（`cloud.langfuse.com`，EU 区域）项目密钥已配置并验证 | — | 已完成 2026-10-22 |
 | 是否需要增强/专属隔离（NFR-006）及多区域部署拓扑（NFR-007） | 数据源路由与部署架构 | 阶段 3 结束前做设计，阶段 9 实施 |
 
 ### 原遗漏功能的阶段归属

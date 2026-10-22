@@ -31,7 +31,7 @@
 | [T-022](./T-022-approvals.md) | 审批策略、审批引擎与审批中心 | 3 | T-001 | — | 待开发 | | 可与 T-020 并行 |
 | [T-023](./T-023-notifications.md) | 站内通知中心 | 3 | T-001 | — | 待开发 | | 可与 T-020 并行 |
 | [T-024](./T-024-assistant-versions.md) | 助理发布、不可变版本、对比与回滚 | 3 | T-021、T-022 | — | 待开发 | | |
-| [T-025](./T-025-langgraph-runtime.md) | LangGraph 运行时 v1（经 LiteLLM，Langfuse 追踪） | 3 | T-002、T-020 | 真实调用需供应商 Key；Langfuse Cloud Key | 待开发 | | 核心任务 |
+| [T-025](./T-025-langgraph-runtime.md) | LangGraph 运行时 v1（经 LiteLLM，Langfuse 追踪） | 3 | T-002、T-020 | 真实调用需供应商 Key（Langfuse 已就绪） | 待开发 | | 核心任务；只能用 Langfuse SDK ≥3 |
 | [T-026](./T-026-conversations.md) | 会话与消息、保留期与脱敏 | 3 | T-025 | — | 待开发 | | |
 | [T-027](./T-027-test-console.md) | 助理测试控制台与测试用例 | 3 | T-025、T-021 | 供应商 Key | 待开发 | | |
 | [T-028](./T-028-open-api.md) | 租户 API 密钥与开放对话 API | 3/6 | T-024、T-025、T-010 | — | 待开发 | | 试点版对外入口 |
@@ -63,7 +63,7 @@
 | E-51 | 智能体：Agent / Chatflow / Workflow DSL、画布编辑器、调试、试运行 | V0.2 |
 | E-52 | 能力目录：Skill、MCP、API 插件（受限执行、SSRF 防护、健康检查） | V0.2 |
 | E-60 | 其余渠道（H5、IM 等）、Widget 模板与组件库、体验编辑器 | V0.3 |
-| E-70 | 运营：实时会话、转人工、标注、评测（Langfuse）、调用追踪页、工作台真实指标 | V0.3 |
+| E-70 | 运营：实时会话、转人工、标注、评测（Langfuse）、调用追踪页（读 Langfuse `/api/public/v2/observations`、`/v2/metrics`）、工作台真实指标 | V0.3 |
 | E-71 | Webhook 与通知规则（邮件/Slack/SMS）、预算告警 | V0.3 |
 | E-80 | 设置补全：企业信息、SSO/MFA、规则库/术语表、合规与审批其余项 | V1.0 |
 | E-81 | 平台运营：租户编辑/详情、工单、套餐维护、渠道类型、Widget 模板、行业术语、PII/安全基线完整版、代管登录、账单与加购 | V1.0 |

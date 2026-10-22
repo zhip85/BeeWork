@@ -12,7 +12,8 @@ litellm_settings:
   drop_params: true
   num_retries: 1
   request_timeout: 55
-  # To send gateway traces to Langfuse, set LANGFUSE_HOST / LANGFUSE_PUBLIC_KEY /
-  # LANGFUSE_SECRET_KEY for this service and uncomment:
-  # success_callback: ["langfuse"]
-  # failure_callback: ["langfuse"]
+  # To send gateway traces to Langfuse, pass LANGFUSE_HOST / LANGFUSE_PUBLIC_KEY /
+  # LANGFUSE_SECRET_KEY to this service and uncomment. Use the OpenTelemetry
+  # callback: the legacy "langfuse" callback uses an ingestion API that Langfuse
+  # Cloud shuts down on 2026-11-16.
+  # callbacks: ["langfuse_otel"]
