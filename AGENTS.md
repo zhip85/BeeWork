@@ -42,3 +42,9 @@ docker compose exec api python /app/scripts/check_gateway_e2e.py   # 涉及模�
 - 模型调用只经 LiteLLM，知识检索只经 RAGFlow，追踪只经 Langfuse；不要在 BeeWork 里自建这些能力，也不要读写它们的内部存储。
 - 不提交任何真实密钥；不修改 `.env`。
 - 不顺手重构与任务无关的代码；发现问题写进完成记录的“遗留问题”。
+
+## 读取大文件
+
+- 不要整篇读取 `docs/BeeWork-prototype.html`（约 1.3 MB 的打包单页应用）。用搜索按页面 ID 或界面文案定位，只读命中的片段。
+- 不要整篇读取 `docs/BeeWork-PRD.md`（约 2200 行）。先用 `grep -n '^#' docs/BeeWork-PRD.md` 看章节目录，再按任务引用的章节或需求编号（如 3.9、AST-021）只读对应行范围。
+- 其他超过约 500 行的文件同样处理：先搜索，再读需要的行。
