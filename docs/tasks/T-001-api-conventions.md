@@ -50,8 +50,8 @@
 
 **接手时修复的问题**：① IP 字面量主机（如 `https://127.0.0.1`）只检查了解析结果，会被注入的解析函数绕过，现直接检查字面量（测试发现）；② 异常处理器改注册 Starlette 的 `HTTPException`，使路由层 404/405 也带 `code`，并保留 `headers`；③ `paginate` 改为接收 `Pagination`，计数前去掉 `ORDER BY`；④ 解析失败/空结果给出“地址无法解析”；⑤ 报错文案去掉“模型”字样以便通用。
 
+**后续修复**：422 现在也走统一格式（`detail` 为可读字符串，另带 `code: "validation.invalid"` 与原始 `errors` 列表，前端 `api.ts` 因此能直接显示原因）；组织子树展开收进 `rbac.organization_subtree`，`scope_filter` 复用。
+
 **遗留问题**
-- 422（请求体校验错误）仍是 FastAPI 默认的 `detail` 列表格式，没有 `code`；前端若要统一需另行决定格式。
-- `scope_filter` 自带组织子树展开，与 `rbac.ensure_organization_scope`（向上回溯）逻辑等价但是两份实现；后续可把子树展开收进 `rbac`。
 - `check_row_version` 的 `db` 参数目前未使用（按规格保留）。
 - 平台模型校验 URL 时会做一次真实 DNS 解析；解析与后续出站请求之间仍有 DNS rebinding 窗口，出站调用侧（LiteLLM）未做二次校验。

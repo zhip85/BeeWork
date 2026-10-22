@@ -3,12 +3,13 @@ from typing import Any
 import psycopg
 import redis
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
 from sqlalchemy.engine import make_url
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from beework.api import router as api_router
-from beework.api.conventions import ApiError, api_error_handler
+from beework.api.conventions import ApiError, api_error_handler, validation_error_handler
 from beework.auth import get_current_user
 from beework.config import settings
 from beework.models import User, audit_source_ip
@@ -22,6 +23,7 @@ app = FastAPI(
 app.include_router(api_router)
 app.exception_handler(ApiError)(api_error_handler)
 app.exception_handler(StarletteHTTPException)(api_error_handler)
+app.exception_handler(RequestValidationError)(validation_error_handler)
 app.exception_handler(Exception)(api_error_handler)
 
 

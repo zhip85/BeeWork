@@ -228,3 +228,21 @@ def organization_is_within_scope(
             return False
         current_id = current.parent_id
     return False
+
+
+def organization_subtree(db: Session, tenant_id, root_id) -> list:
+    """``root_id`` plus all descendant organization ids within the tenant."""
+    from beework.models import Organization
+
+    allowed_ids = [root_id]
+    frontier = [root_id]
+    while frontier:
+        children = db.execute(
+            select(Organization.id).where(
+                Organization.tenant_id == tenant_id,
+                Organization.parent_id.in_(frontier),
+            )
+        ).scalars().all()
+        frontier = [org_id for org_id in children if org_id not in allowed_ids]
+        allowed_ids.extend(frontier)
+    return allowed_ids

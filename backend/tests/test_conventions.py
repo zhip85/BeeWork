@@ -2,6 +2,7 @@ import unittest
 from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from sqlalchemy import String, create_engine, event, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, sessionmaker
@@ -27,6 +28,7 @@ from beework.api.conventions import (
     require_platform_admin,
     scope_filter,
     validate_public_https_url,
+    validation_error_handler,
 )
 from beework.auth import get_current_user
 from beework.models import Base, Membership, Organization, Tenant, TenantRole, User
@@ -79,6 +81,7 @@ class ConventionTests(unittest.TestCase):
         app = FastAPI()
         app.exception_handler(ApiError)(api_error_handler)
         app.exception_handler(HTTPException)(api_error_handler)
+        app.exception_handler(RequestValidationError)(validation_error_handler)
 
         @app.get("/boom")
         def boom():
@@ -95,6 +98,16 @@ class ConventionTests(unittest.TestCase):
         response = client.get("/legacy")
         self.assertEqual(response.json(), {"detail": "旧错误", "code": "error"})
         self.assertEqual(response.headers["X-Test"], "1")
+        @app.get("/typed")
+        def typed(count: int):
+            return {"count": count}
+
+        invalid = client.get("/typed?count=abc")
+        self.assertEqual(invalid.status_code, 422)
+        body = invalid.json()
+        self.assertEqual(body["code"], "validation.invalid")
+        self.assertTrue(body["detail"].startswith("count："))
+        self.assertEqual(body["errors"][0]["loc"], ["query", "count"])
         missing = client.get("/nope")
         self.assertEqual(missing.status_code, 404)
         self.assertEqual(missing.json()["code"], "error")

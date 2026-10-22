@@ -9,6 +9,8 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from fastapi import Depends, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import DateTime, ForeignKey, Integer, String, func, select
@@ -18,7 +20,7 @@ from starlette.exceptions import HTTPException
 
 from beework import rbac
 from beework.auth import get_current_user
-from beework.models import Membership, Organization, TenantRole, User, utc_now
+from beework.models import Membership, TenantRole, User, utc_now
 
 
 class ApiError(Exception):
@@ -45,6 +47,19 @@ async def api_error_handler(request: Request, exc: Exception) -> JSONResponse:
     if isinstance(exc, HTTPException):
         return error_response(exc.status_code, "error", str(exc.detail), exc.headers)
     return error_response(500, "error.internal", "内部服务器错误")
+
+
+async def validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """422 in the shared envelope: readable ``detail``, ``code`` and the raw ``errors``."""
+    errors = exc.errors() if isinstance(exc, RequestValidationError) else []
+    first = errors[0] if errors else {}
+    field = ".".join(str(part) for part in first.get("loc", ()) if part not in ("body", "query", "path"))
+    message = str(first.get("msg", "请求参数不正确")).removeprefix("Value error, ")
+    detail = f"{field}：{message}" if field else message
+    return JSONResponse(
+        status_code=422,
+        content={"detail": detail, "code": "validation.invalid", "errors": jsonable_encoder(errors)},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -165,26 +180,10 @@ def scope_filter(statement, model, membership: Membership, db: Session):
         or custom_role.scope_organization_id is None
     ):
         return statement
-    allowed_ids = _organization_subtree(
+    allowed_ids = rbac.organization_subtree(
         db, membership.tenant_id, custom_role.scope_organization_id
     )
     return statement.where(model.organization_id.in_(allowed_ids))
-
-
-def _organization_subtree(db: Session, tenant_id: UUID, root_id: UUID) -> list[UUID]:
-    allowed_ids = [root_id]
-    frontier = [root_id]
-    while frontier:
-        children = db.execute(
-            select(Organization.id).where(
-                Organization.tenant_id == tenant_id,
-                Organization.parent_id.in_(frontier),
-            )
-        ).scalars().all()
-        next_frontier = [org_id for org_id in children if org_id not in allowed_ids]
-        allowed_ids.extend(next_frontier)
-        frontier = next_frontier
-    return allowed_ids
 
 
 # ---------------------------------------------------------------------------

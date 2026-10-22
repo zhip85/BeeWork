@@ -96,7 +96,7 @@ scripts/                 # test-postgres.sh、check_gateway_e2e.py 等
 
 | 约定 | 用法 |
 |---|---|
-| 错误 | `raise ApiError(409, "assistant.name_taken", "名称已存在")` → `{"detail": "...", "code": "assistant.name_taken"}`；旧 `HTTPException` 自动补 `code: "error"`（422 校验错误仍是 FastAPI 默认格式） |
+| 错误 | `raise ApiError(409, "assistant.name_taken", "名称已存在")` → `{"detail": "...", "code": "assistant.name_taken"}`；旧 `HTTPException` 自动补 `code: "error"`；422 校验错误为 `{"detail": "字段：原因", "code": "validation.invalid", "errors": [...]}` |
 | 分页 | `pagination: Pagination = Depends(get_pagination)`（limit 默认 20、≤100，offset ≥ 0）；`items, total = paginate(db, statement.order_by(...), pagination)`；响应 `Page[XResponse]` = `{items, total, limit, offset}`。**语句必须自带稳定排序** |
 | 乐观锁 | 模型混入 `VersionedMixin`（`row_version`、`updated_by`）；更新请求带 `row_version`，先 `check_row_version(obj, payload.row_version, db)`（不一致 409 `conflict.stale`），写入后 `obj.row_version += 1; obj.updated_by = 姓名` |
 | 通用列 | `TenantOwnedMixin`（`tenant_id` + 索引）、`TimestampMixin`、`SoftDeleteMixin` |
