@@ -1,8 +1,8 @@
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
-from beework.auth import get_current_user
+from beework.api.conventions import require_platform_admin
 from beework.integrations.langfuse import check_langfuse, langfuse_configured
 from beework.integrations.litellm import LiteLLMClient, gateway_configured
 from beework.integrations.ragflow import RAGFlowClient, ragflow_configured
@@ -30,9 +30,7 @@ INTEGRATIONS: list[tuple[str, str, str, Callable[[], bool], Callable[[], bool]]]
 
 
 @router.get("/platform/integrations", response_model=list[IntegrationStatus])
-def list_integrations(user: User = Depends(get_current_user)) -> list[IntegrationStatus]:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可查看集成状态")
+def list_integrations(user: User = Depends(require_platform_admin)) -> list[IntegrationStatus]:
     statuses: list[IntegrationStatus] = []
     for key, name, purpose, configured, health in INTEGRATIONS:
         if not configured():

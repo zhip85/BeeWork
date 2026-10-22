@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from beework.api.conventions import require_platform_admin
 from beework.auth import (
-    get_current_user,
     require_csrf,
 )
 from beework.db import get_db
@@ -49,12 +49,10 @@ router = APIRouter()
 )
 def create_tenant(
     payload: CreateTenantRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> PlatformTenantResponse:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可创建企业")
     existing = db.scalar(select(Tenant).where(Tenant.slug == payload.slug))
     if existing:
         raise HTTPException(status_code=409, detail="企业标识已被使用")
@@ -123,22 +121,18 @@ def create_tenant(
 
 @router.get("/platform/tenants", response_model=list[PlatformTenantResponse])
 def list_platform_tenants(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> list[PlatformTenantResponse]:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可查看全部企业")
     tenants = db.scalars(select(Tenant).order_by(Tenant.created_at.desc()))
     return [_tenant_response(db, tenant) for tenant in tenants]
 
 
 @router.get("/platform/overview", response_model=PlatformOverviewResponse)
 def get_platform_overview(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> PlatformOverviewResponse:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可查看平台总览")
     return PlatformOverviewResponse(
         tenant_count=db.scalar(select(func.count()).select_from(Tenant)) or 0,
         active_tenant_count=db.scalar(
@@ -165,11 +159,6 @@ def get_platform_overview(
             )
         ) or 0,
     )
-
-
-def _require_platform_admin(user: User) -> None:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可执行此操作")
 
 
 def _tenant_response(db: Session, tenant: Tenant) -> PlatformTenantResponse:
@@ -296,11 +285,10 @@ def run_tenant_lifecycle_action(
     tenant_id: UUID,
     payload: TenantLifecycleRequest,
     response: Response,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> TenantLifecycleResponse:
-    _require_platform_admin(user)
     tenant = db.scalar(select(Tenant).where(Tenant.id == tenant_id).with_for_update(key_share=True))
     if tenant is None:
         raise HTTPException(status_code=404, detail="未找到企业工作区")
@@ -365,10 +353,9 @@ def list_platform_operations(
     status_filter: str | None = Query(
         default=None, alias="status", pattern="^(pending|succeeded|rejected)$"
     ),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> list[PlatformOperationResponse]:
-    _require_platform_admin(user)
     _expire_stale_operations(db)
     db.commit()
     statement = select(PlatformOperationRequest)
@@ -381,7 +368,6 @@ def list_platform_operations(
 def _pending_operation_for_review(
     db: Session, operation_id: UUID, reviewer: User
 ) -> PlatformOperationRequest:
-    _require_platform_admin(reviewer)
     _expire_stale_operations(db)
     request = db.scalar(
         select(PlatformOperationRequest)
@@ -405,7 +391,7 @@ def _pending_operation_for_review(
 def approve_platform_operation(
     operation_id: UUID,
     payload: ReviewPlatformOperationRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> PlatformOperationResponse:
@@ -445,7 +431,7 @@ def approve_platform_operation(
 def reject_platform_operation(
     operation_id: UUID,
     payload: ReviewPlatformOperationRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> PlatformOperationResponse:

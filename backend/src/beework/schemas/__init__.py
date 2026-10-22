@@ -1,10 +1,11 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
-from urllib.parse import urlsplit
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+
+from beework.api.conventions import ApiError, validate_public_https_url
 
 
 class LoginRequest(BaseModel):
@@ -160,11 +161,11 @@ class PlatformModelWriteRequest(BaseModel):
 
     @field_validator("endpoint_url")
     @classmethod
-    def require_https_endpoint(cls, value: str) -> str:
-        parsed = urlsplit(value)
-        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
-            raise ValueError("模型接口地址必须是有效的 HTTPS URL")
-        return value
+    def validate_endpoint_url(cls, value: str) -> str:
+        try:
+            return validate_public_https_url(value)
+        except ApiError as error:
+            raise ValueError(str(error.detail)) from error
 
     @model_validator(mode="after")
     def validate_allowlist(self):

@@ -8,10 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
+from beework.api.conventions import require_platform_admin
 from beework.audit_maintenance import AUDIT_RETENTION_DAYS, verify_audit_chain
-from beework.auth import (
-    get_current_user,
-)
 from beework.db import get_db
 from beework.models import (
     AUDIT_ACTION_DESCRIPTIONS,
@@ -246,11 +244,9 @@ def list_platform_audit_events(
     end: datetime | None = None,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0, le=100000),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> AuditEventListResponse:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可查看平台操作审计")
     if start and end and start > end:
         raise HTTPException(status_code=422, detail="开始时间不能晚于结束时间")
     statement = _audit_query(
@@ -289,11 +285,9 @@ def export_platform_audit_events(
     result: str | None = Query(default=None, pattern="^(success|warning|failure)$"),
     start: datetime | None = None,
     end: datetime | None = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> Response:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可导出平台操作审计")
     if start and end and start > end:
         raise HTTPException(status_code=422, detail="开始时间不能晚于结束时间")
     statement = _audit_query(
@@ -345,11 +339,9 @@ def export_platform_audit_events(
 @router.get("/platform/audit/integrity", response_model=AuditIntegrityResponse)
 def check_platform_audit_integrity(
     tenant_id: UUID | None = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> AuditIntegrityResponse:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可验证平台操作审计")
     if tenant_id is None:
         chain_scope = "platform"
     else:
