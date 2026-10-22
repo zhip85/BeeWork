@@ -56,20 +56,31 @@ def bootstrap_development_tenant() -> None:
         elif user.is_platform_admin:
             user.is_platform_admin = False
 
-        platform_email = settings.bootstrap_platform_admin_email.strip().lower()
-        platform_admin = db.scalar(select(User).where(User.email == platform_email))
-        if platform_admin is None:
-            platform_admin = User(
-                email=platform_email,
-                display_name=settings.bootstrap_platform_admin_name,
-                password_hash=hash_password(
-                    settings.bootstrap_platform_admin_password
-                ),
-                is_platform_admin=True,
-            )
-            db.add(platform_admin)
-        else:
-            platform_admin.is_platform_admin = True
+        for platform_email, platform_name, platform_password in (
+            (
+                settings.bootstrap_platform_admin_email,
+                settings.bootstrap_platform_admin_name,
+                settings.bootstrap_platform_admin_password,
+            ),
+            (
+                settings.bootstrap_platform_reviewer_email,
+                settings.bootstrap_platform_reviewer_name,
+                settings.bootstrap_platform_reviewer_password,
+            ),
+        ):
+            platform_email = platform_email.strip().lower()
+            platform_admin = db.scalar(select(User).where(User.email == platform_email))
+            if platform_admin is None:
+                db.add(
+                    User(
+                        email=platform_email,
+                        display_name=platform_name,
+                        password_hash=hash_password(platform_password),
+                        is_platform_admin=True,
+                    )
+                )
+            else:
+                platform_admin.is_platform_admin = True
 
         membership = db.scalar(
             select(Membership).where(

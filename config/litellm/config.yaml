@@ -1,0 +1,18 @@
+# LiteLLM proxy used as BeeWork's AI gateway.
+# Models are NOT listed here: BeeWork registers its platform model catalog via
+# the admin API (/model/new) and scopes tenants with teams + virtual keys.
+model_list: []
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  store_model_in_db: true
+
+litellm_settings:
+  drop_params: true
+  num_retries: 1
+  request_timeout: 55
+  # To send gateway traces to Langfuse, set LANGFUSE_HOST / LANGFUSE_PUBLIC_KEY /
+  # LANGFUSE_SECRET_KEY for this service and uncomment:
+  # success_callback: ["langfuse"]
+  # failure_callback: ["langfuse"]

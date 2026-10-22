@@ -6,10 +6,10 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.engine import make_url
 
-from beework.config import settings
+from beework.api import router as api_router
 from beework.auth import get_current_user
+from beework.config import settings
 from beework.models import User, audit_source_ip
-from beework.routes import router as api_router
 from beework.runtime.demo_graph import demo_graph
 
 app = FastAPI(

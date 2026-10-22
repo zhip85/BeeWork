@@ -1,24 +1,24 @@
 import hashlib
 import json
-from datetime import datetime, timezone
 from contextvars import ContextVar
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
-    event,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
-    JSON,
     Integer,
     Numeric,
-    select,
-    text,
     String,
     UniqueConstraint,
+    event,
+    select,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, validates
 from sqlalchemy.types import Uuid
@@ -28,6 +28,8 @@ audit_source_ip: ContextVar[str | None] = ContextVar("audit_source_ip", default=
 AUDIT_ACTION_DESCRIPTIONS = {
     "tenant.created": "创建企业租户",
     "tenant.status_changed": "变更企业状态",
+    "tenant.lifecycle_requested": "发起租户生命周期复核",
+    "tenant.lifecycle_rejected": "驳回租户生命周期操作",
     "membership.invited": "邀请成员",
     "membership.invitation_accepted": "接受成员邀请",
     "membership.invitation_resent": "重新发送成员邀请",
@@ -50,11 +52,13 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "model_catalog.disabled": "停用模型目录项",
     "model_environment.updated": "更新模型环境配置",
     "model_environment.published": "发布模型环境配置",
+    "model_catalog.tested": "测试模型连通性",
+    "model_environment.tested": "测试环境模型调用",
 }
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Base(DeclarativeBase):
@@ -71,6 +75,8 @@ class Tenant(Base):
     seat_limit: Mapped[int] = mapped_column(nullable=False, default=10)
     plan: Mapped[str] = mapped_column(String(24), nullable=False, default="standard")
     region: Mapped[str] = mapped_column(String(32), nullable=False, default="ap_singapore")
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
@@ -84,6 +90,35 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_platform_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class PlatformOperationRequest(Base):
+    """A high-risk platform operation awaiting a second administrator (PLT-052)."""
+
+    __tablename__ = "platform_operation_requests"
+    __table_args__ = (
+        Index("ix_platform_operation_requests_status_created", "status", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    operation: Mapped[str] = mapped_column(String(48), nullable=False)
+    target_tenant_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    from_status: Mapped[str] = mapped_column(String(24), nullable=False)
+    to_status: Mapped[str] = mapped_column(String(24), nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    requested_by: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    reviewed_by: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    review_comment: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class PlatformModel(Base):
@@ -120,6 +155,12 @@ class PlatformModel(Base):
     max_output_tokens: Mapped[int | None] = mapped_column(Integer)
     default_temperature: Mapped[Decimal | None] = mapped_column(Numeric(3, 2))
     rpm_limit: Mapped[int | None] = mapped_column(Integer)
+    # Registration state in the AI gateway (LiteLLM): not_configured / synced / failed.
+    gateway_sync_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="not_configured"
+    )
+    gateway_error: Mapped[str | None] = mapped_column(String(500))
+    gateway_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     fallback_model_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("platform_models.id", ondelete="SET NULL"),
@@ -166,6 +207,14 @@ class TenantModelEnvironment(Base):
     environment: Mapped[str] = mapped_column(String(16), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    # LiteLLM team + virtual key that scope this environment's model access.
+    gateway_team_id: Mapped[str | None] = mapped_column(String(80))
+    gateway_key_encrypted: Mapped[str | None] = mapped_column(String(4096))
+    gateway_sync_status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="not_configured"
+    )
+    gateway_error: Mapped[str | None] = mapped_column(String(500))
+    gateway_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class TenantModelSelection(Base):
@@ -438,7 +487,7 @@ class AuditChainCheckpoint(Base):
 def _audit_event_hash(event: AuditEvent) -> str:
     created_at = event.created_at
     if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
+        created_at = created_at.replace(tzinfo=UTC)
     payload = {
         "id": str(event.id),
         "scope": event.scope,
@@ -454,7 +503,7 @@ def _audit_event_hash(event: AuditEvent) -> str:
         "description": event.description,
         "source_ip": event.source_ip,
         "details": event.details,
-        "created_at": created_at.astimezone(timezone.utc).isoformat(),
+        "created_at": created_at.astimezone(UTC).isoformat(),
     }
     serialized = json.dumps(
         payload,
@@ -555,3 +604,9 @@ def prevent_audit_event_mutation(session, _flush_context, _instances) -> None:
             audit_event.previous_hash = previous_hash
             audit_event.event_hash = _audit_event_hash(audit_event)
             previous_hash = audit_event.event_hash
+
+
+# Domain model modules. Each new business domain adds `models/<domain>.py`
+# (importing Base / utc_now from this package) and registers it here so that
+# Alembic autogenerate and `Base.metadata.create_all` see its tables.
+# from beework.models import assistants  # noqa: E402,F401  (example)

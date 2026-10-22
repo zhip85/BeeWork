@@ -36,6 +36,7 @@ PERMISSION_CATALOG: dict[str, PermissionModule] = {
     "traces": {"label": "调用追踪", "actions": ["view"]},
     "approvals": {"label": "审批中心", "actions": ["view", "approve"]},
     "settings": {"label": "设置", "actions": ["view", "edit", "delete"]},
+    "models": {"label": "模型与环境 / BYOK", "actions": ["view", "edit", "delete"]},
     "organizations": {"label": "组织架构", "actions": ["view"]},
     "audit": {"label": "审计日志", "actions": ["view", "export"]},
 }

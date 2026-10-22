@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 import jwt
@@ -11,6 +11,7 @@ from beework.config import settings
 from beework.db import get_db
 from beework.models import AuthSession, Membership, Tenant, User
 from beework.security import decode_access_token
+from beework.tenant_access import READ_METHODS, tenant_access_mode
 
 ACCESS_COOKIE = "beework_session"
 CSRF_COOKIE = "beework_csrf"
@@ -38,7 +39,7 @@ def get_current_user(
             AuthSession.token_id == token_id,
             AuthSession.user_id == user.id,
             AuthSession.revoked_at.is_(None),
-            AuthSession.expires_at > datetime.now(timezone.utc),
+            AuthSession.expires_at > datetime.now(UTC),
         )
     )
     if auth_session is None:
@@ -67,6 +68,7 @@ def require_csrf(
 
 
 def get_tenant_membership(
+    request: Request,
     user: User = Depends(get_current_user),
     tenant_id_header: str | None = Header(default=None, alias="X-Tenant-ID"),
     db: Session = Depends(get_db),
@@ -88,10 +90,11 @@ def get_tenant_membership(
         raise HTTPException(status_code=400, detail="请先选择一个企业工作区")
     membership = memberships[0]
     tenant = db.get(Tenant, membership.tenant_id)
-    if not tenant or tenant.status != "active":
+    access_mode = tenant_access_mode(tenant.status, membership.role) if tenant else None
+    if access_mode is None:
         raise HTTPException(status_code=403, detail="此企业工作区已停用")
-    if membership.status != "active":
-        raise HTTPException(status_code=403, detail="你的企业成员资格已暂停")
+    if access_mode == "read_only" and request.method not in READ_METHODS:
+        raise HTTPException(status_code=403, detail="企业工作区当前为只读状态，仅可查看与导出")
     return membership
 
 

@@ -1,11 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
-from uuid import UUID
 from typing import Literal
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
-
 
 
 class LoginRequest(BaseModel):
@@ -82,6 +81,8 @@ class TenantMembershipResponse(BaseModel):
     custom_role_name: str | None = None
     permissions: list[str] = Field(default_factory=list)
     organization_id: UUID | None = None
+    tenant_status: str = "active"
+    access_mode: Literal["full", "read_only"] = "full"
 
 
 class PlatformTenantResponse(BaseModel):
@@ -95,6 +96,15 @@ class PlatformTenantResponse(BaseModel):
     member_count: int
     admin_email: EmailStr | None = None
     admin_name: str | None = None
+    trial_ends_at: datetime | None = None
+    available_actions: list["TenantLifecycleActionOption"] = Field(default_factory=list)
+
+
+class TenantLifecycleActionOption(BaseModel):
+    action: str
+    label: str
+    to_status: str
+    requires_review: bool
 
 
 class PlatformOverviewResponse(BaseModel):
@@ -188,8 +198,41 @@ class PlatformModelResponse(BaseModel):
     rpm_limit: int | None
     fallback_model_id: UUID | None
     allowlist_tenant_ids: list[UUID]
+    gateway_sync_status: str
+    gateway_error: str | None
+    gateway_synced_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class ModelTestRequest(BaseModel):
+    message: str = Field(default="请用一句话介绍你自己。", min_length=1, max_length=2000)
+    # Only verify gateway key + model allowlist (no provider call, no cost).
+    access_only: bool = False
+
+
+class TenantModelTestRequest(ModelTestRequest):
+    model_id: UUID
+
+
+class ModelTestResponse(BaseModel):
+    ok: bool
+    model: str
+    content: str | None = None
+    latency_ms: int
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    access_only: bool
+    error: str | None = None
+
+
+class IntegrationStatus(BaseModel):
+    key: str
+    name: str
+    purpose: str
+    configured: bool
+    reachable: bool | None
+    detail: str | None = None
 
 
 class PlatformModelListResponse(BaseModel):
@@ -225,6 +268,7 @@ class TenantModelOption(BaseModel):
 class TenantModelEnvironmentResponse(BaseModel):
     tenant_id: UUID
     environment: str
+    available_environments: list[str]
     plan: str
     region: str
     version: int
@@ -233,10 +277,57 @@ class TenantModelEnvironmentResponse(BaseModel):
     enabled_model_ids: list[UUID]
     default_model_ids: dict[str, UUID | None]
     unavailable_enabled_model_ids: list[UUID]
+    gateway_sync_status: str = "not_configured"
+    gateway_error: str | None = None
 
 
-class ChangeTenantStatusRequest(BaseModel):
-    status: str = Field(pattern="^(active|suspended)$")
+class TenantLifecycleRequest(BaseModel):
+    action: Literal[
+        "convert_to_active",
+        "extend_trial",
+        "suspend",
+        "mark_grace",
+        "record_payment",
+        "make_read_only",
+        "restore",
+        "schedule_deletion",
+        "restore_to_suspended",
+        "delete_permanently",
+    ]
+    reason: str = Field(default="", max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def strip_reason(cls, value: str) -> str:
+        return value.strip()
+
+
+class ReviewPlatformOperationRequest(BaseModel):
+    comment: str = Field(default="", max_length=500)
+
+
+class PlatformOperationResponse(BaseModel):
+    id: UUID
+    operation: str
+    operation_label: str
+    target_tenant_id: UUID
+    target_tenant_name: str
+    from_status: str
+    to_status: str
+    reason: str
+    status: Literal["pending", "succeeded", "rejected"]
+    requested_by_name: str
+    requested_by_id: UUID
+    reviewed_by_name: str | None = None
+    review_comment: str | None = None
+    created_at: datetime
+    expires_at: datetime
+    reviewed_at: datetime | None = None
+
+
+class TenantLifecycleResponse(BaseModel):
+    tenant: "PlatformTenantResponse"
+    operation: PlatformOperationResponse | None = None
 
 
 class CurrentUserResponse(BaseModel):

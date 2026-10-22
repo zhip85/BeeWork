@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime, timedelta, timezone
-from uuid import UUID, uuid4
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, select, update
@@ -8,14 +8,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from beework.auth import ACCESS_COOKIE
 from beework.audit_maintenance import prune_expired_audit_events, verify_audit_chain
+from beework.auth import ACCESS_COOKIE
 from beework.db import get_db
 from beework.main import app
 from beework.model_secrets import decrypt_model_api_key
 from beework.models import (
     AuditEvent,
-    AuthSession,
     Base,
     MemberInvitation,
     Membership,
@@ -27,11 +26,13 @@ from beework.models import (
     User,
 )
 from beework.security import hash_password
+from isolation import disable_external_integrations
 
 
 class TenantAuthTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        disable_external_integrations()
         cls.engine = create_engine(
             "sqlite://",
             connect_args={"check_same_thread": False},
@@ -264,7 +265,7 @@ class TenantAuthTests(unittest.TestCase):
 
     def test_audit_chain_detects_tampering_and_retention_keeps_checkpoint(self) -> None:
         chain_scope = f"tenant:{self.tenant_id}"
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with self.session_factory() as db:
             db.add_all(
                 [
@@ -380,6 +381,14 @@ class TenantAuthTests(unittest.TestCase):
         self.assertNotIn("api_key", model_response)
         self.assertNotIn("encrypted_api_key", model_response)
         self.assertEqual(model_response["allowlist_tenant_ids"], [self.tenant_id])
+        # No gateway is configured in unit tests: the catalog still saves, flagged as unsynced.
+        self.assertEqual(model_response["gateway_sync_status"], "not_configured")
+        test_without_gateway = self.client.post(
+            f"/api/v1/platform/models/{model_id}/test",
+            json={"access_only": True},
+            headers=self.csrf_headers(),
+        )
+        self.assertEqual(test_without_gateway.status_code, 409, test_without_gateway.text)
         with self.session_factory() as db:
             stored = db.get(PlatformModel, UUID(model_id))
             self.assertIsNotNone(stored)
@@ -458,7 +467,7 @@ class TenantAuthTests(unittest.TestCase):
         self.login()
         headers = {"X-Tenant-ID": self.tenant_id}
         initial = self.client.get(
-            "/api/v1/tenant/model-environments/development",
+            "/api/v1/tenant/model-environments/production",
             headers=headers,
         )
         self.assertEqual(initial.status_code, 200, initial.text)
@@ -475,7 +484,7 @@ class TenantAuthTests(unittest.TestCase):
         self.assertNotIn("endpoint_url", initial.text)
 
         saved = self.client.put(
-            "/api/v1/tenant/model-environments/development",
+            "/api/v1/tenant/model-environments/production",
             json={
                 "expected_version": 0,
                 "enabled_model_ids": [ids["chat"], ids["embedding"], ids["rerank"]],
@@ -490,9 +499,27 @@ class TenantAuthTests(unittest.TestCase):
         self.assertEqual(saved.status_code, 200, saved.text)
         self.assertEqual(saved.json()["version"], 1)
         self.assertEqual(saved.json()["default_model_ids"]["chat"], ids["chat"])
+        self.assertEqual(saved.json()["available_environments"], ["production"])
+
+        standard_staging = self.client.get(
+            "/api/v1/tenant/model-environments/staging",
+            headers=headers,
+        )
+        self.assertEqual(standard_staging.status_code, 403, standard_staging.text)
+        with self.session_factory.begin() as db:
+            db.get(Tenant, UUID(self.tenant_id)).plan = "enterprise"
+        enterprise_staging = self.client.get(
+            "/api/v1/tenant/model-environments/staging",
+            headers=headers,
+        )
+        self.assertEqual(enterprise_staging.status_code, 200, enterprise_staging.text)
+        self.assertEqual(
+            enterprise_staging.json()["available_environments"],
+            ["development", "staging", "production"],
+        )
 
         stale_update = self.client.put(
-            "/api/v1/tenant/model-environments/development",
+            "/api/v1/tenant/model-environments/production",
             json={
                 "expected_version": 0,
                 "enabled_model_ids": [ids["chat"]],
@@ -505,7 +532,7 @@ class TenantAuthTests(unittest.TestCase):
             headers=self.csrf_headers() | headers,
         )
         wrong_default_type = self.client.put(
-            "/api/v1/tenant/model-environments/testing",
+            "/api/v1/tenant/model-environments/staging",
             json={
                 "expected_version": 0,
                 "enabled_model_ids": [ids["chat"], ids["embedding"]],
@@ -531,7 +558,7 @@ class TenantAuthTests(unittest.TestCase):
             )
             foreign_id = str(other_tenant_model.id)
         foreign_selection = self.client.put(
-            "/api/v1/tenant/model-environments/testing",
+            "/api/v1/tenant/model-environments/staging",
             json={
                 "expected_version": 0,
                 "enabled_model_ids": [foreign_id],
@@ -551,7 +578,7 @@ class TenantAuthTests(unittest.TestCase):
             environment = db.scalar(
                 select(TenantModelEnvironment).where(
                     TenantModelEnvironment.tenant_id == UUID(self.tenant_id),
-                    TenantModelEnvironment.environment == "development",
+                    TenantModelEnvironment.environment == "production",
                 )
             )
             self.assertEqual(environment.version, 1)
@@ -559,7 +586,7 @@ class TenantAuthTests(unittest.TestCase):
         self.client.post("/api/v1/auth/logout", headers=self.csrf_headers())
         self.login(email="member@example.com", password="another correct battery")
         denied = self.client.put(
-            "/api/v1/tenant/model-environments/testing",
+            "/api/v1/tenant/model-environments/staging",
             json={
                 "expected_version": 0,
                 "enabled_model_ids": [],
@@ -572,6 +599,23 @@ class TenantAuthTests(unittest.TestCase):
             headers=self.csrf_headers() | headers,
         )
         self.assertEqual(denied.status_code, 403)
+
+    def test_auditor_cannot_read_model_settings(self) -> None:
+        # PRD 6.1: auditors see audit and governance settings, not models / BYOK.
+        with self.session_factory.begin() as db:
+            membership = db.scalar(
+                select(Membership).where(Membership.user_id == UUID(self.member_id))
+            )
+            membership.role = "auditor"
+        self.login(email="member@example.com", password="another correct battery")
+        headers = {"X-Tenant-ID": self.tenant_id}
+        me = self.client.get("/api/v1/auth/me").json()
+        self.assertNotIn("models:view", me["memberships"][0]["permissions"])
+        self.assertEqual(
+            self.client.get("/api/v1/tenant/model-environments/production", headers=headers).status_code,
+            403,
+        )
+        self.assertEqual(self.client.get("/api/v1/audit/events", headers=headers).status_code, 200)
 
     def test_invalid_password_is_rejected(self) -> None:
         response = self.client.post(
@@ -721,19 +765,81 @@ class TenantAuthTests(unittest.TestCase):
         self.assertEqual(overview.status_code, 200)
         self.assertEqual(overview.json()["tenant_count"], 3)
 
-        status_changed = self.client.patch(
-            f"/api/v1/platform/tenants/{new_tenant['id']}/status",
-            json={"status": "suspended"},
+        with self.session_factory.begin() as db:
+            db.add(
+                User(
+                    email="reviewer@example.com",
+                    display_name="Platform Reviewer",
+                    password_hash=hash_password("platform reviewer safe password"),
+                    is_platform_admin=True,
+                )
+            )
+        lifecycle_url = f"/api/v1/platform/tenants/{new_tenant['id']}/lifecycle"
+        missing_reason = self.client.post(
+            lifecycle_url, json={"action": "suspend"}, headers=self.csrf_headers()
+        )
+        self.assertEqual(missing_reason.status_code, 422, missing_reason.text)
+        requested = self.client.post(
+            lifecycle_url,
+            json={"action": "suspend", "reason": "合同到期"},
             headers=self.csrf_headers(),
         )
-        self.assertEqual(status_changed.status_code, 200, status_changed.text)
-        self.assertEqual(status_changed.json()["status"], "suspended")
-        reactivated = self.client.patch(
-            f"/api/v1/platform/tenants/{new_tenant['id']}/status",
-            json={"status": "active"},
+        self.assertEqual(requested.status_code, 202, requested.text)
+        self.assertEqual(requested.json()["tenant"]["status"], "active")
+        operation_id = requested.json()["operation"]["id"]
+        self_review = self.client.post(
+            f"/api/v1/platform/operations/{operation_id}/approve",
+            json={},
             headers=self.csrf_headers(),
+        )
+        self.assertEqual(self_review.status_code, 403, self_review.text)
+        invalid_action = self.client.post(
+            lifecycle_url, json={"action": "record_payment"}, headers=self.csrf_headers()
+        )
+        self.assertEqual(invalid_action.status_code, 409, invalid_action.text)
+
+        self.client.post("/api/v1/auth/logout", headers=self.csrf_headers())
+        self.login(email="reviewer@example.com", password="platform reviewer safe password")
+        pending = self.client.get("/api/v1/platform/operations", params={"status": "pending"})
+        self.assertEqual([item["id"] for item in pending.json()], [operation_id])
+        approved = self.client.post(
+            f"/api/v1/platform/operations/{operation_id}/approve",
+            json={"comment": "已核实"},
+            headers=self.csrf_headers(),
+        )
+        self.assertEqual(approved.status_code, 200, approved.text)
+        self.assertEqual(approved.json()["status"], "succeeded")
+        tenants_after = {item["slug"]: item for item in self.client.get("/api/v1/platform/tenants").json()}
+        self.assertEqual(tenants_after["new-customer"]["status"], "suspended")
+        self.assertEqual(
+            {item["action"] for item in tenants_after["new-customer"]["available_actions"]},
+            {"restore", "schedule_deletion"},
+        )
+
+        # PER-004: a suspended tenant's administrator may sign in to view and export only.
+        self.client.post("/api/v1/auth/logout", headers=self.csrf_headers())
+        self.login(email="new-admin@example.com", password="a-long-safe-password")
+        suspended_me = self.client.get("/api/v1/auth/me").json()
+        self.assertEqual(suspended_me["memberships"][0]["access_mode"], "read_only")
+        new_tenant_headers = {"X-Tenant-ID": new_tenant["id"]}
+        self.assertEqual(
+            self.client.get("/api/v1/audit/events", headers=new_tenant_headers).status_code,
+            200,
+        )
+        blocked_write = self.client.post(
+            "/api/v1/organizations",
+            json={"name": "新部门"},
+            headers=self.csrf_headers() | new_tenant_headers,
+        )
+        self.assertEqual(blocked_write.status_code, 403, blocked_write.text)
+
+        self.client.post("/api/v1/auth/logout", headers=self.csrf_headers())
+        self.login(email="platform@example.com", password="platform admin safe password")
+        reactivated = self.client.post(
+            lifecycle_url, json={"action": "restore"}, headers=self.csrf_headers()
         )
         self.assertEqual(reactivated.status_code, 200, reactivated.text)
+        self.assertEqual(reactivated.json()["tenant"]["status"], "active")
         platform_audit = self.client.get(
             "/api/v1/platform/audit/events",
             params={"search": "New Customer"},
@@ -742,6 +848,7 @@ class TenantAuthTests(unittest.TestCase):
         descriptions = [item["description"] for item in platform_audit.json()["events"]]
         self.assertIn("创建企业租户：new-customer", descriptions)
         self.assertIn("变更企业状态", descriptions)
+        self.assertIn("发起租户生命周期复核", descriptions)
 
         self.client.post("/api/v1/auth/logout", headers=self.csrf_headers())
         self.login(
@@ -958,7 +1065,7 @@ class TenantAuthTests(unittest.TestCase):
         token = invitation["invitation_url"].split("token=", 1)[1]
         with self.session_factory.begin() as db:
             stored_invite = db.get(MemberInvitation, UUID(invitation["id"]))
-            stored_invite.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+            stored_invite.expires_at = datetime.now(UTC) - timedelta(seconds=1)
         listed = self.client.get(
             "/api/v1/members",
             headers={"X-Tenant-ID": self.tenant_id},

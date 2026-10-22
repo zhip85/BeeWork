@@ -1,0 +1,17 @@
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = [
+    "E501",  # long Chinese messages; formatting is not enforced yet
+    "B008",  # FastAPI Depends() defaults are idiomatic
+]
+
+[lint.isort]
+known-first-party = ["beework"]
+
+[lint.per-file-ignores]
+# Applied migrations are never rewritten; only import style would differ.
+"migrations/versions/*" = ["I001", "UP035"]

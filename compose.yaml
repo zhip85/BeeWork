@@ -36,12 +36,20 @@ services:
       BOOTSTRAP_PLATFORM_ADMIN_EMAIL: ${BOOTSTRAP_PLATFORM_ADMIN_EMAIL:-platform@beework.dev}
       BOOTSTRAP_PLATFORM_ADMIN_NAME: ${BOOTSTRAP_PLATFORM_ADMIN_NAME:-BeeWork Platform Admin}
       BOOTSTRAP_PLATFORM_ADMIN_PASSWORD: ${BOOTSTRAP_PLATFORM_ADMIN_PASSWORD:-BeeWork-Platform-2026!}
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-beework-local-only-master}
+      RAGFLOW_BASE_URL: ${RAGFLOW_BASE_URL:-}
+      RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
       - ./backend/src:/app/src
       - ./backend/migrations:/app/migrations
       - ./backend/tests:/app/tests
+      - ./scripts:/app/scripts:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,6 +77,48 @@ services:
     restart: unless-stopped
     depends_on:
       api:
+        condition: service_healthy
+
+  # AI gateway. Runs from the upstream image; BeeWork only calls its HTTP API.
+  litellm:
+    # LiteLLM 1.106.0, pinned by digest (docker.litellm.ai registry).
+    image: docker.litellm.ai/berriai/litellm@sha256:2e4c0371f3a8c28e4da131d77abaa8341cd3b0c2fcc4d34d7c5900431af7b9d0
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-beework-local-only-master}
+      # Encrypts provider keys stored in LiteLLM's own database; keep it stable.
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-sk-beework-local-only-salt}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-beework}:${POSTGRES_PASSWORD:-beework_local_only}@postgres:5432/litellm
+      STORE_MODEL_IN_DB: "True"
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./config/litellm/config.yaml:/app/config.yaml:ro
+    depends_on:
+      litellm-db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "from urllib.request import urlopen; urlopen('http://127.0.0.1:4000/health/liveliness', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+
+  litellm-db-init:
+    image: postgres:17-alpine
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-beework_local_only}
+      PGUSER: ${POSTGRES_USER:-beework}
+    command: >-
+      sh -c "psql -h postgres -d postgres -tAc \"SELECT 1 FROM pg_database WHERE datname = 'litellm'\" | grep -q 1
+      || psql -h postgres -d postgres -c 'CREATE DATABASE litellm'"
+    depends_on:
+      postgres:
         condition: service_healthy
 
   postgres:

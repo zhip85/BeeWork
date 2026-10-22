@@ -19,7 +19,21 @@ class Settings(BaseSettings):
     bootstrap_platform_admin_email: str = "platform@beework.dev"
     bootstrap_platform_admin_name: str = "BeeWork Platform Admin"
     bootstrap_platform_admin_password: str = "BeeWork-Platform-2026!"
+    # Second platform admin so dual-review operations (PLT-052) can be exercised locally.
+    bootstrap_platform_reviewer_email: str = "reviewer@beework.dev"
+    bootstrap_platform_reviewer_name: str = "BeeWork Platform Reviewer"
+    bootstrap_platform_reviewer_password: str = "BeeWork-Reviewer-2026!"
     environment: str = "development"
+    # Third-party engines are integrated over their HTTP APIs; empty URL = not configured.
+    litellm_base_url: str = ""
+    litellm_master_key: str = ""
+    ragflow_base_url: str = ""
+    ragflow_api_key: str = ""
+    langfuse_host: str = ""
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    integration_timeout_seconds: float = 10.0
+    model_call_timeout_seconds: float = 60.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

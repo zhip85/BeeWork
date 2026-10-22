@@ -1,6 +1,6 @@
 import argparse
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.orm import Session
@@ -66,9 +66,9 @@ def prune_expired_audit_events(
 ) -> int:
     if retention_days < 1:
         raise ValueError("retention_days must be at least one")
-    current_time = now or datetime.now(timezone.utc)
+    current_time = now or datetime.now(UTC)
     if current_time.tzinfo is None:
-        current_time = current_time.replace(tzinfo=timezone.utc)
+        current_time = current_time.replace(tzinfo=UTC)
     cutoff = current_time - timedelta(days=retention_days)
 
     if db.bind and db.bind.dialect.name == "postgresql":
@@ -101,7 +101,7 @@ def prune_expired_audit_events(
         prune_hash = checkpoint_hash
         for sequence, created_at, event_hash in events:
             if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
+                created_at = created_at.replace(tzinfo=UTC)
             if created_at >= cutoff:
                 break
             prune_through = sequence

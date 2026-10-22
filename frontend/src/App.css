@@ -3629,3 +3629,129 @@
     margin-left: 61px;
   }
 }
+
+.tenant-readonly-banner {
+  margin: 0 0 18px;
+  padding: 12px 16px;
+  border: 1px solid #e8c77a;
+  border-radius: 10px;
+  background: #fff7e3;
+  color: #6b4b0f;
+  font-size: 13px;
+}
+
+.lifecycle-modal {
+  display: grid;
+  gap: 12px;
+  width: min(440px, 100%);
+}
+
+.lifecycle-modal h2,
+.lifecycle-modal p {
+  margin: 0;
+}
+
+.lifecycle-modal label {
+  display: grid;
+  gap: 6px;
+  color: #4d5f59;
+  font-size: 12px;
+}
+
+.lifecycle-modal select,
+.lifecycle-modal textarea {
+  padding: 8px 10px;
+  border: 1px solid #dfe5df;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.lifecycle-modal .required-mark {
+  color: #b5452f;
+}
+
+.primary-button.danger-button {
+  border-color: #a8452f;
+  background: #a8452f;
+}
+
+.integration-panel {
+  margin-top: 18px;
+}
+
+.integration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.integration-card {
+  padding: 14px;
+  border: 1px solid #e3e8e3;
+  border-radius: 10px;
+  background: #fbfcfa;
+}
+
+.integration-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.integration-card-top span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #7d8983;
+  font-size: 11px;
+}
+
+.integration-card-top i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #b9c2bc;
+}
+
+.integration-card.ok .integration-card-top i {
+  background: #3f9a5f;
+}
+
+.integration-card.error .integration-card-top i {
+  background: #c2533a;
+}
+
+.integration-card p {
+  margin: 8px 0 0;
+  color: #5d6c66;
+  font-size: 12px;
+}
+
+.integration-card small {
+  display: block;
+  margin-top: 6px;
+  color: #a2563f;
+  font-size: 11px;
+  word-break: break-word;
+}
+
+.gateway-status-panel {
+  margin-bottom: 16px;
+}
+
+.gateway-test-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.gateway-test-row select {
+  min-width: 220px;
+  padding: 6px 8px;
+  border: 1px solid #dfe5df;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+}

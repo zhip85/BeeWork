@@ -1,8 +1,8 @@
 # BeeWork
 
-BeeWork 企业级 AI SaaS 平台。当前处于基础建设阶段：Docker Compose 提供 React/TypeScript、FastAPI、PostgreSQL 和 Valkey 本地环境；已实现租户/组织/角色管理、审计首版和平台模型目录首版，但尚未形成助理构建、审批、发布、知识检索和真实模型运行的业务闭环。最小 LangGraph 示例仅用于验证依赖，不是产品运行时。
+BeeWork 企业级 AI SaaS 平台。当前处于基础建设阶段：Docker Compose 提供 React/TypeScript、FastAPI、PostgreSQL、Valkey 和 LiteLLM（AI 网关）本地环境；RAGFlow（知识引擎）与 Langfuse（调用追踪）按地址和密钥接入独立部署的实例；已实现租户/组织/角色管理、审计首版和平台模型目录首版，但尚未形成助理构建、审批、发布、知识检索和真实模型运行的业务闭环。最小 LangGraph 示例仅用于验证依赖，不是产品运行时。
 
-开发状态、未完成模块、下一步优先级和跨 LLM 交接约定见[开发进度与交接记录](./docs/development-status.md)；架构决策与阶段路线图见[技术方案与开发计划](./docs/technical-plan.md)；产品需求基线见[PRD](./docs/BeeWork-PRD.md)。
+参与开发先读 [`AGENTS.md`](./AGENTS.md)。文档分工：[工程规范](./docs/architecture.md)、[任务看板](./docs/tasks/README.md)、[路线图与决策](./docs/technical-plan.md)、[开发进度](./docs/development-status.md)、[PRD](./docs/BeeWork-PRD.md)。
 
 ## 本地启动
 
@@ -28,6 +28,7 @@ docker compose ps
 
 ```text
 SaaS 平台管理员：platform@beework.dev / BeeWork-Platform-2026!
+平台复核管理员：  reviewer@beework.dev / BeeWork-Reviewer-2026!（用于双人复核）
 企业管理员：      admin@beework.dev / Beework-Dev-2026!
 ```
 
@@ -50,11 +51,19 @@ curl -X POST http://localhost:8000/api/v1/runtime/demo \
 {"result":"LangGraph is ready: hello"}
 ```
 
-运行后端单元测试：
+运行测试：
 
 ```bash
+# SQLite 单元测试（PostgreSQL 专用测试会跳过）
 docker compose exec api python -m unittest discover -s /app/tests
+# 完整套件：在一次性数据库 beework_test 上做迁移升降级，并运行 PostgreSQL 并发/触发器测试
+./scripts/test-postgres.sh
+# 静态检查
+(cd backend && uvx ruff@0.14.0 check .)
+docker compose exec web sh -c "npx tsc -b && npm run lint"
 ```
+
+CI（`.github/workflows/ci.yml`）在 push/PR 时执行同样的检查。
 
 身份与租户 API：
 
@@ -79,13 +88,17 @@ docker compose exec api python -m unittest discover -s /app/tests
 - `GET /api/v1/audit/integrity`：验证当前租户审计哈希链并报告未纳入哈希链的历史记录数
 - `GET /api/v1/platform/overview`：平台管理员查看租户和成员总览
 - `GET/POST /api/v1/platform/tenants`：平台管理员查看/创建企业；创建时同时设置独立的首位企业管理员
-- `PATCH /api/v1/platform/tenants/{tenant_id}/status`：平台管理员停用或恢复企业工作区
+- `POST /api/v1/platform/tenants/{tenant_id}/lifecycle`：按 PRD 3.12.6 执行生命周期操作（转正式、延长试用、标记欠费、登记回款、转只读、停用、恢复、进入待删除、永久删除）；停用/待删除/永久删除须填写原因并返回 202，等待另一名平台管理员复核
+- `GET /api/v1/platform/operations`、`POST /api/v1/platform/operations/{id}/approve|reject`：待复核高危操作；复核人不能是发起人，72 小时未处理自动驳回
+- `GET /api/v1/platform/integrations`：LiteLLM / RAGFlow / Langfuse 的配置与连通状态
 - `GET /api/v1/platform/audit/events`、`GET /api/v1/platform/audit/events/export`：平台管理员独立查询/导出平台操作日志，不包含租户业务审计
 - `GET /api/v1/platform/audit/integrity`：平台管理员验证平台审计链；可传 `tenant_id` 验证指定租户链
 - `GET /api/v1/platform/models`：平台管理员查询模型目录，支持 `search` 和 `status` 筛选
-- `POST /api/v1/platform/models`、`PUT /api/v1/platform/models/{model_id}`：平台管理员新增/编辑模型目录；密钥仅写入、加密存储并以掩码回显
-- `GET /api/v1/tenant/model-environments/{development|testing|production}`：按当前租户套餐、区域和模型目录开放范围查询对应环境的可用模型与启用/默认配置（需 `settings:view`）
-- `PUT /api/v1/tenant/model-environments/{development|testing|production}`：保存环境启用模型和 chat/embedding/rerank 默认模型；需 `settings:edit` 与 CSRF，使用 `expected_version` 检测并发修改。响应不含供应商 endpoint 或凭证。
+- `POST /api/v1/platform/models`、`PUT /api/v1/platform/models/{model_id}`：平台管理员新增/编辑模型目录；密钥仅写入、加密存储并以掩码回显；保存后同步为 LiteLLM deployment（别名 `bw-{模型ID}`）
+- `POST /api/v1/platform/models/{model_id}/sync`、`POST /api/v1/platform/models/{model_id}/test`：重试网关同步；经网关做连通性测试（`mock: true` 只验证链路，不调用供应商）
+- `GET /api/v1/tenant/model-environments/{development|staging|production}`：按当前租户套餐、区域和模型目录开放范围查询对应环境的可用模型与启用/默认配置（需 `models:view`）；非企业版只有 `production`（RUL-004）
+- `PUT /api/v1/tenant/model-environments/{environment}`：保存环境启用模型和默认模型；需 `models:edit` 与 CSRF，使用 `expected_version` 检测并发修改；保存后在 LiteLLM 中同步本环境的 team 与虚拟 Key（只放行已启用模型）。响应不含供应商 endpoint 或凭证。
+- `POST /api/v1/tenant/model-environments/{environment}/sync`、`.../test`：重试网关同步；用本环境自己的虚拟 Key 测试调用已启用模型
 - `POST /api/v1/runtime/demo`：需登录，用于验证 LangGraph 示例
 
 浏览器会话使用 HttpOnly Cookie；状态变更请求还需 `X-CSRF-Token`。组织架构和成员管理的写操作须由企业管理员操作；根组织不可删除/重命名，有成员或子部门的部门不可删除。数据库复合外键保证组织、角色范围和成员关联不能跨租户。组织范围角色指派时会校验成员部门，成员调部门或调整角色范围时也会避免成员越出授权范围。
@@ -103,6 +116,18 @@ Compose 中的 `audit-retention` 服务会每 24 小时清理一次超过 365 �
 成员自助密码重置、SSO/MFA、助理级数据范围和其余业务域 API 尚未实现。审计新事件使用 SHA-256 哈希链；迁移前历史记录不会回填链哈希，验证结果会明确报告未链记录数。`audit-retention` Compose 服务每 24 小时清理超过 365 天的事件并保留链 checkpoint；单次手动执行可运行 `docker compose exec api python -m beework.audit_maintenance`。数据库触发器阻止常规 UPDATE/DELETE，不等于外部 WORM 或抗数据库高权限攻击；生产仍需独立不可变存储/签名存证和访问分离。新审计事件捕获请求来源 IP；无法恢复的历史 IP 显示为「—」。
 
 本地开发的 `MODEL_CREDENTIALS_SECRET` 是示例值，不可用于生产。它加密平台模型目录中的上游 API Key；生产部署应为其配置独立随机密钥，持久保管且避免在更换密钥后遗失解密能力。
+
+## 第三方引擎接入
+
+BeeWork 自研控制面和 LangGraph 运行时；模型网关、知识引擎和调用追踪使用开源产品的官方镜像，平台只调用它们的 HTTP API：
+
+| 引擎 | 作用 | 部署 | 配置 |
+|---|---|---|---|
+| LiteLLM 1.106.0 | AI 网关：模型路由、租户虚拟 Key、限流、花费记录 | 本地 Compose 服务 `litellm`（<http://localhost:4000>，镜像按 digest 固定），数据存在同一 PostgreSQL 的 `litellm` 库 | `LITELLM_BASE_URL`、`LITELLM_MASTER_KEY`、`LITELLM_SALT_KEY` |
+| RAGFlow | 知识引擎：解析、切片、向量化、检索 | RAGFlow Cloud（付费版才提供 API Key）；本机内存不足以自托管 | `RAGFLOW_BASE_URL`、`RAGFLOW_API_KEY` |
+| Langfuse | 调用追踪与评测 | Langfuse Cloud | `LANGFUSE_HOST`、`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY` |
+
+平台总览页显示三者的连接状态。模型目录保存后自动同步到 LiteLLM；“链路检查”用平台或租户的网关凭证请求 LiteLLM `/v1/models`，只校验凭证与模型权限、不调用供应商；“真实调用”需要在模型目录中填写有效的供应商 API Key。整条链路可用 `docker compose exec api python /app/scripts/check_gateway_e2e.py` 验证（会在模型目录留下已停用的 `E2E Mock Chat` 测试条目）。
 
 停止容器但保留数据库卷：
 
