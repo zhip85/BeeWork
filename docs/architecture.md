@@ -89,13 +89,72 @@ scripts/                 # test-postgres.sh、check_gateway_e2e.py 等
 ### 3.2 API
 
 - 路径前缀 `/api/v1`，平台后台接口在 `/api/v1/platform/*`，租户接口靠 `X-Tenant-ID` 选择租户。
-- 写操作依赖 `require_csrf`。租户接口用 `require_tenant_permission("module:action")`；只有企业管理员能做的用 `require_tenant_roles("tenant_admin")`；平台接口检查 `user.is_platform_admin`。
+- 写操作依赖 `require_csrf`。租户接口用 `require_tenant_permission("module:action")`；只有企业管理员能做的用 `require_tenant_roles("tenant_admin")`；平台接口用 `Depends(require_platform_admin)`（`api/conventions.py`），不要手写 `if not user.is_platform_admin`。
 - **新增权限**：在 `rbac.PERMISSION_CATALOG` 加模块/动作，并按 PRD 6.1 配置五个内置角色；同时补测试证明无权角色得到 403。
-- **资源级授权**：读写单个资源时必须同时校验 `tenant_id` 与组织/助理范围（`rbac.ensure_organization_scope`）；查询列表时按范围过滤。只靠前端隐藏菜单不算授权。
-- 错误响应：`{"detail": "给用户看的中文信息", "code": "domain.reason"}`（由 T-001 的 `ApiError` 统一实现；在它合入前，新代码先保证 `detail` 可读）。
+- **资源级授权**：读写单个资源时调用 `ensure_resource_in_scope(membership, resource, db)`（租户不符或组织范围外一律 **404**，不泄露存在性）；列表查询用 `scope_filter(statement, Model, membership, db)` 追加组织范围过滤。只靠前端隐藏菜单不算授权。
+- **公共约定都在 `beework.api.conventions`**，不要各模块自己再写一套：
+
+| 约定 | 用法 |
+|---|---|
+| 错误 | `raise ApiError(409, "assistant.name_taken", "名称已存在")` → `{"detail": "...", "code": "assistant.name_taken"}`；旧 `HTTPException` 自动补 `code: "error"`（422 校验错误仍是 FastAPI 默认格式） |
+| 分页 | `pagination: Pagination = Depends(get_pagination)`（limit 默认 20、≤100，offset ≥ 0）；`items, total = paginate(db, statement.order_by(...), pagination)`；响应 `Page[XResponse]` = `{items, total, limit, offset}`。**语句必须自带稳定排序** |
+| 乐观锁 | 模型混入 `VersionedMixin`（`row_version`、`updated_by`）；更新请求带 `row_version`，先 `check_row_version(obj, payload.row_version, db)`（不一致 409 `conflict.stale`），写入后 `obj.row_version += 1; obj.updated_by = 姓名` |
+| 通用列 | `TenantOwnedMixin`（`tenant_id` + 索引）、`TimestampMixin`、`SoftDeleteMixin` |
+| 名称 | `name = normalize_name(payload.name, 80)`；`ensure_unique_name(db, Model, tenant_id, name, exclude_id)`（同租户不区分大小写，5.7） |
+| 外部 URL | 用户可配置的出站地址在 schema 里用 `validate_public_https_url`（必须 https、含点主机名、解析结果不得为私网/回环/链路本地/保留地址，NFR-009）。单元测试不要依赖 DNS，调用 `tests/isolation.stub_public_dns()` |
+
 - 列表分页：`?limit=20&offset=0`（limit ≤ 100），响应 `{"items": [...], "total": N, "limit": 20, "offset": 0}`。
 - 状态变更遵守 PRD 第 5 章状态机；非法流转返回 409。
 - 租户只读/停用状态由 `get_tenant_membership` 统一拦截写请求，新接口无需重复判断，但不能绕过它。
+
+#### 新领域模块样板（以“笔记 note”为例，后续任务照抄并改名）
+
+```python
+# backend/src/beework/models/note.py —— 并在 models/__init__.py 末尾注册
+class Note(TenantOwnedMixin, TimestampMixin, VersionedMixin, SoftDeleteMixin, Base):
+    __tablename__ = "notes"
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    organization_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+
+# backend/src/beework/schemas/note.py
+class NoteWriteRequest(BaseModel):
+    name: str
+    row_version: int | None = None          # 更新时必填
+
+class NoteResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID; name: str; row_version: int
+
+# backend/src/beework/api/note.py —— 并在 api/__init__.py 注册
+@router.get("/notes", response_model=Page[NoteResponse])
+def list_notes(pagination: Pagination = Depends(get_pagination),
+               membership: Membership = Depends(require_tenant_permission("note:read")),
+               db: Session = Depends(get_db)):
+    statement = select(Note).where(Note.tenant_id == membership.tenant_id, Note.deleted_at.is_(None))
+    statement = scope_filter(statement, Note, membership, db).order_by(Note.created_at.desc(), Note.id)
+    items, total = paginate(db, statement, pagination)
+    return Page[NoteResponse](items=items, total=total, limit=pagination.limit, offset=pagination.offset)
+
+@router.put("/notes/{note_id}", response_model=NoteResponse)
+def update_note(note_id: UUID, payload: NoteWriteRequest,
+                membership: Membership = Depends(require_tenant_permission("note:write")),
+                _: None = Depends(require_csrf), db: Session = Depends(get_db)):
+    note = db.get(Note, note_id)
+    if note is None:
+        raise ApiError(404, "not_found", "未找到指定资源")
+    ensure_resource_in_scope(membership, note, db)       # 跨租户 / 范围外 → 404
+    check_row_version(note, payload.row_version, db)      # 过期 → 409 conflict.stale
+    name = normalize_name(payload.name, 80)
+    ensure_unique_name(db, Note, membership.tenant_id, name, exclude_id=note.id)
+    note.name, note.row_version, note.updated_by = name, note.row_version + 1, membership.user.name
+    db.add(AuditEvent(tenant_id=membership.tenant_id, actor_user_id=membership.user_id,
+                      action="note.update", details={"note_id": str(note.id)}))
+    db.commit()
+    return note
+```
+
+测试骨架（`backend/tests/test_note.py`）：每个写接口至少覆盖 ① 成功且写入审计；② 校验失败（空名称/重名 → 400/409）；③ 无权限角色 → 403；④ 跨租户或组织范围外 → 404；⑤ 过期 `row_version` → 409 `conflict.stale`；⑥ 列表 `limit=101` → 422、`offset` 超出 → 空 `items` 且 `total` 正确。参考 `tests/test_conventions.py` 与 `tests/test_tenant_auth.py` 的 SQLite 夹具。
 
 ### 3.3 审计
 
