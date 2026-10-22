@@ -4,9 +4,9 @@
 
 ## 范围
 
-1. `conversations`、`messages`、`end_users` 表（按 PRD 4.4，均带 `tenant_id`、`environment`）；run 关联 `conversation_id`；多轮对话把历史消息作为 LangGraph 输入（短期窗口，条数可配置，长期记忆属于 E-50）。
+1. `conversations`、`messages`、`end_users` 表（按 PRD 4.4，均带 `tenant_id`、`environment`）；run 关联 `conversation_id`；多轮对话把历史消息作为 LangGraph 输入（短期窗口，条数可配置，长期记忆属于 T-056）。
 2. 合规设置（SET-070 中的保留期、日志脱敏、允许导出三项）：`tenant_compliance_policies` 表与“设置 → 合规与审批 → 数据与隐私”表单；保留期不得超过套餐 `log_retention_days`。
-3. 脱敏：开启“日志中脱敏个人信息”时，消息入库前用基础规则（手机号、邮箱、身份证、银行卡正则）脱敏；规则实现放 `beework/pii.py`，E-50 会替换为可配置规则 + Presidio。
+3. 脱敏：开启“日志中脱敏个人信息”时，消息入库前用基础规则（手机号、邮箱、身份证、银行卡正则）脱敏；规则实现放 `beework/pii.py`，T-055 会替换为可配置规则 + Presidio。
 4. Worker 每日按保留期删除过期会话与消息（写一条汇总审计）。
 5. 会话结束判定：30 分钟无消息置为结束（8.3#18），定时任务处理。
 6. 助理详情“会话记录”页签（AST-072 的列表与详情，导出功能等 T-022 的数据导出审批接入后再开）。

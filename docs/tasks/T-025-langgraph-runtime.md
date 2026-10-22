@@ -10,7 +10,7 @@
 ## 设计
 
 - `runtime/dsl.py`：`AssistantDSLv1`（Pydantic）：`prompt`、`model_alias`、`knowledge`（T-033 用）、`greeting`、`limits`（max_tokens、超时）。从草稿或版本快照构造。
-- `runtime/compiler.py`：`compile_assistant(dsl) -> CompiledGraph`。v1 图：`input_guard`（最小检查：长度、空消息；PII 留给 E-50）→ `retrieve`（T-033 前为空操作）→ `generate`（ChatOpenAI → LiteLLM）→ `output`。节点只能来自注册表，不允许任意代码。
+- `runtime/compiler.py`：`compile_assistant(dsl) -> CompiledGraph`。v1 图：`input_guard`（最小检查：长度、空消息；PII 留给 T-055）→ `retrieve`（T-033 前为空操作）→ `generate`（ChatOpenAI → LiteLLM）→ `output`。节点只能来自注册表，不允许任意代码。
 - 模型客户端：`langchain-openai` 的 `ChatOpenAI(base_url=f"{LITELLM_BASE_URL}/v1", api_key=租户环境虚拟 Key, model=model_alias, streaming=True)`；请求 `metadata`/`extra_body` 带 `tenant_id`、`assistant_id`、`version`、`run_id`、`source`，供 T-011 归因。
 - 追踪：`langfuse` Python SDK **≥ 3**（基于 OpenTelemetry）的 LangChain `CallbackHandler`，trace 与 `run_id` 关联；未配置 Langfuse 时跳过。依赖版本锁定在 `requirements.txt`。**不得使用 SDK v2 或 `POST /api/public/ingestion`**，Langfuse Cloud 于 2026-11-16 下线旧接口（见 architecture.md 3.8）。验证 trace 时用 `GET /api/public/v2/observations` 读取。
 - `runs` 表：`tenant_id`、`assistant_id`、`version_id`（草稿调试时为空 + `draft_row_version`）、`environment`、`source`（debug/test/live/api）、`status`（queued/running/succeeded/failed/cancelled）、`input`、`output`、`error`、`latency_ms`、`tokens_in/out`、`trace_url`、`created_by`。
