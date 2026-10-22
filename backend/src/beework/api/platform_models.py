@@ -5,8 +5,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from beework.api.conventions import require_platform_admin
 from beework.auth import (
-    get_current_user,
     require_csrf,
 )
 from beework.config import settings
@@ -155,11 +155,9 @@ def list_platform_models(
     status_filter: str | None = Query(
         default=None, alias="status", pattern="^(healthy|canary|disabled)$"
     ),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> PlatformModelListResponse:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可查看模型目录")
     statement = select(PlatformModel)
     if search and search.strip():
         statement = statement.where(
@@ -185,12 +183,10 @@ def list_platform_models(
 )
 def create_platform_model(
     payload: PlatformModelWriteRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> PlatformModelResponse:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可新增模型")
     if db.scalar(
         select(PlatformModel.id).where(
             PlatformModel.display_name == payload.display_name
@@ -228,12 +224,10 @@ def create_platform_model(
 def update_platform_model(
     model_id: UUID,
     payload: PlatformModelWriteRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> PlatformModelResponse:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可更新模型")
     model = db.get(PlatformModel, model_id)
     if model is None:
         raise HTTPException(status_code=404, detail="未找到模型")
@@ -275,9 +269,7 @@ def update_platform_model(
     return _platform_model_response(model)
 
 
-def _platform_model_or_404(db: Session, user: User, model_id: UUID) -> PlatformModel:
-    if not user.is_platform_admin:
-        raise HTTPException(status_code=403, detail="仅平台管理员可管理模型目录")
+def _platform_model_or_404(db: Session, model_id: UUID) -> PlatformModel:
     model = db.get(PlatformModel, model_id)
     if model is None:
         raise HTTPException(status_code=404, detail="未找到模型")
@@ -287,11 +279,11 @@ def _platform_model_or_404(db: Session, user: User, model_id: UUID) -> PlatformM
 @router.post("/platform/models/{model_id}/sync", response_model=PlatformModelResponse)
 def resync_platform_model(
     model_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> PlatformModelResponse:
-    model = _platform_model_or_404(db, user, model_id)
+    model = _platform_model_or_404(db, model_id)
     sync_platform_model(db, model)
     return _platform_model_response(model)
 
@@ -300,12 +292,12 @@ def resync_platform_model(
 def test_platform_model(
     model_id: UUID,
     payload: ModelTestRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_platform_admin),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> ModelTestResponse:
     """Connectivity test through the gateway with the platform master key (PLT-09x)."""
-    model = _platform_model_or_404(db, user, model_id)
+    model = _platform_model_or_404(db, model_id)
     if model.gateway_sync_status != "synced":
         raise HTTPException(status_code=409, detail="模型尚未同步到 AI 网关，请先同步")
     result = run_model_test(

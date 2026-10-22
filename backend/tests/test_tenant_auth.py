@@ -26,13 +26,14 @@ from beework.models import (
     User,
 )
 from beework.security import hash_password
-from isolation import disable_external_integrations
+from isolation import disable_external_integrations, stub_public_dns
 
 
 class TenantAuthTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         disable_external_integrations()
+        stub_public_dns()
         cls.engine = create_engine(
             "sqlite://",
             connect_args={"check_same_thread": False},

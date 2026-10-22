@@ -105,6 +105,11 @@
 - 验证中发现并修复：① 该版本 LiteLLM 代理不接受客户端传入的 `mock_response`（会真实请求供应商），“链路检查”改为 `/v1/models` 权限校验；② 模型停用后租户 team 仍保留其别名，现已在模型变更时重新同步所有使用它的租户环境。
 - 尚未用真实供应商 Key 做过“真实调用”。
 
+### API 公共约定（T-001，已完成）
+
+- `api/conventions.py`：`ApiError` 统一错误格式、`Pagination`/`Page[T]`/`paginate`、`VersionedMixin` + `check_row_version`（409）、通用列 mixin、`require_platform_admin`、名称校验、`validate_public_https_url`（SSRF）、`ensure_resource_in_scope`/`scope_filter`。平台接口已全部改用它；旧 `HTTPException` 兼容（补 `code: "error"`）。
+- 验证：ruff、`test-postgres.sh`（42 项）、前端检查、网关 e2e 均通过。已知限制：422 校验错误仍无 `code`。
+
 ## 4. 下一步
 
 开发任务已全部拆分到 [`tasks/README.md`](./tasks/README.md)：试点版 V0.1 共 22 个任务，V0.2 / V0.3 / V1.0 共 70 个任务（含依赖、外部条件、推荐并行批次、开发负责人的可逆决定与待产品确认事项）；其中 T-106（平台角色分权）与 T-127（隔离与多区域）等待决策。需要用户提供的外部条件：
