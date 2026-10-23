@@ -134,6 +134,23 @@ export type PlatformOperation = {
   reviewed_at: string | null
 }
 
+export type PlatformJob = {
+  id: string
+  kind: string
+  payload: Record<string, unknown>
+  tenant_id: string | null
+  status: string
+  attempts: number
+  max_attempts: number
+  run_after: string
+  locked_by: string | null
+  locked_at: string | null
+  last_error: string | null
+  idempotency_key: string | null
+  created_at: string
+  finished_at: string | null
+}
+
 export type TenantModelEnvironment = {
   tenant_id: string
   environment: 'development' | 'staging' | 'production'

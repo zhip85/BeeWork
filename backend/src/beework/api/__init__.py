@@ -4,6 +4,7 @@ from beework.api import (
     audit,
     auth,
     integrations,
+    jobs,
     members,
     organizations,
     platform_models,
@@ -23,5 +24,6 @@ for module in (
     roles,
     organizations,
     integrations,
+    jobs,
 ):
     router.include_router(module.router)
