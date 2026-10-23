@@ -19,7 +19,7 @@
 | ID | 任务 | 阶段 | 依赖 | 外部条件 | 状态 | 负责人 | 备注 |
 |---|---|---|---|---|---|---|---|
 | [T-001](./T-001-api-conventions.md) | API 公共约定：错误码、分页、row_version、平台管理员依赖、URL 安全校验 | 0 | — | — | 已完成 | Flint / Claude Sonnet 5.5 | 其他所有业务任务的基础，最先做 |
-| [T-002](./T-002-worker-queue.md) | Worker 与 PostgreSQL 任务队列、运行事件推送 | 0 | T-001 | — | 待验收 | GPT-5.6 / Claude Sonnet 5.5 | 阶段 3 的硬前置 |
+| [T-002](./T-002-worker-queue.md) | Worker 与 PostgreSQL 任务队列、运行事件推送 | 0 | T-001 | — | 已完成 | GPT-5.6 / Claude Sonnet 5.5 | 阶段 3 的硬前置 |
 | [T-003](./T-003-i18n.md) | 前端中英双语框架与外壳文案迁移 | 1 | — | — | 待开发 | | 可与 T-001 并行 |
 | [T-004](./T-004-login-security.md) | 登录失败锁定与会话超时 | 1 | T-001 | — | 待开发 | | 可并行 |
 | [T-005](./T-005-tenant-lifecycle-jobs.md) | 租户生命周期自动流转与网关同步入队 | 2 | T-002 | — | 待开发 | | |
@@ -184,3 +184,4 @@
 | 日期 | 任务 | 结论 | 说明 |
 |---|---|---|---|
 | 2026-10-22 | T-001 | 通过 | ruff、`test-postgres.sh`（42 项）、前端检查、网关 e2e 通过；遗留：DNS rebinding 窗口（由 T-071 解决）、`check_row_version` 的 `db` 参数未用 |
+| 2026-10-23 | T-002 | 通过 | ruff、迁移升降级 + `alembic check`、62 项测试（含 PostgreSQL 并发与真实 Valkey）、前端检查、Worker 进程端到端通过；遗留：T-025 后事件接口改按 `runs` 校验、锁超时 15 分钟 |

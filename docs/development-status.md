@@ -18,7 +18,7 @@
 
 | 阶段 | 范围 | 状态 | 说明 |
 |---|---|---|---|
-| 0 | 工程底座 | 大部分完成 | Compose、迁移、按领域拆分的前后端代码、ruff/oxlint、SQLite + PostgreSQL 测试、CI 已就绪；Worker/队列已实现（T-002 待验收）。 |
+| 0 | 工程底座 | 大部分完成 | Compose、迁移、按领域拆分的前后端代码、ruff/oxlint、SQLite + PostgreSQL 测试、CI 已就绪；Worker/队列已实现（T-002）。 |
 | 1 | 租户、组织、角色权限与审计 | 收尾中 | 缺：i18n 框架、登录失败锁定、邀请邮件、生产清理调度/告警、外部存证。 |
 | 2 | 平台定义、套餐权益与模型配置 | 进行中 | 已完成：模型目录、环境配置（非企业版仅生产）、租户生命周期 7 态 + 双人复核、LiteLLM 同步与连通测试。缺：套餐版本/权益/配额、BYOK、跨环境发布、真实供应商调用验收（缺供应商 Key）。 |
 | 3 | 助理构建、审批、版本与最小运行闭环 | 未开始 | 前置：Worker/队列、首发模型供应商。 |
@@ -110,7 +110,7 @@
 - `api/conventions.py`：`ApiError` 统一错误格式、`Pagination`/`Page[T]`/`paginate`、`VersionedMixin` + `check_row_version`（409）、通用列 mixin、`require_platform_admin`、名称校验、`validate_public_https_url`（SSRF）、`ensure_resource_in_scope`/`scope_filter`。平台接口已全部改用它；旧 `HTTPException` 兼容（补 `code: "error"`）。
 - 验证：ruff、`test-postgres.sh`（42 项）、前端检查、网关 e2e 均通过。已知限制：422 校验错误仍无 `code`。
 
-### Worker、任务队列与运行事件（T-002，待验收）
+### Worker、任务队列与运行事件（T-002，已完成）
 
 - PostgreSQL 任务表 + `python -m beework.worker`（Compose `worker` 服务，已取代 `audit-retention`）：`FOR UPDATE SKIP LOCKED` 取任务、指数退避、`dead`、幂等键、锁超时回收、每日审计清理定时任务；平台后台“任务”页可查看与重试。
 - 运行事件：持久化到 `run_events` 并经 Valkey 唤醒订阅者，SSE 接口按租户隔离，先订阅后读历史，无空洞。
