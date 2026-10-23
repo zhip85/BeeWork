@@ -177,7 +177,15 @@ def update_note(note_id: UUID, payload: NoteWriteRequest,
 
 - 任务表在 PostgreSQL：业务写入与入队在**同一事务**（outbox），Worker 用 `FOR UPDATE SKIP LOCKED` 取任务。
 - 每个任务有 `kind`、`payload`、`idempotency_key`、`attempts`、`run_after`、`last_error`；处理器必须幂等，失败按指数退避重试，界面能看到进度与失败原因（NFR-020）。
-- 运行事件实时推送：事件持久化到 `run_events`，同时发布到 Valkey 频道 `run:{run_id}`；SSE 接口先回放数据库中的事件，再订阅频道。
+- 用法（`beework.worker`）：
+  - 注册处理器：`@job_handler("domain.verb")`，签名 `(db, payload) -> None`，抛异常即失败重试（30s × 2^n，上限 1h），超过 `max_attempts`（默认 5）置 `dead`，平台后台“任务”页可见并可重试。
+  - 入队：`enqueue(db, "domain.verb", {...}, tenant_id=..., idempotency_key="domain.verb:<业务键>")`，**只加入调用方的事务，由调用方提交**。相同 `idempotency_key` 返回已有任务（并发抢同一个键时输家在保存点内恢复，不会让整个事务失败）。
+  - 定时任务：在 `worker/scheduler.py` 的 `enqueue_scheduled_jobs` 里按时间窗入队，键用 `kind:时间窗`。Worker 约每 60 秒检查一次。
+  - Worker 主循环（`worker/runner.py`）不会因单次数据库异常退出，失败后退避重试；锁超过 15 分钟的 `running` 任务会被放回队列，所以**处理器必须幂等且单次不超过 15 分钟**。
+- 运行事件实时推送：
+  - 发布：`publish_run_event(db, run_id, type, data, tenant_id=...)` 先写 `run_events`（同一 run 内 `seq` 递增，PostgreSQL 用 advisory lock 串行）并提交，再 `PUBLISH run:{run_id}` 到 Valkey；Valkey 失败只记日志，事件不丢。
+  - 订阅：`stream_run_events` 以数据库表为唯一内容来源，**先订阅 Valkey、再读历史**，Valkey 消息只用来提前唤醒，另有轮询兜底，因此不会出现“历史与实时之间的空洞”；遇到 `done` / `error` / `cancelled` 事件后结束。
+  - 接口：`GET /api/v1/runs/{run_id}/events?after_seq=`（SSE，需要租户成员身份，`X-Tenant-ID`）。**运行不属于当前租户，或还没有任何事件，一律 404**；因此创建 run 的事务里必须同时发布第一个事件（`queued`）。T-025 建立 `runs` 表后，应改为按 `runs` 校验租户与权限。
 
 ### 3.7 与第三方引擎同步
 

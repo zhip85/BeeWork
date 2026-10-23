@@ -1,6 +1,6 @@
 import unittest
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, select, update
@@ -25,6 +25,7 @@ from beework.models import (
     TenantModelEnvironment,
     User,
 )
+from beework.models.jobs import Job, RunEvent
 from beework.security import hash_password
 from isolation import disable_external_integrations, stub_public_dns
 
@@ -166,6 +167,70 @@ class TenantAuthTests(unittest.TestCase):
         )
         self.assertEqual(allowed.status_code, 200, allowed.text)
         self.assertEqual(allowed.json()["result"], "LangGraph is ready: hello")
+
+    def test_run_event_stream_is_tenant_scoped(self) -> None:
+        own_run, foreign_run = uuid4(), uuid4()
+        with self.session_factory.begin() as db:
+            for run_id, tenant_id in ((own_run, self.tenant_id), (foreign_run, self.other_tenant_id)):
+                for seq, kind in enumerate(("queued", "token", "done"), start=1):
+                    db.add(
+                        RunEvent(
+                            run_id=run_id,
+                            tenant_id=UUID(tenant_id),
+                            seq=seq,
+                            type=kind,
+                            data={"seq": seq},
+                        )
+                    )
+        headers = {"X-Tenant-ID": self.tenant_id}
+        anonymous = self.client.get(f"/api/v1/runs/{own_run}/events", headers=headers)
+        self.assertEqual(anonymous.status_code, 401)
+
+        self.login()
+        streamed = self.client.get(f"/api/v1/runs/{own_run}/events", headers=headers)
+        self.assertEqual(streamed.status_code, 200, streamed.text)
+        self.assertEqual(streamed.headers["content-type"].split(";")[0], "text/event-stream")
+        self.assertEqual(
+            [line for line in streamed.text.splitlines() if line.startswith("event:")],
+            ["event: queued", "event: token", "event: done"],
+        )
+        resumed = self.client.get(f"/api/v1/runs/{own_run}/events?after_seq=2", headers=headers)
+        self.assertEqual([line for line in resumed.text.splitlines() if line.startswith("id:")], ["id: 3"])
+
+        # Another tenant's run, and a run nobody has published to, look identical: 404.
+        foreign = self.client.get(f"/api/v1/runs/{foreign_run}/events", headers=headers)
+        self.assertEqual(foreign.status_code, 404)
+        self.assertEqual(foreign.json()["code"], "not_found")
+        unknown = self.client.get(f"/api/v1/runs/{uuid4()}/events", headers=headers)
+        self.assertEqual(unknown.status_code, 404)
+
+    def test_platform_jobs_are_platform_only_and_retry_is_audited(self) -> None:
+        with self.session_factory.begin() as db:
+            job = Job(kind="noop.echo", payload={}, status="dead", attempts=5)
+            db.add(job)
+            db.flush()
+            job_id = str(job.id)
+
+        self.login()
+        denied = self.client.get("/api/v1/platform/jobs")
+        self.assertEqual(denied.status_code, 403, denied.text)
+
+        self.client.post("/api/v1/auth/logout", headers=self.csrf_headers())
+        self.login(email="platform@example.com", password="platform admin safe password")
+        listed = self.client.get("/api/v1/platform/jobs")
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertEqual(listed.json()["total"], 1)
+        retried = self.client.post(
+            f"/api/v1/platform/jobs/{job_id}/retry", headers=self.csrf_headers()
+        )
+        self.assertEqual(retried.status_code, 200, retried.text)
+        self.assertEqual(retried.json()["status"], "queued")
+        with self.session_factory() as db:
+            self.assertEqual(db.get(Job, UUID(job_id)).status, "queued")
+            self.assertEqual(
+                db.scalar(select(AuditEvent.action).where(AuditEvent.action == "job.retried")),
+                "job.retried",
+            )
 
     def test_audit_list_filters_and_export_permissions(self) -> None:
         self.login()

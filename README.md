@@ -109,11 +109,11 @@ CI（`.github/workflows/ci.yml`）在 push/PR 时执行同样的检查。
 
 自定义角色权限按模块矩阵配置；内置角色权限不可编辑，可复制为自定义角色模板。前端菜单/路由按 `/auth/me` 权限集合控制。组织树读取 API 使用独立的 `organizations:view` 并校验组织范围；审计读取与 CSV 导出分别要求 `audit:view` / `audit:export`。其他尚未实现的业务模块在其 API 落地时仍需接入服务端权限依赖，不能只依靠前端隐藏菜单。
 
-Compose 中的 `audit-retention` 服务会每 24 小时清理一次超过 365 天的审计记录；需要手动执行时可运行 `docker compose exec api python -m beework.audit_maintenance`。生产部署应将该维护进程纳入生产编排/调度与告警，并遵循备份/保留政策。
+Compose 中的 `worker` 服务从 PostgreSQL 队列取任务，并每日入队清理超过 365 天的审计记录；需要手动执行时可运行 `docker compose exec api python -m beework.audit_maintenance`。生产部署应将 Worker 纳入生产编排、监控和告警，并遵循备份/保留政策。
 
 平台端目前提供独立侧栏、平台总览、租户生命周期管理、独立平台操作审计及平台模型目录首版。平台开通企业时可指定套餐与区域；租户管理员可按环境配置模型启用和默认值。套餐权益/配额、BYOK、审批驱动的跨环境发布、真实网关调用和计量尚未完成。渠道类型、Widget 模板、行业字典、PII/安全基线和运维工单也尚未接入真实业务数据。
 
-成员自助密码重置、SSO/MFA、助理级数据范围和其余业务域 API 尚未实现。审计新事件使用 SHA-256 哈希链；迁移前历史记录不会回填链哈希，验证结果会明确报告未链记录数。`audit-retention` Compose 服务每 24 小时清理超过 365 天的事件并保留链 checkpoint；单次手动执行可运行 `docker compose exec api python -m beework.audit_maintenance`。数据库触发器阻止常规 UPDATE/DELETE，不等于外部 WORM 或抗数据库高权限攻击；生产仍需独立不可变存储/签名存证和访问分离。新审计事件捕获请求来源 IP；无法恢复的历史 IP 显示为「—」。
+成员自助密码重置、SSO/MFA、助理级数据范围和其余业务域 API 尚未实现。审计新事件使用 SHA-256 哈希链；迁移前历史记录不会回填链哈希，验证结果会明确报告未链记录数。`worker` 每日入队清理超过 365 天的事件并保留链 checkpoint；单次手动执行可运行 `docker compose exec api python -m beework.audit_maintenance`。数据库触发器阻止常规 UPDATE/DELETE，不等于外部 WORM 或抗数据库高权限攻击；生产仍需独立不可变存储/签名存证和访问分离。新审计事件捕获请求来源 IP；无法恢复的历史 IP 显示为「—」。
 
 本地开发的 `MODEL_CREDENTIALS_SECRET` 是示例值，不可用于生产。它加密平台模型目录中的上游 API Key；生产部署应为其配置独立随机密钥，持久保管且避免在更换密钥后遗失解密能力。
 

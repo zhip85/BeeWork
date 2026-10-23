@@ -54,6 +54,7 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "model_environment.published": "发布模型环境配置",
     "model_catalog.tested": "测试模型连通性",
     "model_environment.tested": "测试环境模型调用",
+    "job.retried": "重试后台任务",
 }
 
 
@@ -610,3 +611,4 @@ def prevent_audit_event_mutation(session, _flush_context, _instances) -> None:
 # (importing Base / utc_now from this package) and registers it here so that
 # Alembic autogenerate and `Base.metadata.create_all` see its tables.
 # from beework.models import assistants  # noqa: E402,F401  (example)
+from beework.models import jobs  # noqa: E402,F401

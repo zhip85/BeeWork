@@ -5,9 +5,11 @@ database (see scripts/test-postgres.sh). It never touches the development DB.
 """
 
 import os
+import threading
+import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete, select, text
@@ -31,7 +33,10 @@ from beework.models import (
     TenantRole,
     User,
 )
+from beework.models.jobs import Job
 from beework.security import hash_password
+from beework.worker.events import publish_run_event, stream_run_events
+from beework.worker.queue import claim_jobs, enqueue
 from isolation import disable_external_integrations
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
@@ -60,7 +65,7 @@ class PostgresIntegrationTests(unittest.TestCase):
         with self.engine.begin() as connection:
             # Audit tables are append-only via triggers; truncate is the reset path.
             connection.execute(
-                text("TRUNCATE audit_events, audit_chain_checkpoints RESTART IDENTITY CASCADE")
+                text("TRUNCATE audit_events, audit_chain_checkpoints, jobs, run_events RESTART IDENTITY CASCADE")
             )
         with self.session_factory.begin() as db:
             for model in (
@@ -193,6 +198,110 @@ class PostgresIntegrationTests(unittest.TestCase):
                 )
             ).all()
         self.assertEqual(len(pending), 2)
+
+    def test_concurrent_workers_claim_each_job_once(self) -> None:
+        with self.session_factory.begin() as db:
+            for index in range(8):
+                enqueue(db, "noop.echo", {"index": index})
+
+        def claim(worker_index: int) -> list[UUID]:
+            with self.session_factory.begin() as db:
+                return [job.id for job in claim_jobs(db, f"worker-{worker_index}", limit=8)]
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            claimed = list(pool.map(claim, range(2)))
+        claimed_ids = [job_id for group in claimed for job_id in group]
+        self.assertEqual(len(claimed_ids), 8)
+        self.assertEqual(len(set(claimed_ids)), 8)
+        with self.session_factory() as db:
+            self.assertEqual(db.scalar(select(text("count(*)")).select_from(Job)), 8)
+
+    def test_concurrent_enqueue_with_same_key_yields_one_job(self) -> None:
+        """The loser blocks on the unique index, then gets the winner's job instead of an error."""
+        winner_inserted = threading.Event()
+        release_winner = threading.Event()
+
+        def winner() -> UUID:
+            with self.session_factory.begin() as db:
+                job = enqueue(db, "audit.retention", {}, idempotency_key="pg-race")
+                winner_inserted.set()
+                release_winner.wait(10)
+                return job.id
+
+        def loser() -> UUID:
+            winner_inserted.wait(10)
+            with self.session_factory.begin() as db:
+                return enqueue(db, "audit.retention", {}, idempotency_key="pg-race").id
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(winner)
+            second = pool.submit(loser)
+            winner_inserted.wait(10)
+            time.sleep(0.5)  # let the loser reach the blocked INSERT
+            release_winner.set()
+            self.assertEqual(first.result(15), second.result(15))
+        with self.session_factory() as db:
+            self.assertEqual(db.scalar(select(text("count(*)")).select_from(Job)), 1)
+
+    def _tenant_id(self) -> UUID:
+        with self.session_factory.begin() as db:
+            tenant = Tenant(name="Events", slug=f"events-{uuid4().hex[:8]}")
+            db.add(tenant)
+            db.flush()
+            return tenant.id
+
+    def test_concurrent_run_event_publish_assigns_unique_sequence(self) -> None:
+        tenant_id = self._tenant_id()
+        run_id = uuid4()
+
+        class _NoValkey:
+            def publish(self, *_args):
+                return 0
+
+        def publish(index: int) -> int:
+            with self.session_factory() as db:
+                return publish_run_event(
+                    db, run_id, "token", {"i": index}, tenant_id=tenant_id, redis_client=_NoValkey()
+                ).seq
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            seqs = sorted(pool.map(publish, range(24)))
+        self.assertEqual(seqs, list(range(1, 25)))
+
+    def test_stream_receives_live_events_through_real_valkey(self) -> None:
+        import redis
+
+        from beework.config import settings
+
+        try:
+            probe = redis.Redis.from_url(settings.valkey_url)
+            probe.ping()
+            probe.close()
+        except redis.RedisError:
+            self.skipTest("Valkey is not reachable")
+        tenant_id = self._tenant_id()
+        run_id = uuid4()
+        with self.session_factory() as db:
+            publish_run_event(db, run_id, "queued", {}, tenant_id=tenant_id)
+        received: list[str] = []
+        started = time.monotonic()
+
+        def consume() -> None:
+            with self.session_factory() as db:
+                # A long poll proves delivery comes from Valkey wake-ups, not polling.
+                for item in stream_run_events(db, run_id, poll_seconds=30):
+                    received.append(item["type"])
+
+        consumer = threading.Thread(target=consume, daemon=True)
+        consumer.start()
+        time.sleep(0.5)
+        for event_type in ("token", "token", "done"):
+            with self.session_factory() as db:
+                publish_run_event(db, run_id, event_type, {}, tenant_id=tenant_id)
+        consumer.join(10)
+        self.assertFalse(consumer.is_alive(), "stream did not finish")
+        self.assertEqual(received, ["queued", "token", "token", "done"])
+        self.assertLess(time.monotonic() - started, 10)
 
 
 if __name__ == "__main__":

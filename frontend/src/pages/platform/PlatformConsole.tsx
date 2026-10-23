@@ -5,6 +5,7 @@ import {
   Hexagon,
   LayoutDashboard,
   LogOut,
+  ListRestart,
   ShieldCheck,
 } from 'lucide-react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
@@ -12,6 +13,7 @@ import { AuditLogPage } from '../audit/AuditLogPage'
 import { PlatformModelsPage } from './PlatformModelsPage'
 import { PlatformOverviewPage } from './PlatformOverviewPage'
 import { PlatformTenantsPage } from './PlatformTenantsPage'
+import { PlatformJobsPage } from './PlatformJobsPage'
 import type { CurrentUser } from '../../types'
 
 export function PlatformConsole({
@@ -25,6 +27,7 @@ export function PlatformConsole({
   const isTenantPage = location.pathname === '/platform/tenants'
   const isAuditPage = location.pathname === '/platform/audit'
   const isModelPage = location.pathname === '/platform/models'
+  const isJobsPage = location.pathname === '/platform/jobs'
 
   return (
     <div className="platform-shell">
@@ -48,6 +51,9 @@ export function PlatformConsole({
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/tenants">
           <Building2 size={18} strokeWidth={1.8} /><span>租户管理</span>
         </NavLink>
+        <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/jobs">
+          <ListRestart size={18} strokeWidth={1.8} /><span>后台任务</span>
+        </NavLink>
         <div className="nav-caption">平台定义</div>
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/models">
           <Boxes size={18} strokeWidth={1.8} /><span>模型目录</span>
@@ -69,7 +75,7 @@ export function PlatformConsole({
       </aside>
       <main className="main-area platform-main">
         <header className="topbar">
-          <div className="breadcrumbs"><span>BeeWork 平台</span><span className="crumb-slash">/</span><strong>{isTenantPage ? '租户管理' : isAuditPage ? '操作审计' : isModelPage ? '模型目录' : '平台总览'}</strong></div>
+          <div className="breadcrumbs"><span>BeeWork 平台</span><span className="crumb-slash">/</span><strong>{isTenantPage ? '租户管理' : isAuditPage ? '操作审计' : isModelPage ? '模型目录' : isJobsPage ? '后台任务' : '平台总览'}</strong></div>
           <div className="topbar-actions">
             <span className="platform-admin-badge"><i />平台管理员</span>
             {user.memberships.length > 0 && <Link className="platform-tenant-link" to="/">进入企业工作区</Link>}
@@ -80,6 +86,8 @@ export function PlatformConsole({
             ? <AuditLogPage key="platform-audit" canExport platformMode />
             : isModelPage
               ? <PlatformModelsPage />
+              : isJobsPage
+                ? <PlatformJobsPage />
               : isTenantPage
                 ? <PlatformTenantsPage currentUserId={user.id} />
                 : <PlatformOverviewPage />}
