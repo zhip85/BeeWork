@@ -51,7 +51,7 @@
 | 2 | [T-020](./T-020-assistant-domain.md) | 全部（依赖改为 T-010a） | T-001、T-010a | 待验收 | Claude Sonnet 5.5 | |
 | 3 | [T-025](./T-025-langgraph-runtime.md) | 全部，含 `Retriever` 协议 + `StubRetriever` | T-002、T-020 | 待验收 | Claude Sonnet 5.5 | 已用 `mock_response` 验证；真实调用需供应商 Key（暂无） |
 | 4 | [T-026](./T-026-conversations.md) | 全部 | T-025 | 待验收 | Claude Sonnet 5.5 | |
-| 5 | [T-054a](./T-054-oc-framework.md) | 阶段管线骨架 + `draft_config.oc` 结构，用草稿配置直跑 | T-025 | 待开发 | | 不含 OC 页面与提交审批（待 T-024） |
+| 5 | [T-054a](./T-054-oc-framework.md) | 阶段管线骨架 + `draft_config.oc` 结构，用草稿配置直跑 | T-025 | 待验收 | Claude Sonnet 5.5 | 不含 OC 页面与提交审批（待 T-024） |
 | 6 | [T-056a](./T-056-oc-memory.md) | UserProfile / UserMemory / Session 摘要的写入与读取、删除服务 | T-054a、T-026 | 待开发 | | PG 全文检索；不含套餐分级与配置页 |
 
 **知识检索约定（开发负责人决定）**：本线不接真实 RAGFlow。运行时只依赖 `Retriever` 协议，临时用 `StubRetriever`，所有界面、事件、run 记录必须标明“检索：桩实现，未接真实 RAGFlow”。T-030/T-031/T-033 保持「待开发」，**桩存在期间不得把任何知识问答相关任务记为完成**；拿到 RAGFlow Key 或确定自托管方案后由 T-033 替换桩。

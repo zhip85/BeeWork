@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from beework.runtime.oc import OCConfig
+
 CATEGORIES = ("customer_service", "sales", "internal", "insurance")
 LANGUAGES = ("zh-CN", "en")
 MOUNT_KINDS = ("kb", "agent", "mcp", "skill", "chatflow", "flow", "api")
@@ -35,8 +37,8 @@ class AssistantDraftConfig(BaseModel):
     suggested_questions: bool = True
     feedback_enabled: bool = True
     mounts: AssistantMounts = Field(default_factory=AssistantMounts)
-    # Placeholder for the OC configuration owned by T-054.
-    oc: dict = Field(default_factory=dict)
+    # OC configuration (T-054a defines the shape; stage tasks fill in behaviour).
+    oc: OCConfig = Field(default_factory=OCConfig)
 
 
 class AssistantWriteRequest(BaseModel):

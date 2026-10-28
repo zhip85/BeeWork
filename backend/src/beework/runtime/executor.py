@@ -21,7 +21,7 @@ from beework.models.conversations import Conversation
 from beework.models.jobs import RunEvent
 from beework.models.runtime import Run
 from beework.pii import redact_text
-from beework.runtime.compiler import RuntimeDeps, compile_assistant
+from beework.runtime.compiler import RuntimeDeps, StageClock, compile_assistant
 from beework.runtime.dsl import AssistantDSLv1
 from beework.runtime.errors import RunCancelled, RunTimedOut, RuntimeFailure
 from beework.runtime.llm import build_chat_model
@@ -71,7 +71,16 @@ def gateway_llm(db: Session, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
 
 
 def classify_error(exc: Exception) -> RuntimeFailure:
-    """Turn a provider/gateway error into a short Chinese message; never echo the raw error body."""
+    """Turn a provider/gateway error into a short Chinese message; never echo the raw error body.
+
+    The failing OC stage (set by the pipeline wrapper) is carried on the returned failure.
+    """
+    failure = _classify(exc)
+    failure.stage = failure.stage or getattr(exc, "beework_stage", None)
+    return failure
+
+
+def _classify(exc: Exception) -> RuntimeFailure:
     if isinstance(exc, RuntimeFailure):
         return exc
     if isinstance(exc, openai.APITimeoutError):
@@ -123,6 +132,7 @@ def _finish(
     error: RuntimeFailure | None = None,
     output: dict[str, Any] | None = None,
     trace_url: str | None = None,
+    timings: StageClock | None = None,
 ) -> None:
     run.status = status
     run.finished_at = datetime.now(UTC)
@@ -130,7 +140,9 @@ def _finish(
     run.output = output
     run.trace_url = trace_url
     if error is not None:
-        run.error_code, run.error = error.code, error.message[:500]
+        run.error_code, run.error, run.error_stage = error.code, error.message[:500], error.stage
+    if timings is not None:
+        run.stage_ms, run.pipeline_ms = dict(timings.stage_ms), timings.pipeline_ms
     db.commit()
     publish_run_event(db, run.id, event_type, data, tenant_id=run.tenant_id)
     scrub_run_content(db, run)
@@ -197,6 +209,7 @@ def _execute_run(
     publish_run_event(db, run.id, "running", {}, tenant_id=run.tenant_id)
 
     buffer = _TokenBuffer(db, run)
+    clock = StageClock()
     last_poll = [0.0]
     trace_url: str | None = None
     try:
@@ -231,6 +244,8 @@ def _execute_run(
                     allowed_dataset_ids=allowed_datasets,
                     check_stop=check_stop,
                     callbacks=trace.callbacks,
+                    span=trace.span,
+                    clock=clock,
                 ),
             )
             for mode, payload in graph.stream(
@@ -249,7 +264,7 @@ def _execute_run(
         buffer.flush()
     except RunCancelled:
         buffer.flush()
-        _finish(db, run, "cancelled", "cancelled", {"reason": "user"}, started=started, trace_url=trace_url)
+        _finish(db, run, "cancelled", "cancelled", {"reason": "user"}, started=started, trace_url=trace_url, timings=clock)
         return
     except Exception as exc:
         db.rollback()
@@ -257,7 +272,8 @@ def _execute_run(
         failure = classify_error(exc)
         _finish(
             db, run, "failed", "error",
-            {"code": failure.code, "message": failure.message}, started=started, error=failure, trace_url=trace_url,
+            {"code": failure.code, "message": failure.message, "stage": failure.stage},
+            started=started, error=failure, trace_url=trace_url, timings=clock,
         )
         return
 
@@ -285,4 +301,5 @@ def _execute_run(
         db, run, "succeeded", "done",
         {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url},
         started=started, output={"text": text, "usage": usage, "retrieval": retrieval}, trace_url=trace_url,
+        timings=clock,
     )

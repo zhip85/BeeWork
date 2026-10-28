@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from beework.integrations.litellm import model_alias
 from beework.models.assistants import Assistant
 from beework.runtime.errors import RuntimeFailure
+from beework.runtime.oc import OCConfig
 
 
 class KnowledgeConfig(BaseModel):
@@ -36,6 +37,7 @@ class AssistantDSLv1(BaseModel):
     greeting: str = ""
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
+    oc: OCConfig = Field(default_factory=OCConfig)
 
 
 def dsl_from_draft(assistant: Assistant) -> AssistantDSLv1:
@@ -51,4 +53,5 @@ def dsl_from_draft(assistant: Assistant) -> AssistantDSLv1:
         prompt=prompt,
         model_alias=model_alias(UUID(str(model_id))),
         greeting=config.get("greeting") or "",
+        oc=OCConfig.model_validate(config.get("oc") or {}),
     )

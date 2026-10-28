@@ -36,3 +36,17 @@
 - **不做（留给 T-054 剩余部分，依赖 T-024）**：OC 页面与编排总览、助理详情“编排”页签、OC 提交审批与“只合并 OC 到线上快照”、权限接入。
 - 运行时仍通过 T-025 的 `ConfigSource` 读取草稿，不绕过版本机制；T-024 加入后改为读快照。
 - 测试：阶段顺序固定、阶段抛错带阶段名、未实现阶段直通。
+
+### T-054a 完成记录
+
+**改动文件**：新增 `runtime/oc.py`、迁移 `0019_runs_pipeline.py`（`runs.pipeline_ms/stage_ms/error_stage`，可降级）；重写 `runtime/compiler.py`（十阶段管线、`register_stage`、`StageClock`）；修改 `runtime/{dsl,executor,tracing,errors}.py`、`models/runtime.py`、`schemas/{assistants,runs}.py`、`tests/test_runtime.py`（+8 项）、`tests/test_assistants.py`（+1 项）、`scripts/check_runtime_e2e.py`。
+
+**验证**：`ruff`、`./scripts/test-postgres.sh`（迁移升降级 + `alembic check` + 135 项）、前端检查通过；真实栈 `check_runtime_e2e.py` 通过：每个阶段一个 Langfuse span、`pipeline_ms` 已记录且远小于总耗时、元数据与脱敏校验仍通过。仍是 `mock_response` 模型 + 检索桩。
+
+**遗留问题**
+- 只做了骨架：`admission`（运行时再次准入）、`pii_input`/`pii_output`、`glossary_rewrite`、`components` 是直通；`route` 固定到助理自身；`memory` 等 T-056a。
+- 未做（依赖 T-024）：OC 页面、编排总览、助理详情“编排”页签、OC 提交审批与“只合并 OC 到线上快照”、权限接入。
+- `pipeline_ms` 的口径：各阶段墙钟时间减去 `execute` 里模型/检索调用的耗时；流式输出时事件落库的开销落在模型调用的墙钟里，没有计入管线耗时。NFR-001（P95 ≤ 300 ms）的正式压测在 T-125。
+- OC 各阶段的默认值（`glossary/rewrite/routing/components` 默认关闭，PII 与记忆默认开启）是本任务定的，后续阶段任务落地时需确认。
+- 阶段 span 嵌在 `assistant.run` 下，`ChatOpenAI` 生成观测嵌在 `oc.execute` 下，依赖 LangGraph 在线程间传递 OpenTelemetry 上下文（当前版本如此）。
+- 十阶段与旧的 `input_guard/retrieve/generate/output` 步骤名不同，`step` 事件的 `name` 变化；还没有前端消费者。

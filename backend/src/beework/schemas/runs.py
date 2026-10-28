@@ -31,6 +31,9 @@ class RunResponse(BaseModel):
     retrieval_mode: str | None
     draft_row_version: int | None
     latency_ms: int | None
+    pipeline_ms: int | None
+    stage_ms: dict | None
+    error_stage: str | None
     tokens_in: int | None
     tokens_out: int | None
     trace_url: str | None

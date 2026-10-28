@@ -197,6 +197,21 @@ class AssistantTests(unittest.TestCase):
         self.assertEqual(self.create(headers, visibility="specified").status_code, 422)
         self.assertEqual(self.create(headers, category="other").status_code, 422)
 
+    def test_oc_config_is_validated_defaulted_and_copied(self) -> None:
+        headers = self.login("admin@example.com")
+        bad = self.create(headers, config={"prompt": "ok", "oc": {"memory": {"short_term": {"window_rounds": 99}}}})
+        self.assertEqual(bad.status_code, 422)
+        unknown = self.create(headers, config={"prompt": "ok", "oc": {"routing": {"bogus": True}}})
+        self.assertEqual(unknown.status_code, 422)
+        created = self.create(headers, config={"prompt": "ok", "oc": {"memory": {"short_term": {"window_rounds": 5}}}})
+        self.assertEqual(created.status_code, 201, created.text)
+        oc = created.json()["config"]["oc"]
+        self.assertEqual((oc["oc_schema_version"], oc["memory"]["short_term"]["window_rounds"], oc["pii"]["enabled"]), (1, 5, True))
+        plain = self.create(headers, name="Plain").json()
+        self.assertEqual(plain["config"]["oc"]["memory"]["short_term"]["window_rounds"], 3)  # defaults
+        copy = self.client.post(f"/api/v1/assistants/{created.json()['id']}/copy", headers=headers).json()
+        self.assertEqual(copy["config"]["oc"]["memory"]["short_term"]["window_rounds"], 5)
+
     def test_names_are_unique_per_tenant_case_insensitively_and_freed_on_delete(self) -> None:
         headers = self.login("admin@example.com")
         first = self.create(headers, name="Helper").json()
