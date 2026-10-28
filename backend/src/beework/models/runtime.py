@@ -42,6 +42,10 @@ class Run(Base, TenantOwnedMixin):
     retrieval_mode: Mapped[str | None] = mapped_column(String(16))
     cancel_requested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
+    # Pipeline overhead (all stages minus model / retrieval calls) and per-stage wall time, for NFR-001.
+    pipeline_ms: Mapped[int | None] = mapped_column(Integer)
+    stage_ms: Mapped[dict | None] = mapped_column(JSON)
+    error_stage: Mapped[str | None] = mapped_column(String(32))
     tokens_in: Mapped[int | None] = mapped_column(Integer)
     tokens_out: Mapped[int | None] = mapped_column(Integer)
     trace_url: Mapped[str | None] = mapped_column(String(500))

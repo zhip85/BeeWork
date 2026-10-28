@@ -1,10 +1,11 @@
 class RuntimeFailure(Exception):
     """A run failed for a reason the user can be told about; ``code`` is machine readable."""
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: str, message: str, stage: str | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
+        self.stage = stage  # the OC stage that failed, when known
 
 
 class RunCancelled(Exception):

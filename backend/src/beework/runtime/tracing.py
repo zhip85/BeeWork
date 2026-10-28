@@ -6,7 +6,7 @@ The trace id is derived from the run id, so a run can always be located in Langf
 
 import logging
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
@@ -33,6 +33,12 @@ class TraceHandle:
     trace_id: str | None = None
     trace_url: str | None = None
     client: Any = None
+
+    def span(self, stage: str) -> AbstractContextManager:
+        """A span ``oc.<stage>`` under the run's trace (the fixed names feed the trace waterfall, T-084)."""
+        if self.client is None:
+            return nullcontext()
+        return self.client.start_as_current_span(name=f"oc.{stage}")
 
     def flush(self) -> None:
         """Export buffered spans. Called after the run is finished so it never adds to run latency."""

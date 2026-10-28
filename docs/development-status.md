@@ -157,6 +157,15 @@
 - 前端：助理卡片菜单“对话历史”→ `/assistants/:id/conversations`（只读列表 + 抽屉详情）。助理详情页（T-021）建成后应把它收进“会话记录”页签。
 - 已知限制：见任务文件“遗留问题”。
 
+### 运行管线骨架（T-054a，闭环切片，待验收）
+
+- 运行图改为 PRD 5.5 的固定十阶段管线 `ingress → admission → pii_input → memory → glossary_rewrite → route → execute → components → pii_output → egress`（`runtime/compiler.py`）。阶段由 `STAGE_FACTORIES` 注册，未注册的阶段直通；后续任务只用 `@register_stage("…")` 填自己的阶段。已实现：`ingress`（输入长度/空检查）、`route`（暂固定到助理自身）、`execute`（知识检索 → 模型）、`egress`；其余直通。
+- 每个阶段：`step` 事件（started/completed/failed + 耗时）、Langfuse span `oc.<阶段>`（固定名称，供 T-084 瀑布图）、耗时计入 `runs.stage_ms`；`runs.pipeline_ms` = 各阶段耗时 − 模型/检索调用耗时（NFR-001 指标）；某阶段抛错时 run 失败，`runs.error_stage` 与 `error` 事件的 `stage` 带阶段名。
+- `draft_config.oc`：`runtime/oc.py` 的 `OCConfig`（`oc_schema_version: 1`，六个阶段各一个子对象，默认值齐全、未知键 422），随助理 API 校验，并冻结进每次 run 的 DSL。记忆部分已按 PRD 3.6.4 定义字段（短期窗口轮数/Token/类型白名单，长期 4 个文件的 Top-K/保留期/开关）供 T-056a 使用。
+- `memory` 阶段是挂点：它写入 `state["memory"]`，`execute` 会把它们放进系统提示词的“记忆”段。
+- 验证：真实栈 e2e 在 Langfuse 读到 12 个 observation（`assistant.run`、10 个 `oc.*`、`ChatOpenAI`），管线自身耗时约 4–40 ms（mock 模型；模型本身约 400 ms+）。
+- 已知限制：见任务文件“遗留问题”。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

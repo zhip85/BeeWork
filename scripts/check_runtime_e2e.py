@@ -62,8 +62,13 @@ def langfuse_observations(trace_id: str) -> list[dict] | None:
             auth=(public, secret),
             timeout=30,
         )
-        if response.status_code == 200 and response.json().get("data"):
-            return response.json()["data"]
+        data = response.json().get("data", []) if response.status_code == 200 else []
+        # Spans arrive in batches: wait for the root span and the last stage before judging.
+        names = {o.get("name") for o in data}
+        if {"assistant.run", "oc.egress"} <= names:
+            return data
+        if time.time() > deadline - 3:
+            return data
         time.sleep(3)
     return []
 
@@ -147,7 +152,8 @@ def main() -> None:
 
         run = tenant_admin.get(f"/api/v1/runs/{run_id}", headers=headers).json()
         check("run recorded as succeeded", run["status"] == "succeeded" and run["output"]["text"] == MOCK_ANSWER, run)
-        print(f"     tokens in/out: {run['tokens_in']}/{run['tokens_out']}, latency {run['latency_ms']} ms, trace_url: {run['trace_url']}")
+        print(f"     tokens in/out: {run['tokens_in']}/{run['tokens_out']}, latency {run['latency_ms']} ms, pipeline overhead {run['pipeline_ms']} ms, trace_url: {run['trace_url']}")
+        check("pipeline overhead recorded and well below total latency", run["pipeline_ms"] is not None and run["pipeline_ms"] < run["latency_ms"], run["stage_ms"])
 
         from langfuse import Langfuse
 
@@ -157,6 +163,8 @@ def main() -> None:
         else:
             names = sorted({o.get("name", "") for o in observations})
             check("Langfuse trace for the run exists", bool(observations), f"{len(observations)} observations: {names}")
+            stage_spans = [f"oc.{stage}" for stage in ("ingress", "admission", "pii_input", "memory", "glossary_rewrite", "route", "execute", "components", "pii_output", "egress")]
+            check("one Langfuse span per OC stage", all(name in names for name in stage_spans), [n for n in stage_spans if n not in names])
             metadata = json.dumps(observations, ensure_ascii=False)
             check("trace metadata carries tenant / assistant / run", all(v in metadata for v in (tenant["id"], assistant_id, run_id)))
             check("trace does not contain the raw phone number (redaction policy)", PHONE not in metadata)

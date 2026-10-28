@@ -31,7 +31,13 @@ from beework.models.assistants import Assistant
 from beework.models.jobs import Job, RunEvent
 from beework.models.runtime import Run
 from beework.runtime import compiler
-from beework.runtime.compiler import PIPELINE, RuntimeDeps, compile_assistant
+from beework.runtime.compiler import (
+    STAGE_ORDER,
+    RuntimeDeps,
+    StageClock,
+    compile_assistant,
+    register_stage,
+)
 from beework.runtime.dsl import AssistantDSLv1, dsl_from_draft
 from beework.runtime.errors import RuntimeFailure
 from beework.runtime.executor import execute_run
@@ -220,7 +226,7 @@ class RuntimeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             AssistantDSLv1.model_validate({"dsl_version": 2, "prompt": "x", "model_alias": "a"})
 
-    def test_compiled_graph_has_the_fixed_registry_nodes_in_order(self) -> None:
+    def test_compiled_graph_has_the_ten_oc_stages_in_fixed_order(self) -> None:
         dsl = AssistantDSLv1(prompt="p", model_alias="bw-x")
         graph = compile_assistant(
             dsl,
@@ -229,10 +235,14 @@ class RuntimeTests(unittest.TestCase):
                 allowed_dataset_ids=lambda ids: [],
             ),
         )
-        self.assertEqual(PIPELINE, ("input_guard", "retrieve", "generate", "output"))
-        self.assertEqual(set(compiler.NODE_FACTORIES), set(PIPELINE))
+        self.assertEqual(
+            STAGE_ORDER,
+            ("ingress", "admission", "pii_input", "memory", "glossary_rewrite", "route", "execute",
+             "components", "pii_output", "egress"),
+        )
+        self.assertTrue(set(compiler.STAGE_FACTORIES) <= set(STAGE_ORDER))  # unregistered stages pass through
         nodes = [name for name in graph.get_graph().nodes if not name.startswith("__")]
-        self.assertEqual(nodes, list(PIPELINE))
+        self.assertEqual(nodes, list(STAGE_ORDER))
         state = graph.invoke({"input": " hi ", "history": []})
         self.assertEqual((state["text"], state["retrieval_mode"], state["usage"]), ("ok", "stub", {"input": 11, "output": 5}))
 
@@ -375,7 +385,7 @@ class RuntimeTests(unittest.TestCase):
         # is finished and the ``done`` event carries the (redacted) answer.
         self.assertNotIn("token", types)
         steps = [(e.data["name"], e.data["status"]) for e in events if e.type == "step"]
-        self.assertEqual(steps, [(n, s) for n in PIPELINE for s in ("started", "completed")])
+        self.assertEqual(steps, [(n, s) for n in STAGE_ORDER for s in ("started", "completed")])
         seqs = [e.seq for e in events]
         self.assertEqual(seqs, sorted(set(seqs)))  # strictly increasing (dropped token events leave gaps)
         done = events[-1].data
@@ -444,7 +454,9 @@ class RuntimeTests(unittest.TestCase):
             run = db.get(Run, UUID(run_id))
             run.input = {"message": "   "}
         self.run_in_worker(run_id)
-        self.assertEqual(self.run_row(run_id).error_code, "runtime.input_rejected")
+        run = self.run_row(run_id)
+        self.assertEqual((run.error_code, run.error_stage), ("runtime.input_rejected", "ingress"))
+        self.assertEqual(self.events(run_id)[-1].data["stage"], "ingress")
 
     def test_run_times_out(self) -> None:
         headers = self.login("admin@example.com")
@@ -466,6 +478,141 @@ class RuntimeTests(unittest.TestCase):
         run = self.run_row(run_id)
         self.assertEqual((run.status, run.error_code), ("failed", "runtime.timeout"))
         self.assertEqual(self.events(run_id)[-1].type, "error")
+
+    # -- OC pipeline ----------------------------------------------------------------
+
+    def test_every_stage_records_timing_and_pipeline_overhead_excludes_model_time(self) -> None:
+        headers = self.login("admin@example.com")
+        run_id = self.start_run(headers).json()["run_id"]
+        self.run_in_worker(run_id, ScriptedChat(chunks=["a", "b"], before_chunk=lambda i: time.sleep(0.05)))
+        run = self.run_row(run_id)
+        self.assertEqual(list(run.stage_ms), list(STAGE_ORDER))
+        self.assertGreaterEqual(run.stage_ms["execute"], 100)  # the slow model chunks
+        self.assertLess(run.pipeline_ms, run.stage_ms["execute"])  # ...are not pipeline overhead
+        self.assertLessEqual(run.pipeline_ms, run.latency_ms)
+        detail = self.client.get(f"/api/v1/runs/{run_id}", headers=headers).json()
+        self.assertEqual((detail["pipeline_ms"], list(detail["stage_ms"])), (run.pipeline_ms, list(STAGE_ORDER)))
+
+    def test_stage_error_fails_the_run_and_names_the_stage(self) -> None:
+        @register_stage("pii_input", replace=True)
+        def failing(dsl, deps):
+            def node(state):
+                raise RuntimeFailure("runtime.pii_blocked", "输入被拦截")
+
+            return node
+
+        try:
+            headers = self.login("admin@example.com")
+            run_id = self.start_run(headers).json()["run_id"]
+            self.run_in_worker(run_id)
+        finally:
+            compiler.STAGE_FACTORIES.pop("pii_input", None)
+        run = self.run_row(run_id)
+        self.assertEqual((run.status, run.error_code, run.error_stage), ("failed", "runtime.pii_blocked", "pii_input"))
+        events = self.events(run_id)
+        self.assertEqual((events[-1].type, events[-1].data["stage"]), ("error", "pii_input"))
+        steps = [(e.data["name"], e.data["status"]) for e in events if e.type == "step"]
+        self.assertEqual(steps[-1], ("pii_input", "failed"))
+        self.assertNotIn(("memory", "started"), steps)  # later stages never ran
+        self.assertIn("pii_input", run.stage_ms)
+
+    def test_unexpected_stage_exception_is_attributed_to_its_stage(self) -> None:
+        @register_stage("glossary_rewrite", replace=True)
+        def broken(dsl, deps):
+            def node(state):
+                raise ValueError("secret detail")
+
+            return node
+
+        try:
+            headers = self.login("admin@example.com")
+            run_id = self.start_run(headers).json()["run_id"]
+            self.run_in_worker(run_id)
+        finally:
+            compiler.STAGE_FACTORIES.pop("glossary_rewrite", None)
+        run = self.run_row(run_id)
+        self.assertEqual((run.error_code, run.error_stage), ("runtime.internal", "glossary_rewrite"))
+        self.assertNotIn("secret", f"{run.error} {self.events(run_id)[-1].data}")
+
+    def test_a_registered_memory_stage_injects_into_the_system_prompt(self) -> None:
+        @register_stage("memory", replace=True)
+        def memory_stage(dsl, deps):
+            return lambda state: {"memory": [{"file": "UserMemory", "text": "prefers short answers"}]}
+
+        llm = ScriptedChat(chunks=["ok"])
+        try:
+            graph = compile_assistant(
+                AssistantDSLv1(prompt="base prompt", model_alias="bw-x"),
+                RuntimeDeps(llm=llm, retriever=StubRetriever(), tenant_id=uuid4(), allowed_dataset_ids=lambda ids: []),
+            )
+            graph.invoke({"input": "hi", "history": []})
+        finally:
+            compiler.STAGE_FACTORIES.pop("memory", None)
+        system_prompt = llm.seen_messages[0][0].content
+        self.assertTrue(system_prompt.startswith("base prompt"))
+        self.assertIn("[UserMemory] prefers short answers", system_prompt)
+
+    def test_stage_registry_rejects_unknown_and_duplicate_stages(self) -> None:
+        with self.assertRaises(ValueError):
+            register_stage("not_a_stage")(lambda dsl, deps: lambda state: {})
+        with self.assertRaises(RuntimeError):
+            register_stage("ingress")(lambda dsl, deps: lambda state: {})
+
+    def test_stage_clock_separates_external_time(self) -> None:
+        clock = StageClock()
+        clock.stage_ms.update({"execute": 300, "ingress": 5})
+        clock.external_seconds = 0.29
+        self.assertEqual(clock.pipeline_ms, 15)
+
+    def test_spans_are_opened_per_stage_with_fixed_names(self) -> None:
+        opened: list[str] = []
+        from contextlib import contextmanager
+
+        @contextmanager
+        def span(name):
+            opened.append(name)
+            yield
+
+        graph = compile_assistant(
+            AssistantDSLv1(prompt="p", model_alias="bw-x"),
+            RuntimeDeps(
+                llm=ScriptedChat(chunks=["ok"]), retriever=StubRetriever(), tenant_id=uuid4(),
+                allowed_dataset_ids=lambda ids: [], span=span,
+            ),
+        )
+        graph.invoke({"input": "hi", "history": []})
+        self.assertEqual(opened, list(STAGE_ORDER))
+
+    # -- OC configuration -----------------------------------------------------------
+
+    def test_oc_config_defaults_bounds_and_unknown_keys(self) -> None:
+        from pydantic import ValidationError
+
+        from beework.runtime.oc import OCConfig
+
+        config = OCConfig()
+        self.assertEqual(config.oc_schema_version, 1)
+        self.assertEqual(
+            (config.memory.short_term.window_rounds, config.memory.short_term.max_tokens, config.memory.short_term.type_whitelist),
+            (3, 5000, ["preference", "history"]),
+        )
+        self.assertEqual(
+            (config.memory.long_term.user_profile.top_k, config.memory.long_term.user_memory.top_k,
+             config.memory.long_term.session.retention_days),
+            (2, 3, 30),
+        )
+        for bad in ({"pii": {"enabled": True, "typo": 1}}, {"memory": {"short_term": {"window_rounds": 31}}}, {"oc_schema_version": 2}, {"nope": {}}):
+            with self.assertRaises(ValidationError):
+                OCConfig.model_validate(bad)
+
+    def test_draft_oc_is_frozen_into_the_run_config(self) -> None:
+        with self.session_factory.begin() as db:
+            assistant = db.get(Assistant, self.ids["assistant"])
+            assistant.draft_config = {**assistant.draft_config, "oc": {"memory": {"short_term": {"window_rounds": 7}}}}
+        headers = self.login("admin@example.com")
+        run_id = self.start_run(headers).json()["run_id"]
+        self.assertEqual(self.run_row(run_id).config["oc"]["memory"]["short_term"]["window_rounds"], 7)
+        self.assertEqual(self.run_row(run_id).config["oc"]["oc_schema_version"], 1)
 
     # -- cancel -----------------------------------------------------------------
 
