@@ -165,11 +165,14 @@ class WorkerQueueTests(unittest.TestCase):
     def test_worker_loop_step_runs_jobs_and_schedules_once_per_day(self):
         with self.sessions.begin() as db:
             enqueue(db, "noop.echo", {"message": "hello"}, tenant_id=self.tenant_id)
-        self.assertEqual(run_once("worker-1", self.sessions), 2)  # noop.echo + audit.retention
+        self.assertEqual(run_once("worker-1", self.sessions), 4)  # noop.echo + the 3 scheduled jobs
         self.assertEqual(run_once("worker-2", self.sessions), 0)  # nothing new, no duplicate schedule
         with self.sessions() as db:
             jobs = list(db.scalars(select(Job)))
-            self.assertEqual(sorted(job.kind for job in jobs), ["audit.retention", "noop.echo"])
+            self.assertEqual(
+                sorted(job.kind for job in jobs),
+                ["audit.retention", "conversations.end_inactive", "conversations.retention", "noop.echo"],
+            )
             self.assertTrue(all(job.status == "succeeded" for job in jobs), [(j.kind, j.status, j.last_error) for j in jobs])
 
     def test_scheduler_is_idempotent_within_a_day_and_runs_again_next_day(self):
@@ -181,7 +184,17 @@ class WorkerQueueTests(unittest.TestCase):
             enqueue_scheduled_jobs(db, now=day + timedelta(days=1))
         with self.sessions() as db:
             keys = sorted(job.idempotency_key for job in db.scalars(select(Job)))
-        self.assertEqual(keys, ["audit.retention:2026-10-22", "audit.retention:2026-10-23"])
+        self.assertEqual(
+            keys,
+            [
+                "audit.retention:2026-10-22",
+                "audit.retention:2026-10-23",
+                "conversations.end_inactive:2026-10-22T08:00",
+                "conversations.end_inactive:2026-10-23T08:00",
+                "conversations.retention:2026-10-22",
+                "conversations.retention:2026-10-23",
+            ],
+        )
 
     # --- run events -------------------------------------------------------
 

@@ -1,0 +1,47 @@
+{
+  "title": "Conversations",
+  "subtitle": "Read only. Select a conversation to see the full dialogue.",
+  "back": "Back to assistants",
+  "loading": "Loading conversations…",
+  "loadFailed": "Could not load conversations",
+  "empty": "No conversations yet",
+  "emptyFiltered": "No conversations match the filter",
+  "retry": "Retry",
+  "cols": {
+    "id": "Conversation ID",
+    "user": "User",
+    "channel": "Channel",
+    "turns": "Turns",
+    "csat": "Satisfaction",
+    "status": "Status",
+    "active": "Last active"
+  },
+  "status": {
+    "in_progress": "In progress",
+    "handoff": "Handed off",
+    "resolved": "Resolved",
+    "abandoned": "Abandoned"
+  },
+  "filter": {
+    "status": "Status: All"
+  },
+  "channel": {
+    "console": "Test console"
+  },
+  "detail": {
+    "title": "Conversation",
+    "close": "Close",
+    "loading": "Loading…",
+    "loadFailed": "Could not load the conversation",
+    "noMessages": "This conversation has no messages",
+    "trace": "Trace",
+    "role": {
+      "user": "User",
+      "assistant": "Assistant",
+      "human_agent": "Human agent",
+      "system": "System"
+    },
+    "tokens": "Tokens: {{count}}"
+  },
+  "note": "Personal information is stored redacted according to Data & privacy settings."
+}

@@ -371,10 +371,13 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(types[0], "queued")
         self.assertEqual(types[1], "running")
         self.assertEqual(types[-1], "done")
-        self.assertEqual("".join(e.data["text"] for e in events if e.type == "token"), "Hello world")
+        # The default policy redacts personal information, so token events are dropped once the run
+        # is finished and the ``done`` event carries the (redacted) answer.
+        self.assertNotIn("token", types)
         steps = [(e.data["name"], e.data["status"]) for e in events if e.type == "step"]
         self.assertEqual(steps, [(n, s) for n in PIPELINE for s in ("started", "completed")])
-        self.assertEqual([e.seq for e in events], list(range(1, len(events) + 1)))
+        seqs = [e.seq for e in events]
+        self.assertEqual(seqs, sorted(set(seqs)))  # strictly increasing (dropped token events leave gaps)
         done = events[-1].data
         self.assertEqual((done["text"], done["usage"], done["retrieval"]["mode"]), ("Hello world", {"input": 11, "output": 5}, "stub"))
         run = self.run_row(run_id)

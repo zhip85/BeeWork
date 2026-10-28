@@ -3868,3 +3868,27 @@
   .assistants-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .assistant-wizard { height: 100vh; border-radius: 0; }
 }
+
+/* settings tabs, privacy, conversations */
+.settings-tabs { display: flex; gap: 4px; margin: 0 0 12px; border-bottom: 1px solid var(--line); }
+.settings-tabs a { padding: 8px 14px; border-bottom: 2px solid transparent; color: #66736d; font-size: 13px; text-decoration: none; }
+.settings-tabs a.active { border-bottom-color: #123d2e; color: #123d2e; font-weight: 600; }
+.privacy-form { display: grid; gap: 18px; max-width: 640px; }
+.privacy-form label:not(.privacy-toggle), .privacy-row { display: grid; gap: 6px; font-size: 13px; }
+.privacy-form select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; max-width: 240px; }
+.privacy-form small { color: #7d8983; }
+.privacy-toggle { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; }
+.privacy-toggle span { display: grid; gap: 2px; }
+.privacy-form .primary-button { justify-self: start; }
+.clickable-row { cursor: pointer; }
+.clickable-row:hover { background: #f6f8f6; }
+.conversation-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100%); padding: 20px 24px; overflow-y: auto; background: #fff; box-shadow: -8px 0 32px #142e2b30; }
+.conversation-drawer header { display: flex; justify-content: space-between; align-items: center; }
+.conversation-drawer .modal-close { position: static; }
+.conversation-messages { display: grid; gap: 12px; margin: 12px 0 0; padding: 0; list-style: none; }
+.conversation-messages li { padding: 10px 12px; border-radius: 10px; background: #f3f6f3; }
+.conversation-messages li.message-user { background: #eaf5ee; }
+.conversation-messages p { margin: 4px 0 0; white-space: pre-wrap; word-break: break-word; }
+.assistant-status.in_progress { background: #e2f0fb; color: #1d5b8a; }
+.assistant-status.resolved { background: #e2f4ea; color: #1f6a43; }
+.assistant-status.abandoned, .assistant-status.handoff { background: #fdf0dc; color: #9a5b00; }

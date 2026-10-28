@@ -5,6 +5,7 @@ import {
 import { apiRequest } from '../../api'
 import type { ModelTestResult, TenantModelEnvironment } from '../../types'
 import { enumLabel } from '../../i18n'
+import { SettingsTabs } from './SettingsTabs'
 
 export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: string; canEdit: boolean }) {
   const [environment, setEnvironment] = useState<TenantModelEnvironment['environment']>('production')
@@ -133,6 +134,7 @@ export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: strin
   const staleCount = config?.unavailable_enabled_model_ids.length ?? 0
   return (
     <section className="tenant-model-settings">
+      <SettingsTabs />
       <div className="page-heading settings-heading">
         <div>
           <div className="eyebrow"><span className="eyebrow-dot" />企业设置 · 模型与环境</div>

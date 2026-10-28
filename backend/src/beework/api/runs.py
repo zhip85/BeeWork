@@ -12,10 +12,12 @@ from beework.api.assistants import (
 )
 from beework.api.conventions import ApiError
 from beework.auth import require_csrf
+from beework.conversations import append_message, console_end_user, start_conversation
 from beework.db import get_db
 from beework.entitlements import check_quota, get_usage_counter
-from beework.models import AuditEvent, Membership, Tenant, TenantModelEnvironment
+from beework.models import AuditEvent, Membership, Tenant, TenantModelEnvironment, User
 from beework.models.assistants import Assistant
+from beework.models.conversations import Conversation
 from beework.models.runtime import Run
 from beework.rbac import require_tenant_permission
 from beework.runtime.dsl import dsl_from_draft
@@ -95,9 +97,38 @@ def create_debug_run(
     if len(payload.message.strip()) > dsl.limits.max_input_chars:
         raise ApiError(422, "runtime.input_rejected", f"消息长度不能超过 {dsl.limits.max_input_chars} 个字符")
 
+    if payload.conversation_id is not None:
+        conversation = db.scalar(
+            select(Conversation)
+            .where(
+                Conversation.id == payload.conversation_id,
+                Conversation.tenant_id == membership.tenant_id,
+                Conversation.assistant_id == assistant.id,
+                Conversation.source == "debug",
+                Conversation.created_by == membership.user_id,
+            )
+            .with_for_update()
+        )
+        if conversation is None:
+            raise ApiError(404, "not_found", "未找到指定会话")
+        in_flight = db.scalar(
+            select(Run.id).where(
+                Run.conversation_id == conversation.id, Run.status.in_(("queued", "running"))
+            ).limit(1)
+        )
+        if in_flight is not None:
+            raise ApiError(409, "conversation.busy", "上一条消息仍在处理中，请稍后再发送")
+    else:
+        end_user = console_end_user(db, membership.tenant_id, db.get(User, membership.user_id))
+        conversation = start_conversation(
+            db, assistant=assistant, end_user=end_user, source="debug",
+            environment=MODEL_ENVIRONMENT, created_by=membership.user_id,
+        )
+
     run = Run(
         tenant_id=membership.tenant_id,
         assistant_id=assistant.id,
+        conversation_id=conversation.id,
         draft_row_version=assistant.row_version,
         environment=MODEL_ENVIRONMENT,
         source="debug",
@@ -108,6 +139,7 @@ def create_debug_run(
     )
     db.add(run)
     db.flush()
+    append_message(db, conversation, "user", payload.message, run_id=run.id)
     enqueue(
         db,
         "runtime.execute",
@@ -125,7 +157,7 @@ def create_debug_run(
     )
     # Commits the run, its job and the audit row together with the first ``queued`` event.
     publish_run_event(db, run.id, "queued", {"assistant_id": str(assistant.id)}, tenant_id=membership.tenant_id)
-    return CreateRunResponse(run_id=run.id)
+    return CreateRunResponse(run_id=run.id, conversation_id=conversation.id)
 
 
 @router.get("/runs/{run_id}", response_model=RunResponse)

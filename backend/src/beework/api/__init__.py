@@ -4,6 +4,8 @@ from beework.api import (
     assistants,
     audit,
     auth,
+    compliance,
+    conversations,
     integrations,
     jobs,
     members,
@@ -19,6 +21,8 @@ from beework.api import (
 router = APIRouter(prefix="/api/v1")
 for module in (
     assistants,
+    compliance,
+    conversations,
     auth,
     audit,
     platform_tenants,

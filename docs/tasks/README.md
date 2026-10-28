@@ -32,7 +32,7 @@
 | [T-023](./T-023-notifications.md) | 站内通知中心 | 3 | T-001 | — | 待开发 | | 可与 T-020 并行 |
 | [T-024](./T-024-assistant-versions.md) | 助理发布、不可变版本、对比与回滚 | 3 | T-021、T-022 | — | 待开发 | | |
 | [T-025](./T-025-langgraph-runtime.md) | LangGraph 运行时 v1（经 LiteLLM，Langfuse 追踪） | 3 | T-002、T-020 | 真实调用需供应商 Key（Langfuse 已就绪） | 待验收 | Claude Sonnet 5.5 | 核心任务；只能用 Langfuse SDK ≥3；含检索桩（闭环切片第 3 步） |
-| [T-026](./T-026-conversations.md) | 会话与消息、保留期与脱敏 | 3 | T-025 | — | 待开发 | | |
+| [T-026](./T-026-conversations.md) | 会话与消息、保留期与脱敏 | 3 | T-025 | — | 待验收 | Claude Sonnet 5.5 | |
 | [T-027](./T-027-test-console.md) | 助理测试控制台与测试用例 | 3 | T-025、T-021 | 供应商 Key | 待开发 | | |
 | [T-028](./T-028-open-api.md) | 租户 API 密钥与开放对话 API | 3/6 | T-024、T-025、T-010 | — | 待开发 | | 试点版对外入口 |
 | [T-030](./T-030-knowledge-bases.md) | 知识库与 RAGFlow dataset | 4 | T-001、T-002 | RAGFlow Cloud 付费版 API Key | 待开发 | | |
@@ -50,7 +50,7 @@
 | 1 | [T-010a](./T-010-plans-quotas.md) | 套餐/订阅表、权益与配额服务（助理数、席位）、租户只读订阅接口 | T-001 | 待验收 | Claude Sonnet 5.5 | 原 T-010 剩余部分（平台套餐页、版本发布、订阅与用量页）保持待开发 |
 | 2 | [T-020](./T-020-assistant-domain.md) | 全部（依赖改为 T-010a） | T-001、T-010a | 待验收 | Claude Sonnet 5.5 | |
 | 3 | [T-025](./T-025-langgraph-runtime.md) | 全部，含 `Retriever` 协议 + `StubRetriever` | T-002、T-020 | 待验收 | Claude Sonnet 5.5 | 已用 `mock_response` 验证；真实调用需供应商 Key（暂无） |
-| 4 | [T-026](./T-026-conversations.md) | 全部 | T-025 | 待开发 | | |
+| 4 | [T-026](./T-026-conversations.md) | 全部 | T-025 | 待验收 | Claude Sonnet 5.5 | |
 | 5 | [T-054a](./T-054-oc-framework.md) | 阶段管线骨架 + `draft_config.oc` 结构，用草稿配置直跑 | T-025 | 待开发 | | 不含 OC 页面与提交审批（待 T-024） |
 | 6 | [T-056a](./T-056-oc-memory.md) | UserProfile / UserMemory / Session 摘要的写入与读取、删除服务 | T-054a、T-026 | 待开发 | | PG 全文检索；不含套餐分级与配置页 |
 
