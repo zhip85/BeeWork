@@ -1,1 +1,27 @@
-{}
+{
+  "tabs": {
+    "models": "Models & environments",
+    "privacy": "Data & privacy"
+  },
+  "privacy": {
+    "title": "Data & privacy",
+    "subtitle": "Applies to every assistant and channel in this workspace; it can only tighten the platform baseline.",
+    "loading": "Loading…",
+    "loadFailed": "Could not load data & privacy settings",
+    "retention": "Conversation retention",
+    "retentionDays": "{{days}} days",
+    "retentionHint": "Conversation logs older than this are deleted automatically. It cannot exceed your plan's log retention ({{cap}} days).",
+    "retentionHintCustom": "Conversation logs older than this are deleted automatically.",
+    "region": "Data region",
+    "regionHint": "Set when the workspace was created; contact the platform to migrate.",
+    "redact": "Redact personal information in logs",
+    "redactHint": "Stored conversations, run records and traces are redacted by personal-information rules (mobile numbers, e-mail, ID numbers, bank cards).",
+    "export": "Allow members to export conversations",
+    "exportHint": "When off, the export entry in operations is hidden.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "readOnly": "You do not have permission to change these settings.",
+    "conflict": "The settings were changed by someone else; they have been reloaded."
+  }
+}

@@ -9,13 +9,18 @@ from uuid import UUID
 
 import openai
 from langchain_core.language_models import BaseChatModel
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from beework.compliance import get_policy
+from beework.conversations import append_message, history_for_run
 from beework.gateway_sync import tenant_gateway_key
 from beework.integrations.litellm import GatewayError
 from beework.models import Tenant, TenantModelEnvironment
+from beework.models.conversations import Conversation
+from beework.models.jobs import RunEvent
 from beework.models.runtime import Run
+from beework.pii import redact_text
 from beework.runtime.compiler import RuntimeDeps, compile_assistant
 from beework.runtime.dsl import AssistantDSLv1
 from beework.runtime.errors import RunCancelled, RunTimedOut, RuntimeFailure
@@ -128,6 +133,26 @@ def _finish(
         run.error_code, run.error = error.code, error.message[:500]
     db.commit()
     publish_run_event(db, run.id, event_type, data, tenant_id=run.tenant_id)
+    scrub_run_content(db, run)
+
+
+def scrub_run_content(db: Session, run: Run) -> None:
+    """Under a redacting policy, do not keep raw conversation text in run rows and events (SET-070).
+
+    Streaming clients already received the raw tokens; afterwards the per-token events are dropped and
+    the ``done`` event keeps only the redacted answer, so a later replay shows the redacted text.
+    """
+    if not get_policy(db, run.tenant_id).redact_pii:
+        return
+    if run.input and isinstance(run.input.get("message"), str):
+        run.input = {**run.input, "message": redact_text(run.input["message"])}
+    if run.output and isinstance(run.output.get("text"), str):
+        run.output = {**run.output, "text": redact_text(run.output["text"])}
+    db.execute(delete(RunEvent).where(RunEvent.run_id == run.id, RunEvent.type == "token"))
+    for event in db.scalars(select(RunEvent).where(RunEvent.run_id == run.id, RunEvent.type == "done")):
+        if isinstance(event.data.get("text"), str):
+            event.data = {**event.data, "text": redact_text(event.data["text"])}
+    db.commit()
 
 
 def execute_run(
@@ -192,7 +217,9 @@ def _execute_run(
             return tenant_dataset_ids(run.tenant_id, requested)
 
         final: dict[str, Any] = {}
-        with trace_run(run.id, metadata=run_metadata(run)) as trace:
+        redact = get_policy(db, run.tenant_id).redact_pii
+        history = history_for_run(db, run, dsl.limits.history_messages)
+        with trace_run(run.id, metadata=run_metadata(run), redact=redact) as trace:
             trace_url = trace.trace_url
             traces.append(trace)
             graph = compile_assistant(
@@ -207,7 +234,7 @@ def _execute_run(
                 ),
             )
             for mode, payload in graph.stream(
-                {"input": (run.input or {}).get("message", ""), "history": []},
+                {"input": (run.input or {}).get("message", ""), "history": history},
                 stream_mode=["custom", "values"],
             ):
                 if mode == "custom":
@@ -244,6 +271,16 @@ def _execute_run(
     run.retrieval_mode = retrieval["mode"]
     text = final.get("text", "")
     latency_ms = int((time.monotonic() - started) * 1000)
+    if run.conversation_id is not None:
+        conversation = db.scalar(
+            select(Conversation).where(Conversation.id == run.conversation_id).with_for_update()
+        )
+        if conversation is not None:
+            append_message(
+                db, conversation, "assistant", text,
+                run_id=run.id, trace_id=trace_url.rsplit("/", 1)[-1] if trace_url else None,
+            )
+            conversation.tokens += (usage.get("input") or 0) + (usage.get("output") or 0)
     _finish(
         db, run, "succeeded", "done",
         {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url},

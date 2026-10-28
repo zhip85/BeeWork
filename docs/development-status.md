@@ -147,6 +147,16 @@
 - **知识检索未接真实 RAGFlow**：只有桩实现，`retrieval.mode = "stub"`。
 - 已知限制：见任务文件“遗留问题”。
 
+### 会话与消息、保留期与脱敏（T-026，闭环切片，待验收）
+
+- 表 `end_users`、`conversations`、`messages`、`tenant_compliance_policies`（迁移 0018）；`beework/conversations.py`（会话/消息服务、历史窗口、30 分钟无消息结束、按保留期清理）、`compliance.py`、`pii.py`（手机号/邮箱/身份证号/银行卡号基础脱敏）。
+- 调试运行 `POST /assistants/{id}/runs` 现在可带 `conversation_id` 续聊（只有创建者、同一助理可续；上一条未结束返回 409 `conversation.busy`），历史窗口默认 20 条（DSL `limits.history_messages`），助理回复入库并累计 turns/tokens。
+- 合规设置：`GET/PUT /tenant/compliance`（保留期 30/90/180/365 且不超过套餐 `log_retention_days`、日志脱敏、允许导出；`row_version` 乐观锁；审计 `compliance.updated`），前端“设置 → 数据与隐私”页。
+- 脱敏范围：消息入库前脱敏；运行结束后 `runs.input/output` 与 `done` 事件中的文本脱敏并删除 `token` 事件（实时订阅者已收到原文，重放只看到脱敏后的 `done`，事件 `seq` 因此可能不连续）；Langfuse 通过 `mask` 函数在上传前脱敏。
+- Worker 定时任务：`conversations.end_inactive`（每 5 分钟窗口）与 `conversations.retention`（每日，每租户写一条汇总审计）；会话结束触发 `CONVERSATION_ENDED_HOOKS`（T-056a 注册记忆抽取）。
+- 前端：助理卡片菜单“对话历史”→ `/assistants/:id/conversations`（只读列表 + 抽屉详情）。助理详情页（T-021）建成后应把它收进“会话记录”页签。
+- 已知限制：见任务文件“遗留问题”。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

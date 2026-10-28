@@ -7,16 +7,20 @@ from pydantic import BaseModel, Field
 
 class CreateRunRequest(BaseModel):
     message: str = Field(min_length=1, max_length=20000)
+    # Continue an existing console conversation; omitted: a new conversation is started.
+    conversation_id: UUID | None = None
 
 
 class CreateRunResponse(BaseModel):
     run_id: UUID
+    conversation_id: UUID
     status: Literal["queued"] = "queued"
 
 
 class RunResponse(BaseModel):
     id: UUID
     assistant_id: UUID
+    conversation_id: UUID | None
     source: str
     environment: str
     status: str

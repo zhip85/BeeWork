@@ -26,6 +26,7 @@ import { applyLocale, currentLocale, enumLabel, isLocale } from './i18n'
 import { LanguageSwitch } from './i18n/LanguageSwitch'
 import { SectionPlaceholder } from './components/SectionPlaceholder'
 import { AssistantsPage } from './pages/assistants/AssistantsPage'
+import { ConversationsPage } from './pages/assistants/ConversationsPage'
 import { AuditLogPage } from './pages/audit/AuditLogPage'
 import { InviteAcceptancePage } from './pages/auth/InviteAcceptancePage'
 import { LoginPage } from './pages/auth/LoginPage'
@@ -33,6 +34,7 @@ import { NoTenantAccessPage } from './pages/auth/NoTenantAccessPage'
 import { Dashboard } from './pages/dashboard/Dashboard'
 import { MembersPage } from './pages/members/MembersPage'
 import { PlatformConsole } from './pages/platform/PlatformConsole'
+import { DataPrivacyPage } from './pages/settings/DataPrivacyPage'
 import { TenantModelSettingsPage } from './pages/settings/TenantModelSettingsPage'
 import { roleLabel } from './roles'
 import type { CurrentUser } from './types'
@@ -47,7 +49,7 @@ const navigation = [
 ]
 
 function App() {
-  const { t } = useTranslation(['nav', 'common'])
+  const { t } = useTranslation(['nav', 'common', 'settings'])
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>(
     'checking',
   )
@@ -82,6 +84,8 @@ function App() {
       ? t('nav:audit')
       : location.pathname === '/platform/tenants'
       ? t('nav:platformTenants')
+      : location.pathname === '/settings/privacy'
+      ? t('settings:tabs.privacy')
       : location.pathname === '/settings'
       ? t('nav:modelSettings')
       : t(`nav:${navigation.find((item) =>
@@ -306,6 +310,8 @@ function App() {
             ))}
             <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/audit" element={hasPermission('audit:view') && activeTenant ? <AuditLogPage key={activeTenant.id} tenantId={activeTenant.id} canExport={hasPermission('audit:export')} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/settings/privacy" element={hasPermission('settings:view') && activeTenant ? <DataPrivacyPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/assistants/:assistantId/conversations" element={hasPermission('conversations:view') && activeTenant ? <ConversationsPage key={activeTenant.id} tenantId={activeTenant.id} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings" element={canViewSettings && activeTenant ? <TenantModelSettingsPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={canEditSettings} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/members" element={isTenantAdmin && activeTenant ? <MembersPage key={activeTenant.id} tenant={activeTenant} currentUserId={user.id} onMembershipChanged={async () => {
               const refreshed = await apiRequest<CurrentUser>('/api/v1/auth/me')

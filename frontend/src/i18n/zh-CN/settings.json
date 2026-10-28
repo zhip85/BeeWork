@@ -1,1 +1,27 @@
-{}
+{
+  "tabs": {
+    "models": "模型与环境",
+    "privacy": "数据与隐私"
+  },
+  "privacy": {
+    "title": "数据与隐私",
+    "subtitle": "对本租户所有助理和渠道生效；只能在平台基线之上收紧。",
+    "loading": "正在加载…",
+    "loadFailed": "无法加载数据与隐私设置",
+    "retention": "会话数据保留期",
+    "retentionDays": "{{days}} 天",
+    "retentionHint": "超过期限的会话日志将自动删除。不得超过当前套餐的日志保留期（{{cap}} 天）。",
+    "retentionHintCustom": "超过期限的会话日志将自动删除。",
+    "region": "数据存储区域",
+    "regionHint": "创建租户时确定，如需迁移请联系平台。",
+    "redact": "日志中脱敏个人信息",
+    "redactHint": "存储的会话记录、运行记录与追踪按个人信息规则脱敏（手机号、邮箱、身份证号、银行卡号）。",
+    "export": "允许成员导出会话记录",
+    "exportHint": "关闭后运营页的导出入口隐藏。",
+    "save": "保存",
+    "saving": "保存中…",
+    "saved": "已保存",
+    "readOnly": "你没有修改这些设置的权限。",
+    "conflict": "设置已被他人修改，已为你刷新。"
+  }
+}

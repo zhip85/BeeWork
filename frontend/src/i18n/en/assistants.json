@@ -65,7 +65,8 @@
     "copy": "Duplicate",
     "disable": "Disable",
     "enable": "Enable",
-    "delete": "Delete"
+    "delete": "Delete",
+    "history": "Conversations"
   },
   "toast": {
     "copied": "Assistant duplicated",

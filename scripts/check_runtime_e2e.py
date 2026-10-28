@@ -24,6 +24,7 @@ PLATFORM = ("platform@beework.dev", os.environ.get("BOOTSTRAP_PLATFORM_ADMIN_PAS
 TENANT_ADMIN = ("admin@beework.dev", os.environ.get("BOOTSTRAP_ADMIN_PASSWORD", "Beework-Dev-2026!"))
 ORIGIN = os.environ.get("APP_ORIGIN", "http://localhost:5173")
 MOCK_ANSWER = "这是来自 LiteLLM mock_response 的回答，用于验证运行时链路。"
+PHONE = "13812345678"
 
 
 def session(email: str, password: str) -> httpx.Client:
@@ -121,9 +122,10 @@ def main() -> None:
         check("create assistant", assistant.status_code == 201, assistant.text[:200])
         assistant_id = assistant.json()["id"]
 
-        started = tenant_admin.post(f"/api/v1/assistants/{assistant_id}/runs", headers=headers, json={"message": "你好"})
+        started = tenant_admin.post(f"/api/v1/assistants/{assistant_id}/runs", headers=headers, json={"message": f"你好，我的手机号是 {PHONE}"})
         check("start run", started.status_code == 202, started.text[:200])
         run_id = started.json()["run_id"]
+        conversation_id = started.json()["conversation_id"]
 
         events = sse_events(tenant_admin, run_id, headers)
         types = [e["type"] for e in events]
@@ -131,6 +133,17 @@ def main() -> None:
         streamed = "".join(e["data"]["text"] for e in events if e["type"] == "token")
         check("streamed tokens equal the mock answer", streamed == MOCK_ANSWER, streamed)
         check("done event carries stub retrieval mode", events[-1]["data"]["retrieval"]["mode"] == "stub")
+
+        # Second turn in the same conversation, then the stored conversation (redacted by default).
+        second = tenant_admin.post(
+            f"/api/v1/assistants/{assistant_id}/runs", headers=headers,
+            json={"message": "再问一次", "conversation_id": conversation_id},
+        )
+        check("follow-up turn in the same conversation", second.status_code == 202, second.text[:200])
+        sse_events(tenant_admin, second.json()["run_id"], headers)
+        detail = tenant_admin.get(f"/api/v1/conversations/{conversation_id}", headers=headers).json()
+        check("conversation has 4 messages and 2 turns", len(detail["messages"]) == 4 and detail["turns"] == 2, detail["turns"])
+        check("stored messages are PII-redacted", PHONE not in json.dumps(detail, ensure_ascii=False) and "[手机号]" in detail["messages"][0]["content"], detail["messages"][0]["content"])
 
         run = tenant_admin.get(f"/api/v1/runs/{run_id}", headers=headers).json()
         check("run recorded as succeeded", run["status"] == "succeeded" and run["output"]["text"] == MOCK_ANSWER, run)
@@ -146,6 +159,7 @@ def main() -> None:
             check("Langfuse trace for the run exists", bool(observations), f"{len(observations)} observations: {names}")
             metadata = json.dumps(observations, ensure_ascii=False)
             check("trace metadata carries tenant / assistant / run", all(v in metadata for v in (tenant["id"], assistant_id, run_id)))
+            check("trace does not contain the raw phone number (redaction policy)", PHONE not in metadata)
     finally:
         if assistant_id:
             tenant_admin.delete(f"/api/v1/assistants/{assistant_id}", headers=headers)

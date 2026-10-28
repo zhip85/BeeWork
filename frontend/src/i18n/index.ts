@@ -3,6 +3,7 @@ import { initReactI18next } from 'react-i18next'
 import enAssistants from './en/assistants.json'
 import enAudit from './en/audit.json'
 import enAuth from './en/auth.json'
+import enConversations from './en/conversations.json'
 import enCommon from './en/common.json'
 import enEnums from './en/enums.json'
 import enMembers from './en/members.json'
@@ -12,6 +13,7 @@ import enSettings from './en/settings.json'
 import zhAssistants from './zh-CN/assistants.json'
 import zhAudit from './zh-CN/audit.json'
 import zhAuth from './zh-CN/auth.json'
+import zhConversations from './zh-CN/conversations.json'
 import zhCommon from './zh-CN/common.json'
 import zhEnums from './zh-CN/enums.json'
 import zhMembers from './zh-CN/members.json'
@@ -42,14 +44,14 @@ void i18n.use(initReactI18next).init({
   lng: storedLocale(),
   fallbackLng: DEFAULT_LOCALE,
   defaultNS: 'common',
-  ns: ['common', 'assistants', 'nav', 'auth', 'members', 'platform', 'settings', 'audit', 'enums'],
+  ns: ['common', 'assistants', 'conversations', 'nav', 'auth', 'members', 'platform', 'settings', 'audit', 'enums'],
   resources: {
     'zh-CN': {
-      assistants: zhAssistants, common: zhCommon, nav: zhNav, auth: zhAuth, members: zhMembers,
+      assistants: zhAssistants, common: zhCommon, conversations: zhConversations, nav: zhNav, auth: zhAuth, members: zhMembers,
       platform: zhPlatform, settings: zhSettings, audit: zhAudit, enums: zhEnums,
     },
     en: {
-      assistants: enAssistants, common: enCommon, nav: enNav, auth: enAuth, members: enMembers,
+      assistants: enAssistants, common: enCommon, conversations: enConversations, nav: enNav, auth: enAuth, members: enMembers,
       platform: enPlatform, settings: enSettings, audit: enAudit, enums: enEnums,
     },
   },

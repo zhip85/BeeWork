@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bot, LayoutGrid, List, MoreHorizontal, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { formatRelativeTime } from '../../i18n/format'
@@ -18,6 +19,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
   const tenantId = tenant.id
   const writable = tenant.access_mode === 'full'
   const can = (permission: string) => writable && tenant.permissions.includes(permission)
+  const canRead = (permission: string) => tenant.permissions.includes(permission)
 
   const [items, setItems] = useState<Assistant[]>([])
   const [total, setTotal] = useState(0)
@@ -156,7 +158,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
               <header>
                 <span className="assistant-icon"><Bot size={18} /></span>
                 <span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span>
-                <RowMenu assistant={assistant} can={can} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} />
+                <RowMenu assistant={assistant} can={can} canRead={canRead} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} />
               </header>
               <h3>{assistant.name}</h3>
               <p className="assistant-description">{assistant.description}</p>
@@ -184,7 +186,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
                   <td><span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span></td>
                   <td>{assistant.organization_name}</td>
                   <td>{formatRelativeTime(assistant.updated_at)}</td>
-                  <td><RowMenu assistant={assistant} can={can} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} /></td>
+                  <td><RowMenu assistant={assistant} can={can} canRead={canRead} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} /></td>
                 </tr>
               ))}
             </tbody>
@@ -236,6 +238,7 @@ function enumLabelCategory(t: (key: string) => string, category: string) {
 function RowMenu({
   assistant,
   can,
+  canRead,
   menuFor,
   setMenuFor,
   onEdit,
@@ -245,6 +248,7 @@ function RowMenu({
 }: {
   assistant: Assistant
   can: (permission: string) => boolean
+  canRead: (permission: string) => boolean
   menuFor: string | null
   setMenuFor: (id: string | null) => void
   onEdit: () => void
@@ -253,10 +257,12 @@ function RowMenu({
   onDelete: () => void
 }) {
   const { t } = useTranslation('assistants')
+  const navigate = useNavigate()
   const open = menuFor === assistant.id
   const ownable = assistant.can_edit
   const entries: { key: string; label: string; run: () => void; danger?: boolean }[] = []
   if (ownable && can('assistants:edit')) entries.push({ key: 'edit', label: t('menu.edit'), run: onEdit })
+  if (canRead('conversations:view')) entries.push({ key: 'history', label: t('menu.history'), run: () => navigate(`/assistants/${assistant.id}/conversations`) })
   if (ownable && can('assistants:edit')) entries.push({ key: 'copy', label: t('menu.copy'), run: onCopy })
   if (ownable && can('assistants:publish') && assistant.status !== 'draft') {
     entries.push({ key: 'toggle', label: assistant.status === 'published' ? t('menu.disable') : t('menu.enable'), run: onToggle })

@@ -1,0 +1,47 @@
+{
+  "title": "会话记录",
+  "subtitle": "只读。点击会话查看完整对话。",
+  "back": "返回助理",
+  "loading": "正在加载会话…",
+  "loadFailed": "无法加载会话",
+  "empty": "还没有会话",
+  "emptyFiltered": "没有符合筛选条件的会话",
+  "retry": "重试",
+  "cols": {
+    "id": "会话 ID",
+    "user": "用户",
+    "channel": "渠道",
+    "turns": "轮次",
+    "csat": "满意度",
+    "status": "状态",
+    "active": "最近活动"
+  },
+  "status": {
+    "in_progress": "进行中",
+    "handoff": "已转人工",
+    "resolved": "已解决",
+    "abandoned": "已放弃"
+  },
+  "filter": {
+    "status": "状态：全部"
+  },
+  "channel": {
+    "console": "测试控制台"
+  },
+  "detail": {
+    "title": "会话详情",
+    "close": "关闭",
+    "loading": "正在加载…",
+    "loadFailed": "无法加载会话详情",
+    "noMessages": "这个会话没有消息",
+    "trace": "调用链",
+    "role": {
+      "user": "用户",
+      "assistant": "助理",
+      "human_agent": "人工坐席",
+      "system": "系统"
+    },
+    "tokens": "Token：{{count}}"
+  },
+  "note": "个人信息已按“数据与隐私”设置脱敏存储。"
+}

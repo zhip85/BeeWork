@@ -18,6 +18,7 @@ from starlette.exceptions import HTTPException
 
 from beework import rbac
 from beework.auth import get_current_user
+from beework.errors import ApiError  # noqa: F401  (re-exported: the documented import location)
 from beework.models import Membership, TenantRole, User, utc_now  # noqa: F401
 from beework.models.mixins import (  # noqa: F401  (re-exported: the documented import location)
     SoftDeleteMixin,
@@ -25,16 +26,6 @@ from beework.models.mixins import (  # noqa: F401  (re-exported: the documented 
     TimestampMixin,
     VersionedMixin,
 )
-
-
-class ApiError(Exception):
-    """Business error rendered to clients as ``{"detail": ..., "code": ...}``."""
-
-    def __init__(self, status_code: int, code: str, detail: str) -> None:
-        super().__init__(detail)
-        self.status_code = status_code
-        self.code = code
-        self.detail = detail
 
 
 def error_response(

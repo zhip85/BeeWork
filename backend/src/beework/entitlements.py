@@ -15,7 +15,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from beework.api.conventions import ApiError
+from beework.errors import ApiError
 from beework.models import MemberInvitation, Membership, Tenant, User
 from beework.models.plans import Plan, PlanVersion, TenantSubscription
 

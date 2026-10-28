@@ -7,6 +7,7 @@ The trace id is derived from the run id, so a run can always be located in Langf
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
@@ -15,6 +16,15 @@ from beework.config import settings
 from beework.integrations.langfuse import langfuse_configured
 
 logger = logging.getLogger(__name__)
+
+# Set while a run of a tenant that redacts personal information is traced (SET-070).
+_REDACT_TRACES: ContextVar[bool] = ContextVar("redact_traces", default=False)
+
+
+def _mask(data: Any) -> Any:
+    from beework.pii import redact_data
+
+    return redact_data(data) if _REDACT_TRACES.get() else data
 
 
 @dataclass
@@ -35,8 +45,9 @@ class TraceHandle:
 
 
 @contextmanager
-def trace_run(run_id: UUID, *, metadata: dict[str, str]) -> Iterator[TraceHandle]:
+def trace_run(run_id: UUID, *, metadata: dict[str, str], redact: bool = False) -> Iterator[TraceHandle]:
     handle = TraceHandle()
+    redact_token = _REDACT_TRACES.set(redact)
     span_context = None
     client = None
     if langfuse_configured():
@@ -51,6 +62,7 @@ def trace_run(run_id: UUID, *, metadata: dict[str, str]) -> Iterator[TraceHandle
                 # Langfuse Cloud only exposes SDK v3 spans through GET /api/public/v2/observations
                 # when they are ingested with this header.
                 additional_headers={"x-langfuse-ingestion-version": "4"},
+                mask=_mask,
             )
             trace_id = Langfuse.create_trace_id(seed=str(run_id))
             span_context = client.start_as_current_span(
@@ -79,3 +91,4 @@ def trace_run(run_id: UUID, *, metadata: dict[str, str]) -> Iterator[TraceHandle
                 span_context.__exit__(None, None, None)
             except Exception:
                 logger.warning("Langfuse span close failed for run %s", run_id, exc_info=True)
+        _REDACT_TRACES.reset(redact_token)
