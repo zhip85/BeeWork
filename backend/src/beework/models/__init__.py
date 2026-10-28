@@ -612,4 +612,4 @@ def prevent_audit_event_mutation(session, _flush_context, _instances) -> None:
 # (importing Base / utc_now from this package) and registers it here so that
 # Alembic autogenerate and `Base.metadata.create_all` see its tables.
 # from beework.models import assistants  # noqa: E402,F401  (example)
-from beework.models import jobs  # noqa: E402,F401
+from beework.models import jobs, plans  # noqa: E402,F401

@@ -124,6 +124,12 @@
 - 已迁移：应用外壳、平台后台外壳、登录/邀请/无租户页、无权访问占位页，全部枚举（`constants.ts` 已删除，改用 `enumLabel`/`enumOptions`）。
 - 已知限制：`members`、`settings`、`audit` 命名空间已建但为空，这些页面及 Dashboard、`CreateModal` 正文仍是中文，需分批迁移；后端错误信息暂不翻译。
 
+### 套餐、订阅快照与配额服务（T-010a，闭环切片，待验收）
+
+- 表 `plans` / `plan_versions` / `tenant_subscriptions`（迁移 0015，三套餐 v1 种子，现有租户按 `tenants.plan` + `tenants.seat_limit` 回填快照；`tenants.plan`/`seat_limit` 列保留为兼容列）。
+- `beework/entitlements.py`：`get_subscription`（缺快照时懒创建）、`has_entitlement`/`ensure_entitlement`/`require_entitlement`（403 `plan.feature_locked`）、`check_quota`/`enforce_quota`（409 `plan.quota_exceeded`）、用量计数器注册表；席位逻辑（邀请、重发、接受、恢复成员）已改为读订阅快照；平台创建租户同时写订阅；`GET /api/v1/tenant/subscription`（需 `settings:view`）。
+- 已知限制：只有 `seats` 注册了用量计数器，**T-020 必须注册 `assistants` 计数器**（未注册的配额调用 `check_quota` 会抛 `ValueError`，不会静默当作 0）；`environments_for_plan` 与模型可用性仍读 `tenants.plan`；平台套餐页、发布新版本、应用订阅变更、订阅与用量页、RUL-013 属 T-010 剩余部分，未做。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

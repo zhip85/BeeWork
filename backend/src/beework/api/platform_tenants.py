@@ -10,6 +10,7 @@ from beework.auth import (
     require_csrf,
 )
 from beework.db import get_db
+from beework.entitlements import create_subscription
 from beework.models import (
     AuditEvent,
     AuthSession,
@@ -72,6 +73,7 @@ def create_tenant(
     root_organization = Organization(tenant_id=tenant.id, name=tenant.name)
     db.add(root_organization)
     db.flush()
+    create_subscription(db, tenant, seats=payload.seat_limit)
     tenant_admin = User(
         email=admin_email,
         display_name=payload.admin_name,
