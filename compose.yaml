@@ -75,6 +75,18 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://beework:beework_local_only@postgres:5432/beework}
       VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379/0}
+      # Runs execute here (LangGraph -> LiteLLM, Langfuse traces) and decrypt the tenant gateway keys.
+      MODEL_CREDENTIALS_SECRET: ${MODEL_CREDENTIALS_SECRET:-local-only-model-credentials-secret}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-beework-local-only-master}
+      RAGFLOW_BASE_URL: ${RAGFLOW_BASE_URL:-}
+      RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+    volumes:
+      - ./backend/src:/app/src
     restart: unless-stopped
     depends_on:
       api:

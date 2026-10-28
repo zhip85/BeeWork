@@ -7,6 +7,7 @@ from collections.abc import Callable
 from sqlalchemy.orm import Session
 
 from beework.db import SessionLocal
+from beework.runtime import jobs as _runtime_jobs  # noqa: F401  (registers runtime.execute)
 from beework.worker.queue import claim_jobs, execute_job, reclaim_expired_jobs
 from beework.worker.scheduler import enqueue_scheduled_jobs
 
