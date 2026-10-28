@@ -16,11 +16,15 @@ from beework.compliance import get_policy
 from beework.conversations import append_message, history_for_run
 from beework.gateway_sync import tenant_gateway_key
 from beework.integrations.litellm import GatewayError
+from beework.memory import load_memory_context
 from beework.models import Tenant, TenantModelEnvironment
 from beework.models.conversations import Conversation
 from beework.models.jobs import RunEvent
 from beework.models.runtime import Run
 from beework.pii import redact_text
+from beework.runtime import (
+    memory_stage as _memory_stage,  # noqa: F401  (registers the memory stage)
+)
 from beework.runtime.compiler import RuntimeDeps, StageClock, compile_assistant
 from beework.runtime.dsl import AssistantDSLv1
 from beework.runtime.errors import RunCancelled, RunTimedOut, RuntimeFailure
@@ -53,10 +57,16 @@ def run_metadata(run: Run) -> dict[str, str]:
 
 
 def gateway_llm(db: Session, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
+    return gateway_llm_for(db, run.tenant_id, run.environment, dsl, run_metadata(run))
+
+
+def gateway_llm_for(
+    db: Session, tenant_id: UUID, environment_name: str, dsl: AssistantDSLv1, metadata: dict[str, str]
+) -> BaseChatModel:
     environment = db.scalar(
         select(TenantModelEnvironment).where(
-            TenantModelEnvironment.tenant_id == run.tenant_id,
-            TenantModelEnvironment.environment == run.environment,
+            TenantModelEnvironment.tenant_id == tenant_id,
+            TenantModelEnvironment.environment == environment_name,
         )
     )
     if environment is None:
@@ -67,7 +77,7 @@ def gateway_llm(db: Session, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
         raise RuntimeFailure("runtime.gateway_not_ready", str(exc)) from exc
     except ValueError as exc:
         raise RuntimeFailure("runtime.gateway_not_ready", "环境网关密钥不可用，请重新保存模型配置") from exc
-    return build_chat_model(dsl, api_key=api_key, metadata=run_metadata(run))
+    return build_chat_model(dsl, api_key=api_key, metadata=metadata)
 
 
 def classify_error(exc: Exception) -> RuntimeFailure:
@@ -210,6 +220,7 @@ def _execute_run(
 
     buffer = _TokenBuffer(db, run)
     clock = StageClock()
+    bind = db.get_bind()
     last_poll = [0.0]
     trace_url: str | None = None
     try:
@@ -222,12 +233,25 @@ def _execute_run(
                 raise RunTimedOut(dsl.limits.timeout_seconds)
             if now - last_poll[0] >= CANCEL_POLL_SECONDS:
                 last_poll[0] = now
-                db.refresh(run)
-                if run.cancel_requested:
-                    raise RunCancelled
+                # Graph nodes run in worker threads while this thread publishes events on ``db``;
+                # a Session is not thread safe, so nodes only ever use their own short-lived sessions.
+                with Session(bind=bind) as side:
+                    if side.scalar(select(Run.cancel_requested).where(Run.id == run.id)):
+                        raise RunCancelled
 
         def allowed_datasets(requested: Sequence[str]) -> list[str]:
             return tenant_dataset_ids(run.tenant_id, requested)
+
+        end_user_id = None
+        if run.conversation_id is not None:
+            end_user_id = db.scalar(select(Conversation.end_user_id).where(Conversation.id == run.conversation_id))
+
+        def memory_context(query: str) -> list[dict[str, str]]:
+            with Session(bind=bind) as side:  # called from a graph worker thread: own session
+                return load_memory_context(
+                    side, tenant_id=run.tenant_id, end_user_id=end_user_id, assistant_id=run.assistant_id,
+                    oc=dsl.oc, query=query,
+                )
 
         final: dict[str, Any] = {}
         redact = get_policy(db, run.tenant_id).redact_pii
@@ -246,6 +270,7 @@ def _execute_run(
                     callbacks=trace.callbacks,
                     span=trace.span,
                     clock=clock,
+                    memory=memory_context,
                 ),
             )
             for mode, payload in graph.stream(

@@ -27,5 +27,6 @@ def enqueue_scheduled_jobs(db: Session, *, now: datetime | None = None) -> None:
     window = current_time.date().isoformat()
     enqueue(db, "audit.retention", {}, idempotency_key=f"audit.retention:{window}")
     enqueue(db, "conversations.retention", {}, idempotency_key=f"conversations.retention:{window}")
+    enqueue(db, "memory.retention", {}, idempotency_key=f"memory.retention:{window}")
     five_minutes = f"{window}T{current_time.hour:02d}:{current_time.minute // 5 * 5:02d}"
     enqueue(db, "conversations.end_inactive", {}, idempotency_key=f"conversations.end_inactive:{five_minutes}")

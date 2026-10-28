@@ -30,3 +30,18 @@
 - **不做（留给 T-056 剩余部分）**：短期记忆 token 滑动窗口、套餐权益分级（暂不区分，按开启即可用）、文件配置弹窗与页面、编排总览摘要、可配置 PII 规则（T-055）。
 - 测试：跨租户、跨终端用户不可见；助理私有文件不跨助理；删除后不再注入；抽取幂等；写入内容已脱敏。
 - 隐私约束：记忆属终端用户个人数据，本切片必须保证按租户与终端用户隔离、可整体删除；不得写入 RAGFlow。
+
+### T-056a 完成记录
+
+**改动文件**：新增 `models/memory.py`、`memory.py`、`memory_jobs.py`、`runtime/memory_stage.py`、迁移 `0020_memory.py`（可降级）、`tests/test_memory.py`（18 项）；修改 `runtime/{executor,compiler}.py`（记忆提供者、线程安全）、`worker/{runner,scheduler}.py`、`models/__init__.py`、`models/conversations.py`、`tests/{test_runtime,test_worker}.py`、`scripts/check_runtime_e2e.py`（记忆抽取/读回校验，并清理自己产生的会话数据）。
+
+**验证**：`ruff`、`./scripts/test-postgres.sh`（迁移升降级 + `alembic check` + 153 项）、`check_gateway_e2e.py` 通过。真实栈 `check_runtime_e2e.py`（`mock_response` 模型）：经 LiteLLM 抽取得到 `{memory:1, profile:1, session:1}`、手机号已脱敏、同一终端用户读回三类记忆；会话结束钩子在真实 Worker 里也触发了 `memory.extract` 任务。单元测试覆盖：相关度/时间衰减/中文匹配/Top-K/过期、按用户/租户/助理隔离（含跨租户）、OC 开关、白名单类型、脱敏、幂等与替换、跳过条件、非 JSON 触发重试、钩子与任务、保留期清理、按用户删除与审计、运行时注入与跨用户隔离。仍是 mock 模型 + 检索桩。
+
+**遗留问题 / 需开发负责人确认**
+- **与规格的偏差**：规格决定 v1 用“PostgreSQL 全文检索 + 时间衰减”。PostgreSQL 内置全文检索（`simple`/`english`）无法给中文分词，所以这里改为：PostgreSQL 先按租户/用户/文件取最近 200 条候选，再在应用内用关键词 + 中文双字相关度 × 时间衰减排序。接口仍是 `MemoryRetriever`，未引入向量库，也没写入 RAGFlow。若要严格用 PG 全文检索，需要 `zhparser`/`pg_trgm` 之类的扩展，请确认。
+- 未做（留给 T-056 剩余部分）：短期窗口的 Token 滑动截断（目前用 DSL `history_messages` 固定条数）、套餐分级（标准版只有短期、企业版跨助理画像）、文件配置弹窗与页面、编排总览摘要；Tools 文件（按用户历史工具调用）未实现，OC 中只是占位配置。
+- 抽取只能读取已入库（已按租户策略脱敏）的消息；若租户关闭了日志脱敏，抽取结果仍会再脱敏一次后写入。
+- 没有会话“被关闭”的入口，目前只有 30 分钟无消息会触发抽取。
+- 抽取提示词与字段（user_memory / profile / session_summary）是本任务定的，质量未用真实模型评估。
+- 记忆目前只写在 `console`（调试）会话的终端用户上；真实渠道用户的身份与会话来自 T-041 以后。
+- `memory.retention` 的审计没有租户归属（全局任务）。

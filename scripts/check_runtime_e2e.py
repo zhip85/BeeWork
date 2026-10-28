@@ -73,6 +73,31 @@ def langfuse_observations(trace_id: str) -> list[dict] | None:
     return []
 
 
+def _remove_test_data(assistant_id: str) -> None:
+    """Delete the conversations, runs, events and memories this check created (the assistant is soft-deleted)."""
+    from uuid import UUID
+
+    from sqlalchemy import delete, select
+
+    from beework.db import SessionLocal
+    from beework.models.conversations import Conversation, Message
+    from beework.models.jobs import RunEvent
+    from beework.models.memory import EndUserMemory
+    from beework.models.runtime import Run
+
+    target = UUID(assistant_id)
+    time.sleep(3)  # let a queued memory.extract job for the test conversation finish first
+    with SessionLocal() as db:
+        conversations = list(db.scalars(select(Conversation.id).where(Conversation.assistant_id == target)))
+        runs = list(db.scalars(select(Run.id).where(Run.assistant_id == target)))
+        db.execute(delete(EndUserMemory).where(EndUserMemory.source_conversation_id.in_(conversations)))
+        db.execute(delete(RunEvent).where(RunEvent.run_id.in_(runs)))
+        db.execute(delete(Message).where(Message.conversation_id.in_(conversations)))
+        db.execute(delete(Run).where(Run.id.in_(runs)))
+        db.execute(delete(Conversation).where(Conversation.id.in_(conversations)))
+        db.commit()
+
+
 def main() -> None:
     platform = session(*PLATFORM)
     tenant_admin = session(*TENANT_ADMIN)
@@ -150,6 +175,45 @@ def main() -> None:
         check("conversation has 4 messages and 2 turns", len(detail["messages"]) == 4 and detail["turns"] == 2, detail["turns"])
         check("stored messages are PII-redacted", PHONE not in json.dumps(detail, ensure_ascii=False) and "[手机号]" in detail["messages"][0]["content"], detail["messages"][0]["content"])
 
+        # Long-term memory: end the conversation, extract through the real gateway path, then read it back.
+        memory_answer = json.dumps({
+            "user_memory": [{"type": "preference", "text": f"喜欢乌龙茶，手机 {PHONE}"}],
+            "profile": [{"text": "旅行顾问"}],
+            "session_summary": "用户咨询了乌龙茶。",
+        }, ensure_ascii=False)
+        gateway.post("/model/delete", json={"id": model["id"]}).raise_for_status()
+        gateway.post("/model/new", json={
+            "model_name": f"bw-{model['id']}",
+            "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-dummy", "mock_response": memory_answer},
+            "model_info": {"id": model["id"], "mode": "chat"},
+        }).raise_for_status()
+        from datetime import UTC, datetime, timedelta
+        from uuid import UUID
+
+        from beework import conversations as conversation_service
+        from beework.db import SessionLocal
+        from beework.memory import extract_conversation_memory, load_memory_context
+        from beework.memory_jobs import gateway_extraction_llm
+        from beework.models.conversations import Conversation
+        from beework.models.memory import EndUserMemory
+        from beework.runtime.oc import OCConfig
+
+        with SessionLocal() as db:
+            conversation_service.end_conversation(db, db.get(Conversation, UUID(conversation_id)), datetime.now(UTC))
+            db.commit()
+            written = extract_conversation_memory(db, UUID(conversation_id), llm_factory=gateway_extraction_llm)
+            check("memory extracted through LiteLLM", written == {"memory": 1, "profile": 1, "session": 1}, written)
+            rows = list(db.query(EndUserMemory).filter(EndUserMemory.source_conversation_id == UUID(conversation_id)))
+            check("memory entries are PII-redacted", rows and all(PHONE not in r.content for r in rows), [r.content for r in rows])
+            conversation = db.get(Conversation, UUID(conversation_id))
+            context = load_memory_context(
+                db, tenant_id=conversation.tenant_id, end_user_id=conversation.end_user_id,
+                assistant_id=conversation.assistant_id, oc=OCConfig(), query="推荐乌龙茶",
+            )
+            check("memory is read back for the same end user", {c["file"] for c in context} == {"UserProfile", "UserMemory", "Session"}, context)
+            db.query(EndUserMemory).filter(EndUserMemory.source_conversation_id == UUID(conversation_id)).delete()
+            db.commit()
+
         run = tenant_admin.get(f"/api/v1/runs/{run_id}", headers=headers).json()
         check("run recorded as succeeded", run["status"] == "succeeded" and run["output"]["text"] == MOCK_ANSWER, run)
         print(f"     tokens in/out: {run['tokens_in']}/{run['tokens_out']}, latency {run['latency_ms']} ms, pipeline overhead {run['pipeline_ms']} ms, trace_url: {run['trace_url']}")
@@ -171,6 +235,7 @@ def main() -> None:
     finally:
         if assistant_id:
             tenant_admin.delete(f"/api/v1/assistants/{assistant_id}", headers=headers)
+            _remove_test_data(assistant_id)
         current = tenant_admin.get("/api/v1/tenant/model-environments/production", headers=headers).json()
         tenant_admin.put(
             "/api/v1/tenant/model-environments/production", headers=headers,

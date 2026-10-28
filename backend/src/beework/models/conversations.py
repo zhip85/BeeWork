@@ -28,6 +28,7 @@ class EndUser(Base, TenantOwnedMixin):
     __tablename__ = "end_users"
     __table_args__ = (
         UniqueConstraint("tenant_id", "channel_type", "external_id", name="uq_end_users_channel_identity"),
+        UniqueConstraint("id", "tenant_id", name="uq_end_users_id_tenant_id"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)

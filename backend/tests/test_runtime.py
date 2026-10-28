@@ -8,8 +8,8 @@ import httpx
 import openai
 from fastapi.testclient import TestClient
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessageChunk, BaseMessage
-from langchain_core.outputs import ChatGenerationChunk, ChatResult
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -64,7 +64,9 @@ class ScriptedChat(BaseChatModel):
         return "scripted"
 
     def _generate(self, messages: list[BaseMessage], stop=None, run_manager=None, **kwargs) -> ChatResult:
-        raise NotImplementedError
+        # Non-streaming calls (e.g. memory extraction) get the scripted chunks joined into one message.
+        chunks = list(self._stream(messages, stop=stop, run_manager=run_manager, **kwargs))
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content="".join(c.message.content for c in chunks)))])
 
     def _stream(self, messages, stop=None, run_manager=None, **kwargs) -> Iterator[ChatGenerationChunk]:
         self.seen_messages.append(messages)
@@ -139,6 +141,7 @@ class RuntimeTests(unittest.TestCase):
         Base.metadata.drop_all(self.engine)
         Base.metadata.create_all(self.engine)
         self.client = TestClient(app)
+        self._stages = dict(compiler.STAGE_FACTORIES)
         with self.session_factory.begin() as db:
             tenant = Tenant(name="Acme", slug="acme", plan="enterprise", seat_limit=20)
             other = Tenant(name="Other", slug="other", plan="enterprise", seat_limit=20)
@@ -481,6 +484,12 @@ class RuntimeTests(unittest.TestCase):
 
     # -- OC pipeline ----------------------------------------------------------------
 
+    def restore_stage(self, name: str) -> None:
+        if name in self._stages:
+            compiler.STAGE_FACTORIES[name] = self._stages[name]
+        else:
+            compiler.STAGE_FACTORIES.pop(name, None)
+
     def test_every_stage_records_timing_and_pipeline_overhead_excludes_model_time(self) -> None:
         headers = self.login("admin@example.com")
         run_id = self.start_run(headers).json()["run_id"]
@@ -506,7 +515,7 @@ class RuntimeTests(unittest.TestCase):
             run_id = self.start_run(headers).json()["run_id"]
             self.run_in_worker(run_id)
         finally:
-            compiler.STAGE_FACTORIES.pop("pii_input", None)
+            self.restore_stage("pii_input")
         run = self.run_row(run_id)
         self.assertEqual((run.status, run.error_code, run.error_stage), ("failed", "runtime.pii_blocked", "pii_input"))
         events = self.events(run_id)
@@ -529,7 +538,7 @@ class RuntimeTests(unittest.TestCase):
             run_id = self.start_run(headers).json()["run_id"]
             self.run_in_worker(run_id)
         finally:
-            compiler.STAGE_FACTORIES.pop("glossary_rewrite", None)
+            self.restore_stage("glossary_rewrite")
         run = self.run_row(run_id)
         self.assertEqual((run.error_code, run.error_stage), ("runtime.internal", "glossary_rewrite"))
         self.assertNotIn("secret", f"{run.error} {self.events(run_id)[-1].data}")
@@ -547,7 +556,7 @@ class RuntimeTests(unittest.TestCase):
             )
             graph.invoke({"input": "hi", "history": []})
         finally:
-            compiler.STAGE_FACTORIES.pop("memory", None)
+            self.restore_stage("memory")
         system_prompt = llm.seen_messages[0][0].content
         self.assertTrue(system_prompt.startswith("base prompt"))
         self.assertIn("[UserMemory] prefers short answers", system_prompt)

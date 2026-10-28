@@ -165,13 +165,13 @@ class WorkerQueueTests(unittest.TestCase):
     def test_worker_loop_step_runs_jobs_and_schedules_once_per_day(self):
         with self.sessions.begin() as db:
             enqueue(db, "noop.echo", {"message": "hello"}, tenant_id=self.tenant_id)
-        self.assertEqual(run_once("worker-1", self.sessions), 4)  # noop.echo + the 3 scheduled jobs
+        self.assertEqual(run_once("worker-1", self.sessions), 5)  # noop.echo + the 4 scheduled jobs
         self.assertEqual(run_once("worker-2", self.sessions), 0)  # nothing new, no duplicate schedule
         with self.sessions() as db:
             jobs = list(db.scalars(select(Job)))
             self.assertEqual(
                 sorted(job.kind for job in jobs),
-                ["audit.retention", "conversations.end_inactive", "conversations.retention", "noop.echo"],
+                ["audit.retention", "conversations.end_inactive", "conversations.retention", "memory.retention", "noop.echo"],
             )
             self.assertTrue(all(job.status == "succeeded" for job in jobs), [(j.kind, j.status, j.last_error) for j in jobs])
 
@@ -193,6 +193,8 @@ class WorkerQueueTests(unittest.TestCase):
                 "conversations.end_inactive:2026-10-23T08:00",
                 "conversations.retention:2026-10-22",
                 "conversations.retention:2026-10-23",
+                "memory.retention:2026-10-22",
+                "memory.retention:2026-10-23",
             ],
         )
 
