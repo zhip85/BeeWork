@@ -12,12 +12,14 @@ from beework.api.common import (
     lock_tenant,
     make_current_user_response,
 )
+from beework.api.conventions import ApiError
 from beework.auth import (
     require_csrf,
     require_tenant_roles,
 )
 from beework.config import settings
 from beework.db import get_db
+from beework.entitlements import quota_limit, seat_usage
 from beework.models import (
     AuditEvent,
     AuthSession,
@@ -52,28 +54,12 @@ from beework.security import (
 router = APIRouter()
 
 
-def _seat_usage(db: Session, tenant_id: UUID) -> int:
-    now = datetime.now(UTC)
-    active_members = db.scalar(
-        select(func.count())
-        .select_from(Membership)
-        .join(User, User.id == Membership.user_id)
-        .where(
-            Membership.tenant_id == tenant_id,
-            Membership.status == "active",
-            User.is_active.is_(True),
-        )
-    ) or 0
-    pending_invitations = db.scalar(
-        select(func.count())
-        .select_from(MemberInvitation)
-        .where(
-            MemberInvitation.tenant_id == tenant_id,
-            MemberInvitation.status == "pending",
-            MemberInvitation.expires_at > now,
-        )
-    ) or 0
-    return active_members + pending_invitations
+_UNLIMITED_SEATS = 1_000_000
+
+
+def _seat_limit(db: Session, tenant_id: UUID) -> int:
+    limit = quota_limit(db, tenant_id, "seats")
+    return _UNLIMITED_SEATS if limit is None else limit
 
 
 def _invitation_response(
@@ -148,8 +134,8 @@ def list_members(
     )
     return MemberListResponse(
         tenant_id=membership.tenant_id,
-        seat_limit=db.get(Tenant, membership.tenant_id).seat_limit,
-        seats_used=_seat_usage(db, membership.tenant_id),
+        seat_limit=_seat_limit(db, membership.tenant_id),
+        seats_used=seat_usage(db, membership.tenant_id),
         members=[
             MemberResponse(
                 id=user.id,
@@ -187,7 +173,7 @@ def create_member_invitations(
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> CreateMemberInvitationsResponse:
-    tenant = lock_tenant(db, membership.tenant_id)
+    lock_tenant(db, membership.tenant_id)
     organization = db.scalar(
         select(Organization).where(
             Organization.id == payload.organization_id,
@@ -235,11 +221,13 @@ def create_member_invitations(
         if pending_invitation:
             raise HTTPException(status_code=409, detail=f"{email} 已有待处理邀请")
 
-    seats_used = _seat_usage(db, membership.tenant_id)
-    if seats_used + len(emails) > tenant.seat_limit:
-        raise HTTPException(
-            status_code=409,
-            detail=f"席位已满（{seats_used}/{tenant.seat_limit}），请联系平台扩容",
+    seats_used = seat_usage(db, membership.tenant_id)
+    seat_limit = _seat_limit(db, membership.tenant_id)
+    if seats_used + len(emails) > seat_limit:
+        raise ApiError(
+            409,
+            "plan.quota_exceeded",
+            f"席位已满（{seats_used}/{seat_limit}），请联系平台扩容",
         )
 
     created: list[CreatedMemberInvitationResponse] = []
@@ -277,7 +265,7 @@ def create_member_invitations(
     db.commit()
     return CreateMemberInvitationsResponse(
         invitations=created,
-        seat_limit=tenant.seat_limit,
+        seat_limit=seat_limit,
         seats_used=seats_used + len(created),
     )
 
@@ -369,7 +357,7 @@ def accept_member_invitation(
         db.add(user)
         db.flush()
 
-    if _seat_usage(db, invitation.tenant_id) > tenant.seat_limit:
+    if seat_usage(db, invitation.tenant_id) > _seat_limit(db, invitation.tenant_id):
         raise HTTPException(status_code=409, detail="企业席位已调整，请联系企业管理员")
     member = Membership(
         tenant_id=invitation.tenant_id,
@@ -421,13 +409,9 @@ def resend_member_invitation(
         previous_expiry = previous_expiry.replace(tzinfo=UTC)
     if (
         previous_expiry <= datetime.now(UTC)
-        and _seat_usage(db, membership.tenant_id)
-        >= db.get(Tenant, membership.tenant_id).seat_limit
+        and seat_usage(db, membership.tenant_id) >= _seat_limit(db, membership.tenant_id)
     ):
-        raise HTTPException(
-            status_code=409,
-            detail="席位已满，请联系平台扩容后再重新发送邀请",
-        )
+        raise ApiError(409, "plan.quota_exceeded", "席位已满，请联系平台扩容后再重新发送邀请")
     token = secrets.token_urlsafe(32)
     invitation.token_hash = hashlib.sha256(token.encode()).hexdigest()
     invitation.status = "pending"
@@ -506,13 +490,8 @@ def change_member_status(
     if target_membership.status == payload.status:
         return _member_response(db, target_user, target_membership)
     if payload.status == "active":
-        if _seat_usage(db, membership.tenant_id) >= db.get(
-            Tenant, membership.tenant_id
-        ).seat_limit:
-            raise HTTPException(
-                status_code=409,
-                detail="席位已满，请联系平台扩容后再恢复成员",
-            )
+        if seat_usage(db, membership.tenant_id) >= _seat_limit(db, membership.tenant_id):
+            raise ApiError(409, "plan.quota_exceeded", "席位已满，请联系平台扩容后再恢复成员")
     if (
         payload.status == "suspended"
         and target_membership.role == "tenant_admin"

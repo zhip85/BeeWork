@@ -10,6 +10,7 @@ from beework.api import (
     platform_models,
     platform_tenants,
     roles,
+    subscription,
     tenant_models,
 )
 
@@ -25,5 +26,6 @@ for module in (
     organizations,
     integrations,
     jobs,
+    subscription,
 ):
     router.include_router(module.router)

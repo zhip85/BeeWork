@@ -40,3 +40,18 @@
 - **不做（留给 T-010 剩余部分）**：平台“套餐与权益”页、`GET /platform/plans`、新建版本、`POST /platform/tenants/{id}/subscription`、租户“订阅与用量”页、RUL-013 删除限制。
 - 测试：权益锁定 403、席位/助理数硬限制 409（`plan.quota_exceeded`）。
 - 完成 T-010a 后，T-020 的依赖即满足；本任务整体仍保持「待开发」直到剩余部分完成。
+
+### T-010a 完成记录
+
+**改动文件**：`backend/src/beework/models/plans.py`、`entitlements.py`、`schemas/plans.py`、`api/subscription.py`（均新增）；`models/__init__.py`、`api/__init__.py` 各一行注册；`api/members.py`（席位逻辑改读订阅，`_seat_usage` 移到 `entitlements.seat_usage`）；`api/platform_tenants.py`（创建租户写订阅）；迁移 `0015_plans_subscriptions.py`（可降级）；`tests/test_entitlements.py`（9 项）。
+
+**接口**：`GET /api/v1/tenant/subscription`（`settings:view`；返回套餐、版本、权益、配额与当前用量，用量暂只有 `seats`，其余为 `null`）。席位超限现在返回 409 `code=plan.quota_exceeded`（文案不变）。
+
+**验证**：`ruff` 通过；`./scripts/test-postgres.sh`（迁移升降级 + `alembic check` + 72 项）通过；在开发库执行 `alembic upgrade head` 后现有 2 个租户均有当前订阅（席位 10）、三套餐 v1 种子存在。测试覆盖：快照生成、权益锁定 403、`require_entitlement` 依赖、硬/软/不限配额与降级后不可新增、新版本不影响已有快照、未登录 401 / 无权限 403 / 跨租户 403、席位硬限制、平台创建租户写快照。未连接任何第三方引擎。
+
+**遗留问题 / 需产品确认**
+- PRD 3.14.1 套餐表写企业版默认席位 200，PLT-082 配额表写 500；种子按配额表用 500，请产品确认。
+- 各配额的超额策略（hard/soft/degrade）产品尚未定，种子全部为 `hard`，T-011/T-102 再调整。
+- `environments_for_plan` 与 `tenant_models.py` 的模型可用性仍读 `tenants.plan`；T-010 剩余部分需改为读订阅，并在“应用订阅变更”时同步这两个字段或删除它们。
+- 租户创建后若有人直接改 `tenants.plan`/`seat_limit`，订阅快照不会跟着变（目前没有修改入口，只有创建）。
+- 跨租户“404”不适用：租户接口按 `X-Tenant-ID` 校验成员身份，非成员为 403（沿用现有约定）。
