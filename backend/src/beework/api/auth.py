@@ -25,6 +25,7 @@ from beework.schemas import (
     CurrentUserResponse,
     LoginRequest,
     TenantMembershipResponse,
+    UserPreferencesRequest,
 )
 from beework.security import (
     decode_access_token,
@@ -98,6 +99,22 @@ def current_user(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> CurrentUserResponse:
+    return make_current_user_response(db, user)
+
+
+@router.patch("/auth/me/preferences", response_model=CurrentUserResponse)
+def update_preferences(
+    payload: UserPreferencesRequest,
+    _: None = Depends(require_csrf),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CurrentUserResponse:
+    if user.locale != payload.locale:
+        user.locale = payload.locale
+        record_user_activity(
+            db, user, "auth.preferences_updated", details={"locale": payload.locale}
+        )
+        db.commit()
     return make_current_user_response(db, user)
 
 

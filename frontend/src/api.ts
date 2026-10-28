@@ -1,5 +1,4 @@
-
-
+import i18n from './i18n'
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -28,7 +27,7 @@ export async function apiRequest<T>(
   if (response.status === 204) return undefined as T
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
-    const message = typeof payload.detail === 'string' ? payload.detail : '请求失败，请稍后重试'
+    const message = typeof payload.detail === 'string' ? payload.detail : i18n.t('requestFailed')
     throw new Error(message)
   }
   return payload as T

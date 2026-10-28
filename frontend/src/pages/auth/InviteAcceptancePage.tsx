@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { LanguageSwitch } from '../../i18n/LanguageSwitch'
 import { apiRequest } from '../../api'
 import type { CurrentUser } from '../../types'
 
@@ -9,6 +11,7 @@ export function InviteAcceptancePage({
 }: {
   onAccepted: (user: CurrentUser) => void
 }) {
+  const { t } = useTranslation('auth')
   const location = useLocation()
   const token = new URLSearchParams(location.search).get('token') ?? ''
   const [displayName, setDisplayName] = useState('')
@@ -31,7 +34,7 @@ export function InviteAcceptancePage({
       })
       onAccepted(user)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : '接受邀请失败')
+      setError(requestError instanceof Error ? requestError.message : t('invite.failed'))
     } finally {
       setSubmitting(false)
     }
@@ -40,15 +43,16 @@ export function InviteAcceptancePage({
   return (
     <main className="auth-screen">
       <section className="auth-card">
-        <div className="eyebrow"><span className="eyebrow-dot" />企业工作区邀请</div>
-        <h1>接受成员邀请</h1>
-        <p>设置登录密码后即可进入企业工作区。已有 BeeWork 账号的成员请使用原账号密码。</p>
-        {!token && <div className="members-error" role="alert">邀请链接缺少有效凭据，请向企业管理员索取新链接。</div>}
+        <div className="login-language"><LanguageSwitch /></div>
+        <div className="eyebrow"><span className="eyebrow-dot" />{t('invite.eyebrow')}</div>
+        <h1>{t('invite.title')}</h1>
+        <p>{t('invite.body')}</p>
+        {!token && <div className="members-error" role="alert">{t('invite.missingToken')}</div>}
         {error && <div className="members-error" role="alert">{error}</div>}
         <form className="login-form" onSubmit={(event) => void acceptInvitation(event)}>
-          <label>姓名<input autoComplete="name" maxLength={120} onChange={(event) => setDisplayName(event.target.value)} required value={displayName} /></label>
-          <label>密码<input autoComplete="new-password" minLength={12} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /><small>至少 12 位；已有账号请输入当前密码。</small></label>
-          <button className="primary-button" disabled={!token || submitting} type="submit">{submitting ? '正在接受邀请…' : '接受邀请并进入工作区'}</button>
+          <label>{t('invite.name')}<input autoComplete="name" maxLength={120} onChange={(event) => setDisplayName(event.target.value)} required value={displayName} /></label>
+          <label>{t('invite.password')}<input autoComplete="new-password" minLength={12} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /><small>{t('invite.passwordHint')}</small></label>
+          <button className="primary-button" disabled={!token || submitting} type="submit">{submitting ? t('invite.submitting') : t('invite.submit')}</button>
         </form>
       </section>
     </main>

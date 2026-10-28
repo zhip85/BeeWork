@@ -1,0 +1,22 @@
+{
+  "brandHome": "BeeWork platform overview",
+  "identityTitle": "SaaS platform",
+  "identitySub": "Platform admin console",
+  "navLabel": "Platform navigation",
+  "overview": "Overview",
+  "overviewPage": "Platform overview",
+  "opsData": "Operations",
+  "tenants": "Tenants",
+  "jobs": "Background jobs",
+  "definitions": "Platform definitions",
+  "models": "Model catalog",
+  "auditSection": "Audit",
+  "auditPage": "Operations audit",
+  "boundaryKicker": "Permission boundary",
+  "boundaryBody": "Platform accounts manage the platform and tenant lifecycle; they do not automatically gain workspace permissions.",
+  "logoutTitle": "Leave platform console",
+  "adminRole": "SaaS platform admin",
+  "breadcrumbRoot": "BeeWork Platform",
+  "adminBadge": "Platform admin",
+  "enterWorkspace": "Enter workspace"
+}

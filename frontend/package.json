@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "i18n:check": "node scripts/check-i18n.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -15,9 +16,11 @@
     "@formily/reactive": "^2.3.7",
     "@formily/reactive-react": "^2.3.7",
     "@xyflow/react": "^12.12.0",
+    "i18next": "26.5.11",
     "lucide-react": "^1.59.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-i18next": "17.1.9",
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {

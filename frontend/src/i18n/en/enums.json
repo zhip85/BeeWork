@@ -1,0 +1,70 @@
+{
+  "plan": {
+    "standard": "Standard",
+    "professional": "Professional",
+    "enterprise": "Enterprise"
+  },
+  "region": {
+    "us_east": "US-East",
+    "eu_west": "EU-West",
+    "ap_singapore": "AP-Singapore",
+    "cn_shanghai": "CN-Shanghai"
+  },
+  "modelRegion": {
+    "us_east": "US East",
+    "eu_west": "West Europe",
+    "ap_singapore": "Asia Pacific (Singapore)",
+    "cn_shanghai": "China (Shanghai)"
+  },
+  "modelTypeLong": {
+    "chat": "Chat & reasoning",
+    "embedding": "Embedding",
+    "rerank": "Rerank",
+    "vision": "Vision",
+    "speech": "Speech"
+  },
+  "modelType": {
+    "chat": "Chat",
+    "embedding": "Embedding",
+    "rerank": "Rerank",
+    "vision": "Vision",
+    "speech": "Speech"
+  },
+  "modelProvider": {
+    "openai": "OpenAI",
+    "anthropic": "Anthropic",
+    "google": "Google",
+    "azure_openai": "Azure OpenAI",
+    "alibaba_qwen": "Alibaba Qwen",
+    "private": "Self-hosted"
+  },
+  "modelAvailability": {
+    "all_plans": "All plans",
+    "professional_plus": "Professional and above",
+    "enterprise": "Enterprise only",
+    "allowlist": "Allowlisted tenants"
+  },
+  "tenantStatus": {
+    "trial": "Trial",
+    "active": "Active",
+    "grace": "Grace period",
+    "read_only": "Read-only",
+    "suspended": "Suspended",
+    "pending_deletion": "Pending deletion",
+    "deleted": "Deleted"
+  },
+  "gatewaySync": {
+    "not_configured": "Gateway not configured",
+    "synced": "Synced",
+    "failed": "Sync failed"
+  },
+  "role": {
+    "tenant_admin": "Workspace admin",
+    "builder": "Builder",
+    "operator": "Operator",
+    "viewer": "Viewer",
+    "auditor": "Auditor",
+    "approver": "Auditor",
+    "member": "Viewer"
+  }
+}

@@ -5,8 +5,8 @@ import {
   X,
 } from 'lucide-react'
 import { apiRequest } from '../../api'
-import { PLAN_LABELS, REGION_LABELS, TENANT_STATUS_LABELS } from '../../constants'
 import type { PlatformOperation, PlatformTenant } from '../../types'
+import { enumLabel } from '../../i18n'
 
 export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }) {
   const [tenants, setTenants] = useState<PlatformTenant[]>([])
@@ -115,7 +115,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
         { method: 'POST', body: JSON.stringify({ action: selectedAction.action, reason: lifecycleReason }) },
       )
       await refresh()
-      setNotice(result.operation ? '操作已记录，等待第二名平台管理员复核。' : `${result.tenant.name} 已更新为「${TENANT_STATUS_LABELS[result.tenant.status] ?? result.tenant.status}」。`)
+      setNotice(result.operation ? '操作已记录，等待第二名平台管理员复核。' : `${result.tenant.name} 已更新为「${enumLabel('tenantStatus', result.tenant.status)}」。`)
       setLifecycleTenant(null)
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '生命周期操作失败')
@@ -186,7 +186,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
                 return (
                   <tr key={operation.id}>
                     <td><strong className="tenant-name-cell">{operation.target_tenant_name}</strong></td>
-                    <td>{operation.operation_label}<small className="platform-tenant-slug">{TENANT_STATUS_LABELS[operation.from_status] ?? operation.from_status} → {TENANT_STATUS_LABELS[operation.to_status] ?? operation.to_status}</small></td>
+                    <td>{operation.operation_label}<small className="platform-tenant-slug">{enumLabel('tenantStatus', operation.from_status)} → {enumLabel('tenantStatus', operation.to_status)}</small></td>
                     <td>{operation.reason}</td>
                     <td>{operation.requested_by_name}</td>
                     <td>{new Date(operation.expires_at).toLocaleString('zh-CN')}</td>
@@ -217,10 +217,10 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
                 <tr key={tenant.id}>
                   <td><strong className="tenant-name-cell">{tenant.name}</strong><small className="platform-tenant-slug">{tenant.slug}</small></td>
                   <td>{tenant.admin_name ? <span className="platform-admin-cell"><strong>{tenant.admin_name}</strong><small>{tenant.admin_email}</small></span> : <span className="role-text">未设置</span>}</td>
-                  <td><span className="platform-admin-cell"><strong>{PLAN_LABELS[tenant.plan] ?? tenant.plan}</strong><small>{REGION_LABELS[tenant.region] ?? tenant.region}</small></span></td>
+                  <td><span className="platform-admin-cell"><strong>{enumLabel('plan', tenant.plan)}</strong><small>{enumLabel('region', tenant.region)}</small></span></td>
                   <td>{tenant.seat_limit}</td>
                   <td>{tenant.member_count}</td>
-                  <td><span className={`member-status ${['trial', 'active', 'grace'].includes(tenant.status) ? 'active' : 'inactive'}`}><i />{TENANT_STATUS_LABELS[tenant.status] ?? tenant.status}</span></td>
+                  <td><span className={`member-status ${['trial', 'active', 'grace'].includes(tenant.status) ? 'active' : 'inactive'}`}><i />{enumLabel('tenantStatus', tenant.status)}</span></td>
                   <td>{tenant.available_actions.length ? <button className="tenant-status-action" onClick={() => openLifecycle(tenant)} type="button">生命周期操作</button> : <span className="role-text">—</span>}</td>
                 </tr>
               ))}</tbody>
@@ -239,7 +239,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
                 {lifecycleTenant.available_actions.map((item) => <option key={item.action} value={item.action}>{item.label}</option>)}
               </select>
             </label>
-            <p>{lifecycleTenant.name}：{TENANT_STATUS_LABELS[lifecycleTenant.status] ?? lifecycleTenant.status} → {selectedAction ? TENANT_STATUS_LABELS[selectedAction.to_status] ?? selectedAction.to_status : '—'}。{selectedAction?.requires_review && '停用与删除需双人复核，并全程留痕。'}</p>
+            <p>{lifecycleTenant.name}：{enumLabel('tenantStatus', lifecycleTenant.status)} → {selectedAction ? enumLabel('tenantStatus', selectedAction.to_status) : '—'}。{selectedAction?.requires_review && '停用与删除需双人复核，并全程留痕。'}</p>
             <label>原因{selectedAction?.requires_review && <span className="required-mark"> *</span>}
               <textarea maxLength={500} onChange={(event) => setLifecycleReason(event.target.value)} required={selectedAction?.requires_review} rows={3} value={lifecycleReason} />
             </label>

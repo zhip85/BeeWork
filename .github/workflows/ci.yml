@@ -62,5 +62,7 @@ jobs:
         run: npx tsc -b
       - name: Lint
         run: npm run lint
+      - name: i18n dictionaries
+        run: npm run i18n:check
       - name: Build
         run: npm run build

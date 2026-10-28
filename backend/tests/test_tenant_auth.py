@@ -156,6 +156,33 @@ class TenantAuthTests(unittest.TestCase):
         self.assertEqual(response.json()["memberships"][0]["slug"], "acme")
         self.assertIn(ACCESS_COOKIE, self.client.cookies)
 
+    def test_locale_preference_is_saved_audited_and_validated(self) -> None:
+        anonymous = self.client.patch("/api/v1/auth/me/preferences", json={"locale": "en"})
+        self.assertEqual(anonymous.status_code, 403)
+        self.login()
+        self.assertIsNone(self.client.get("/api/v1/auth/me").json()["locale"])
+        csrf = {"X-CSRF-Token": self.client.cookies.get("beework_csrf")}
+
+        missing_csrf = self.client.patch("/api/v1/auth/me/preferences", json={"locale": "en"})
+        self.assertEqual(missing_csrf.status_code, 403)
+        invalid = self.client.patch(
+            "/api/v1/auth/me/preferences", json={"locale": "fr"}, headers=csrf
+        )
+        self.assertEqual(invalid.status_code, 422)
+
+        saved = self.client.patch(
+            "/api/v1/auth/me/preferences", json={"locale": "en"}, headers=csrf
+        )
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertEqual(saved.json()["locale"], "en")
+        self.assertEqual(self.client.get("/api/v1/auth/me").json()["locale"], "en")
+        with self.session_factory() as db:
+            events = db.scalars(
+                select(AuditEvent).where(AuditEvent.action == "auth.preferences_updated")
+            ).all()
+            self.assertEqual(len(events), 1)
+            self.assertEqual(events[0].details, {"locale": "en"})
+
     def test_runtime_demo_requires_login(self) -> None:
         denied = self.client.post("/api/v1/runtime/demo", json={"message": "hello"})
         self.assertEqual(denied.status_code, 401)

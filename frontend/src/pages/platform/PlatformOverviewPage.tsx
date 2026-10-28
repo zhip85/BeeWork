@@ -8,8 +8,8 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { apiRequest } from '../../api'
-import { TENANT_STATUS_LABELS } from '../../constants'
 import type { IntegrationStatus, PlatformOverview, PlatformTenant } from '../../types'
+import { enumLabel } from '../../i18n'
 
 export function PlatformOverviewPage() {
   const [overview, setOverview] = useState<PlatformOverview | null>(null)
@@ -61,7 +61,7 @@ export function PlatformOverviewPage() {
                 <div className="platform-recent-row" key={tenant.id}>
                   <span className="platform-tenant-icon"><Building2 size={16} /></span>
                   <span className="platform-recent-copy"><strong>{tenant.name}</strong><small>{tenant.admin_email ?? '尚未设置管理员'} · {tenant.member_count} 位成员</small></span>
-                  <span className={`member-status ${['trial', 'active', 'grace'].includes(tenant.status) ? 'active' : 'inactive'}`}><i />{TENANT_STATUS_LABELS[tenant.status] ?? tenant.status}</span>
+                  <span className={`member-status ${['trial', 'active', 'grace'].includes(tenant.status) ? 'active' : 'inactive'}`}><i />{enumLabel('tenantStatus', tenant.status)}</span>
                 </div>
               ))}
             </div>

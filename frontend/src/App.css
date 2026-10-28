@@ -3755,3 +3755,35 @@
   font: inherit;
   font-size: 12px;
 }
+
+.language-switch {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line, #e3e0d6);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.language-switch button {
+  min-width: 34px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.language-switch button.selected {
+  background: #123d2e;
+  color: #fff;
+}
+
+.login-language {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+}

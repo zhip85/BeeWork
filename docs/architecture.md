@@ -223,7 +223,13 @@ def update_note(note_id: UUID, payload: NoteWriteRequest,
 - 调用后端一律用 `apiRequest(path, options, tenantId)`；不要自己拼 CSRF 或租户头。
 - 每个页面都要有加载、空、失败、无权限四种状态；写操作按钮提交中禁用（GLB-040）；危险操作用自定义确认弹窗，不用 `window.confirm`（GLB-044）。
 - 权限：菜单与按钮按 `/auth/me` 返回的 `permissions` 显示或隐藏（PER-003），租户 `access_mode === 'read_only'` 时隐藏所有写操作。
-- 文案：T-003 完成后所有新文案走 i18n 字典（中文默认、英文必填）；在那之前写中文，但不要把文案散落在多个常量文件。
+- 文案：所有新文案走 i18n 字典（`i18next` + `react-i18next`），中文默认、英文必填，不要在组件里写死中文，也不要新增 `constants.ts` 之类的文案常量文件。**如何新增文案**：
+  1. 在 `frontend/src/i18n/zh-CN/<ns>.json` 与 `frontend/src/i18n/en/<ns>.json` 同时加同名 key（命名空间：`common`、`nav`、`auth`、`members`、`platform`、`settings`、`audit`、`enums`；新领域可新建同名文件并在 `i18n/index.ts` 的 `resources`/`ns` 中注册）。
+  2. 组件内用 `const { t } = useTranslation('<ns>')`，再 `t('key')`；带变量写 `t('key', { name })`，字典里用 `{{name}}`；换行用 `\n` 并在组件里拆分渲染。
+  3. 后端枚举/状态值（租户状态、套餐、区域、角色、模型类型、网关同步状态等）统一放 `enums` 命名空间，用 `enumLabel('group', value)` 取文案、`enumOptions('group')` 生成下拉；未知值原样显示。
+  4. 时间与数字用 `i18n/format.ts`：`formatRelativeTime`（列表）、`formatDateTime(value, tenantTimeZone)`（详情）、`formatCompactNumber`（`18.2k`/`2.48M`）、`formatPercent`（1 位小数）。
+  5. 提交前运行 `npm run i18n:check`（CI 也会跑）：两种语言的命名空间与 key 必须完全一致。
+  6. 语言来源：用户偏好（`/auth/me` 的 `locale`，`PATCH /auth/me/preferences` 保存）→ 浏览器 `localStorage`（`beework.locale`）→ `zh-CN`。后端错误信息暂不翻译，后续按 `code` 映射。
 - 视觉：沿用现有深绿/暖金/浅色工作区风格和 `App.css` 中的类名；新增样式放在文件末尾并以领域前缀命名。
 - 不在浏览器保存业务状态；`localStorage` 只用于当前租户选择等偏好。
 

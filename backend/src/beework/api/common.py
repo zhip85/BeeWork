@@ -116,6 +116,7 @@ def make_current_user_response(db: Session, user: User) -> CurrentUserResponse:
         email=user.email,
         display_name=user.display_name,
         is_platform_admin=user.is_platform_admin,
+        locale=user.locale,
         memberships=[
             TenantMembershipResponse(
                 id=tenant.id,
