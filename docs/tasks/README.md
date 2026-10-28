@@ -26,13 +26,13 @@
 | [T-006](./T-006-topbar-context.md) | 顶栏环境切换与租户切换 | 2 | T-001 | — | 待开发 | | |
 | [T-010](./T-010-plans-quotas.md) | 套餐版本、权益、订阅快照与配额服务 | 2 | T-001 | — | 待开发 | | T-010a 先行（闭环切片），其余部分之后做 |
 | [T-011](./T-011-usage-metering.md) | 用量汇总：LiteLLM 花费 → 点数，订阅与用量页 | 2 | T-002、T-010 | — | 待开发 | | |
-| [T-020](./T-020-assistant-domain.md) | 助理领域模型、列表与创建向导 | 3 | T-001、T-010a | — | 待验收 | Claude Sonnet 5.5 | 闭环切片第 2 步 |
+| [T-020](./T-020-assistant-domain.md) | 助理领域模型、列表与创建向导 | 3 | T-001、T-010a | — | 已完成 | Claude Sonnet 5.5 | 闭环切片第 2 步 |
 | [T-021](./T-021-assistant-detail.md) | 助理详情、草稿编辑与配置检查 | 3 | T-020 | — | 待开发 | | |
 | [T-022](./T-022-approvals.md) | 审批策略、审批引擎与审批中心 | 3 | T-001 | — | 待开发 | | 可与 T-020 并行 |
 | [T-023](./T-023-notifications.md) | 站内通知中心 | 3 | T-001 | — | 待开发 | | 可与 T-020 并行 |
 | [T-024](./T-024-assistant-versions.md) | 助理发布、不可变版本、对比与回滚 | 3 | T-021、T-022 | — | 待开发 | | |
-| [T-025](./T-025-langgraph-runtime.md) | LangGraph 运行时 v1（经 LiteLLM，Langfuse 追踪） | 3 | T-002、T-020 | 真实调用需供应商 Key（Langfuse 已就绪） | 待验收 | Claude Sonnet 5.5 | 核心任务；只能用 Langfuse SDK ≥3；含检索桩（闭环切片第 3 步） |
-| [T-026](./T-026-conversations.md) | 会话与消息、保留期与脱敏 | 3 | T-025 | — | 待验收 | Claude Sonnet 5.5 | |
+| [T-025](./T-025-langgraph-runtime.md) | LangGraph 运行时 v1（经 LiteLLM，Langfuse 追踪） | 3 | T-002、T-020 | 真实调用需供应商 Key（Langfuse 已就绪） | 已完成 | Claude Sonnet 5.5 | 核心任务；只能用 Langfuse SDK ≥3；含检索桩（闭环切片第 3 步） |
+| [T-026](./T-026-conversations.md) | 会话与消息、保留期与脱敏 | 3 | T-025 | — | 已完成 | Claude Sonnet 5.5 | |
 | [T-027](./T-027-test-console.md) | 助理测试控制台与测试用例 | 3 | T-025、T-021 | 供应商 Key | 待开发 | | |
 | [T-028](./T-028-open-api.md) | 租户 API 密钥与开放对话 API | 3/6 | T-024、T-025、T-010 | — | 待开发 | | 试点版对外入口 |
 | [T-030](./T-030-knowledge-bases.md) | 知识库与 RAGFlow dataset | 4 | T-001、T-002 | RAGFlow Cloud 付费版 API Key | 待开发 | | |
@@ -47,12 +47,12 @@
 
 | 顺序 | 任务 | 先行范围 | 依赖 | 状态 | 负责人 | 备注 |
 |---|---|---|---|---|---|---|
-| 1 | [T-010a](./T-010-plans-quotas.md) | 套餐/订阅表、权益与配额服务（助理数、席位）、租户只读订阅接口 | T-001 | 待验收 | Claude Sonnet 5.5 | 原 T-010 剩余部分（平台套餐页、版本发布、订阅与用量页）保持待开发 |
-| 2 | [T-020](./T-020-assistant-domain.md) | 全部（依赖改为 T-010a） | T-001、T-010a | 待验收 | Claude Sonnet 5.5 | |
-| 3 | [T-025](./T-025-langgraph-runtime.md) | 全部，含 `Retriever` 协议 + `StubRetriever` | T-002、T-020 | 待验收 | Claude Sonnet 5.5 | 已用 `mock_response` 验证；真实调用需供应商 Key（暂无） |
-| 4 | [T-026](./T-026-conversations.md) | 全部 | T-025 | 待验收 | Claude Sonnet 5.5 | |
-| 5 | [T-054a](./T-054-oc-framework.md) | 阶段管线骨架 + `draft_config.oc` 结构，用草稿配置直跑 | T-025 | 待验收 | Claude Sonnet 5.5 | 不含 OC 页面与提交审批（待 T-024） |
-| 6 | [T-056a](./T-056-oc-memory.md) | UserProfile / UserMemory / Session 摘要的写入与读取、删除服务 | T-054a、T-026 | 待验收 | Claude Sonnet 5.5 | PG 全文检索；不含套餐分级与配置页 |
+| 1 | [T-010a](./T-010-plans-quotas.md) | 套餐/订阅表、权益与配额服务（助理数、席位）、租户只读订阅接口 | T-001 | 已完成 | Claude Sonnet 5.5 | 原 T-010 剩余部分（平台套餐页、版本发布、订阅与用量页）保持待开发 |
+| 2 | [T-020](./T-020-assistant-domain.md) | 全部（依赖改为 T-010a） | T-001、T-010a | 已完成 | Claude Sonnet 5.5 | |
+| 3 | [T-025](./T-025-langgraph-runtime.md) | 全部，含 `Retriever` 协议 + `StubRetriever` | T-002、T-020 | 已完成 | Claude Sonnet 5.5 | 已用 `mock_response` 验证；真实调用需供应商 Key（暂无） |
+| 4 | [T-026](./T-026-conversations.md) | 全部 | T-025 | 已完成 | Claude Sonnet 5.5 | |
+| 5 | [T-054a](./T-054-oc-framework.md) | 阶段管线骨架 + `draft_config.oc` 结构，用草稿配置直跑 | T-025 | 已完成 | Claude Sonnet 5.5 | 不含 OC 页面与提交审批（待 T-024） |
+| 6 | [T-056a](./T-056-oc-memory.md) | UserProfile / UserMemory / Session 摘要的写入与读取、删除服务 | T-054a、T-026 | 已完成 | Claude Sonnet 5.5 | PG 全文检索；不含套餐分级与配置页 |
 
 **知识检索约定（开发负责人决定）**：本线不接真实 RAGFlow。运行时只依赖 `Retriever` 协议，临时用 `StubRetriever`，所有界面、事件、run 记录必须标明“检索：桩实现，未接真实 RAGFlow”。T-030/T-031/T-033 保持「待开发」，**桩存在期间不得把任何知识问答相关任务记为完成**；拿到 RAGFlow Key 或确定自托管方案后由 T-033 替换桩。
 
@@ -202,3 +202,9 @@
 |---|---|---|---|
 | 2026-10-22 | T-001 | 通过 | ruff、`test-postgres.sh`（42 项）、前端检查、网关 e2e 通过；遗留：DNS rebinding 窗口（由 T-071 解决）、`check_row_version` 的 `db` 参数未用 |
 | 2026-10-23 | T-002 | 通过 | ruff、迁移升降级 + `alembic check`、62 项测试（含 PostgreSQL 并发与真实 Valkey）、前端检查、Worker 进程端到端通过；遗留：T-025 后事件接口改按 `runs` 校验、锁超时 15 分钟 |
+| 2026-10-28 | T-010a | 通过 | 套餐/订阅表、权益与配额服务、席位改读订阅；ruff、PG 套件、迁移回填现有租户通过。T-010 剩余部分（平台套餐页、版本发布、订阅与用量页、RUL-013）保持待开发；遗留：企业版默认席位 200 vs 500（PRD 矛盾，暂用 500）、各配额超额策略暂全为硬限制 |
+| 2026-10-28 | T-020 | 通过 | 助理 CRUD/复制/停用/删除、配额、组织与助理范围角色、向导与列表；测试覆盖 403 / 跨租户 404 / 配额 409，验收中补了助理配额的 PostgreSQL 并发测试。遗留：可见≠可改的规则待确认；模板/驱动/挂载/AI 建议为“即将开放”；前端未做浏览器目视验收 |
+| 2026-10-28 | T-025 | 通过（有条件） | 固定管线图、LiteLLM 调用、SSE、取消/超时/模型错误、Langfuse trace；真实栈 e2e 通过。**条件：只用 LiteLLM `mock_response` 验证，未连真实供应商（无 Key）；检索为桩，未接 RAGFlow**；拿到 Key 后需用真实模型再跑一遍。验收中修复：已删除助理的运行/事件仍可按 ID 访问 |
+| 2026-10-28 | T-026 | 通过 | 会话/消息、历史窗口、合规设置、脱敏（含运行记录、事件与 Langfuse）、30 分钟结束、保留期清理；验收中修复：已删除助理的会话仍可按 ID 访问、运行时测试在共享连接上偶发丢事件（改用文件库）。遗留：“会话记录”页签待 T-021；结束状态规则待产品确认 |
+| 2026-10-28 | T-054a | 通过 | 十阶段管线、阶段 span 与耗时、`draft_config.oc` 结构；T-054 剩余部分（OC 页面、提交审批）依赖 T-024，保持待开发 |
+| 2026-10-28 | T-056a | 通过（有偏差待确认） | 记忆写入/读取/隔离/删除/保留期均有测试与真实栈验证。**偏差**：规格要求 PostgreSQL 全文检索，因其无法中文分词，改为 PG 取候选 + 应用内关键词/双字相关度 × 时间衰减（接口不变），需开发负责人确认；T-056 剩余部分保持待开发 |

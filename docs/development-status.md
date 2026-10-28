@@ -124,13 +124,13 @@
 - 已迁移：应用外壳、平台后台外壳、登录/邀请/无租户页、无权访问占位页，全部枚举（`constants.ts` 已删除，改用 `enumLabel`/`enumOptions`）。
 - 已知限制：`members`、`settings`、`audit` 命名空间已建但为空，这些页面及 Dashboard、`CreateModal` 正文仍是中文，需分批迁移；后端错误信息暂不翻译。
 
-### 套餐、订阅快照与配额服务（T-010a，闭环切片，待验收）
+### 套餐、订阅快照与配额服务（T-010a，已验收）
 
 - 表 `plans` / `plan_versions` / `tenant_subscriptions`（迁移 0015，三套餐 v1 种子，现有租户按 `tenants.plan` + `tenants.seat_limit` 回填快照；`tenants.plan`/`seat_limit` 列保留为兼容列）。
 - `beework/entitlements.py`：`get_subscription`（缺快照时懒创建）、`has_entitlement`/`ensure_entitlement`/`require_entitlement`（403 `plan.feature_locked`）、`check_quota`/`enforce_quota`（409 `plan.quota_exceeded`）、用量计数器注册表；席位逻辑（邀请、重发、接受、恢复成员）已改为读订阅快照；平台创建租户同时写订阅；`GET /api/v1/tenant/subscription`（需 `settings:view`）。
 - 已知限制：只有 `seats` 注册了用量计数器，**T-020 必须注册 `assistants` 计数器**（未注册的配额调用 `check_quota` 会抛 `ValueError`，不会静默当作 0）；`environments_for_plan` 与模型可用性仍读 `tenants.plan`；平台套餐页、发布新版本、应用订阅变更、订阅与用量页、RUL-013 属 T-010 剩余部分，未做。
 
-### 助理领域模型、列表与创建向导（T-020，闭环切片，待验收）
+### 助理领域模型、列表与创建向导（T-020，已验收）
 
 - 表 `assistants`、`assistant_visible_organizations`，`tenant_roles.scope_assistant_ids`（迁移 0016）；`draft_config` 由 `AssistantDraftConfig`（`dsl_version: 1`）定义，T-025 编译器按它读取。
 - 接口：`GET/POST /assistants`、`GET/PUT /assistants/{id}`（`row_version`）、`POST …/copy|disable|enable`、`DELETE …`、`GET /assistants/summary`、`GET /assistants/model-options`。创建/复制调用 `enforce_quota("assistants")`，并在 `api/assistants.py` 注册了 `assistants` 用量计数器；名称租户内不区分大小写唯一（软删除后释放）；所有写操作写审计（分类“助手”）。
@@ -138,7 +138,7 @@
 - 前端：助理列表页（统计条含配额进度、搜索/状态/组织/排序、卡片与列表视图、更多菜单、自定义确认弹窗）、4 步创建/编辑向导（保存草稿、未保存确认、配额硬限制提示），角色编辑器增加“指定助理”范围；`assistants` 命名空间中英文齐全；侧栏“助理”不再显示写死的数字。
 - 已知限制：模板、驱动方式、能力挂载、AI 生成建议均为“即将开放”（后端对非空挂载/驱动返回 422）；模型选项固定取 `production` 环境（T-006 做环境切换后再改）；卡片/列表上的调用量、成功率、渠道数、月会话量待 T-026/T-040；“对话历史/编排/版本/测试/API 对接”菜单项待对应任务；删除阻断（渠道绑定）只有 `DELETE_BLOCKERS` 注册点，T-040 接入。
 
-### LangGraph 运行时 v1（T-025，闭环切片，待验收）
+### LangGraph 运行时 v1（T-025，已验收，mock 模型 + 检索桩）
 
 - 表 `runs`（迁移 0017）；`runtime/` 包：`dsl.py`（`AssistantDSLv1`）、`compiler.py`（固定管线图、节点注册表）、`llm.py`（`ChatOpenAI` → LiteLLM + 租户环境虚拟 Key）、`retrieval.py`（`Retriever` 协议 + `StubRetriever`）、`executor.py`、`tracing.py`（Langfuse SDK v3）、`jobs.py`（Worker 处理器 `runtime.execute`）。
 - 接口：`POST /assistants/{id}/runs`（调试，读取草稿并冻结快照）→ 202 + `run_id`；`GET /runs/{id}`；`POST /runs/{id}/cancel`；`GET /runs/{id}/events`（SSE，改为按 `runs` 校验）。准入：租户状态、助理状态、环境网关同步、模型仍启用；点数配额待 T-011（暂跳过）。
@@ -147,7 +147,7 @@
 - **知识检索未接真实 RAGFlow**：只有桩实现，`retrieval.mode = "stub"`。
 - 已知限制：见任务文件“遗留问题”。
 
-### 会话与消息、保留期与脱敏（T-026，闭环切片，待验收）
+### 会话与消息、保留期与脱敏（T-026，已验收）
 
 - 表 `end_users`、`conversations`、`messages`、`tenant_compliance_policies`（迁移 0018）；`beework/conversations.py`（会话/消息服务、历史窗口、30 分钟无消息结束、按保留期清理）、`compliance.py`、`pii.py`（手机号/邮箱/身份证号/银行卡号基础脱敏）。
 - 调试运行 `POST /assistants/{id}/runs` 现在可带 `conversation_id` 续聊（只有创建者、同一助理可续；上一条未结束返回 409 `conversation.busy`），历史窗口默认 20 条（DSL `limits.history_messages`），助理回复入库并累计 turns/tokens。
@@ -157,7 +157,7 @@
 - 前端：助理卡片菜单“对话历史”→ `/assistants/:id/conversations`（只读列表 + 抽屉详情）。助理详情页（T-021）建成后应把它收进“会话记录”页签。
 - 已知限制：见任务文件“遗留问题”。
 
-### 运行管线骨架（T-054a，闭环切片，待验收）
+### 运行管线骨架（T-054a，已验收）
 
 - 运行图改为 PRD 5.5 的固定十阶段管线 `ingress → admission → pii_input → memory → glossary_rewrite → route → execute → components → pii_output → egress`（`runtime/compiler.py`）。阶段由 `STAGE_FACTORIES` 注册，未注册的阶段直通；后续任务只用 `@register_stage("…")` 填自己的阶段。已实现：`ingress`（输入长度/空检查）、`route`（暂固定到助理自身）、`execute`（知识检索 → 模型）、`egress`；其余直通。
 - 每个阶段：`step` 事件（started/completed/failed + 耗时）、Langfuse span `oc.<阶段>`（固定名称，供 T-084 瀑布图）、耗时计入 `runs.stage_ms`；`runs.pipeline_ms` = 各阶段耗时 − 模型/检索调用耗时（NFR-001 指标）；某阶段抛错时 run 失败，`runs.error_stage` 与 `error` 事件的 `stage` 带阶段名。
@@ -166,7 +166,7 @@
 - 验证：真实栈 e2e 在 Langfuse 读到 12 个 observation（`assistant.run`、10 个 `oc.*`、`ChatOpenAI`），管线自身耗时约 4–40 ms（mock 模型；模型本身约 400 ms+）。
 - 已知限制：见任务文件“遗留问题”。
 
-### 长期记忆 v1（T-056a，闭环切片，待验收；依赖 T-054a 分支）
+### 长期记忆 v1（T-056a，已验收，检索方式待确认）
 
 - 表 `end_user_memories`（迁移 0020；`end_users` 增加 `(id, tenant_id)` 唯一约束以建复合外键）：UserProfile（`assistant_id` 为空，同租户各助理共享）、UserMemory 与 Session 摘要（助理私有）；内容一律先经 PII 规则脱敏再写入。
 - 写入：会话结束（T-026 的 30 分钟判定）触发钩子，入队幂等的 `memory.extract`（键含会话与结束时间）；Worker 经 LiteLLM 用该会话所用模型抽取，按 OC 设置（类型白名单、UserProfile 写入开关、各文件开关与保留期）写入；重复抽取会替换自己上次的输出，不产生重复。抽取失败（网关不可用、输出不是 JSON）抛错，由队列退避重试。
