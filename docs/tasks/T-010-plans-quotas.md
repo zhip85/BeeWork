@@ -31,3 +31,12 @@
 - [ ] 平台发布新套餐版本后，已有租户仍保持旧快照，直到应用订阅变更。
 - [ ] 不允许删除有租户使用的套餐（RUL-013）。
 - [ ] 测试：权益锁定 403、席位硬限制、套餐降级后已有对象保留但不可新增。
+
+## T-010a 闭环切片先行范围（优先线，见看板“闭环切片”）
+
+只做让 T-020 能创建助理所需的最薄一层，其余仍属本任务（T-010 剩余部分）：
+
+- **做**：`plans`/`plan_versions`/`tenant_subscriptions` 三张表与迁移（三套餐 v1 种子、现有租户生成订阅快照）；`beework/entitlements.py` 的 `get_subscription`、`has_entitlement`、`require_entitlement`、`check_quota`（至少支持 `assistants`、`seats`）；席位逻辑改为订阅驱动；`GET /tenant/subscription`（只读）。
+- **不做（留给 T-010 剩余部分）**：平台“套餐与权益”页、`GET /platform/plans`、新建版本、`POST /platform/tenants/{id}/subscription`、租户“订阅与用量”页、RUL-013 删除限制。
+- 测试：权益锁定 403、席位/助理数硬限制 409（`plan.quota_exceeded`）。
+- 完成 T-010a 后，T-020 的依赖即满足；本任务整体仍保持「待开发」直到剩余部分完成。
