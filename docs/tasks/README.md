@@ -53,6 +53,7 @@
 | 4 | [T-026](./T-026-conversations.md) | 全部 | T-025 | 已完成 | Claude Sonnet 5.5 | |
 | 5 | [T-054a](./T-054-oc-framework.md) | 阶段管线骨架 + `draft_config.oc` 结构，用草稿配置直跑 | T-025 | 已完成 | Claude Sonnet 5.5 | 不含 OC 页面与提交审批（待 T-024） |
 | 6 | [T-056a](./T-056-oc-memory.md) | UserProfile / UserMemory / Session 摘要的写入与读取、删除服务 | T-054a、T-026 | 已完成 | Claude Sonnet 5.5 | PG 全文检索；不含套餐分级与配置页 |
+| 7 | [T-024a](./T-024-assistant-versions.md) | 发布（无审批直接生效）、不可变版本与触发器、对比、恢复、回滚，运行时可执行线上快照 | T-020、T-025 | 待验收 | Claude Sonnet 5.5 | 不含审批、配置检查（T-021）、通知；原 T-024 保持待开发 |
 
 **知识检索约定（开发负责人决定）**：本线不接真实 RAGFlow。运行时只依赖 `Retriever` 协议，临时用 `StubRetriever`，所有界面、事件、run 记录必须标明“检索：桩实现，未接真实 RAGFlow”。T-030/T-031/T-033 保持「待开发」，**桩存在期间不得把任何知识问答相关任务记为完成**；拿到 RAGFlow Key 或确定自托管方案后由 T-033 替换桩。
 

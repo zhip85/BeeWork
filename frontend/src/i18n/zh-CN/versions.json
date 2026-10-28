@@ -1,0 +1,80 @@
+{
+  "publish": {
+    "title": "发布助理",
+    "subtitle": "发布后生成不可变的 v{{version}}，并替换线上版本。",
+    "loading": "正在检查…",
+    "loadFailed": "无法加载发布预览",
+    "blockers": "需要先解决以下问题",
+    "noBlockers": "发布前检查已通过",
+    "firstRelease": "首次发布：线上还没有版本。",
+    "noChanges": "草稿与线上版本没有差异，无需发布。",
+    "changes": "本次变更",
+    "note": "发布说明",
+    "notePlaceholder": "这次改了什么（可选）",
+    "submit": "发布 v{{version}}",
+    "submitting": "发布中…",
+    "cancel": "取消",
+    "done": "已发布 v{{version}}",
+    "approvalNote": "当前租户未配置发布审批，提交后立即生效。"
+  },
+  "page": {
+    "title": "版本历史",
+    "subtitle": "不可变的发布版本与配置快照。",
+    "back": "返回助理",
+    "loading": "正在加载版本…",
+    "loadFailed": "无法加载版本",
+    "empty": "还没有发布过版本",
+    "retry": "重试",
+    "live": "当前版本",
+    "history": "历史版本",
+    "by": "{{name}} · {{time}}",
+    "kindRollback": "回滚",
+    "noNote": "（无发布说明）",
+    "draftVersion": "草稿将成为 v{{version}}"
+  },
+  "actions": {
+    "view": "查看",
+    "restore": "恢复到草稿",
+    "rollback": "回滚到此版本",
+    "compare": "对比版本",
+    "close": "关闭"
+  },
+  "confirm": {
+    "restoreTitle": "恢复到草稿",
+    "restoreBody": "用 v{{version}} 的配置覆盖当前草稿？线上版本不变，需重新发布才生效。",
+    "rollbackTitle": "回滚到 v{{version}}",
+    "rollbackBody": "以 v{{version}} 的快照生成新版本并立即生效？草稿不受影响。",
+    "restored": "已恢复到草稿",
+    "rolledBack": "已回滚，新版本 v{{version}} 已生效"
+  },
+  "view": {
+    "title": "版本快照 v{{version}}",
+    "readOnly": "只读",
+    "changes": "相对上一线上版本的变更",
+    "noChanges": "无变更",
+    "snapshot": "完整配置快照"
+  },
+  "compare": {
+    "title": "对比版本",
+    "from": "基准",
+    "to": "对比",
+    "draft": "当前草稿",
+    "run": "对比",
+    "identical": "两者没有差异",
+    "sections": {
+      "basics": "基础信息",
+      "prompt": "提示词",
+      "model": "模型",
+      "capabilities": "挂载能力",
+      "experience": "会话体验",
+      "oc.pii": "OC · PII",
+      "oc.memory": "OC · 记忆",
+      "oc.glossary": "OC · 术语表",
+      "oc.rewrite": "OC · 问题改写",
+      "oc.routing": "OC · 路由",
+      "oc.components": "OC · 组件编排"
+    },
+    "from_label": "原值",
+    "to_label": "新值"
+  }
+}

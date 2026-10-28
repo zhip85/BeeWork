@@ -66,7 +66,9 @@
     "disable": "停用",
     "enable": "启用",
     "delete": "删除",
-    "history": "对话历史"
+    "history": "对话历史",
+    "publish": "发布",
+    "versions": "版本管理"
   },
   "toast": {
     "copied": "助理已复制",

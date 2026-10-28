@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { formatRelativeTime } from '../../i18n/format'
 import type { TenantMembership } from '../../types'
 import { AssistantWizard } from './AssistantWizard'
+import { PublishDialog } from './PublishDialog'
 import type { Assistant, AssistantPage, AssistantSummary, OrganizationOption } from './types'
 
 type PendingAction = { kind: 'delete' | 'disable'; assistant: Assistant }
@@ -16,6 +17,7 @@ const PAGE_SIZE = 100
 
 export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
   const { t } = useTranslation('assistants')
+  const { t: tv } = useTranslation('versions')
   const tenantId = tenant.id
   const writable = tenant.access_mode === 'full'
   const can = (permission: string) => writable && tenant.permissions.includes(permission)
@@ -35,6 +37,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
   const [view, setView] = useState<'cards' | 'list'>('cards')
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [wizard, setWizard] = useState<WizardState>(null)
+  const [publishing, setPublishing] = useState<Assistant | null>(null)
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [reload, setReload] = useState(0)
 
@@ -158,7 +161,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
               <header>
                 <span className="assistant-icon"><Bot size={18} /></span>
                 <span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span>
-                <RowMenu assistant={assistant} can={can} canRead={canRead} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} />
+                <RowMenu assistant={assistant} can={can} canRead={canRead} onPublish={() => setPublishing(assistant)} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} />
               </header>
               <h3>{assistant.name}</h3>
               <p className="assistant-description">{assistant.description}</p>
@@ -186,7 +189,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
                   <td><span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span></td>
                   <td>{assistant.organization_name}</td>
                   <td>{formatRelativeTime(assistant.updated_at)}</td>
-                  <td><RowMenu assistant={assistant} can={can} canRead={canRead} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} /></td>
+                  <td><RowMenu assistant={assistant} can={can} canRead={canRead} onPublish={() => setPublishing(assistant)} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} /></td>
                 </tr>
               ))}
             </tbody>
@@ -207,6 +210,19 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
           organizations={organizations}
           quota={summary?.quota ?? null}
           tenant={tenant}
+        />
+      )}
+
+      {publishing && (
+        <PublishDialog
+          assistant={publishing}
+          onClose={() => setPublishing(null)}
+          onPublished={(version) => {
+            setPublishing(null)
+            setNotice(tv('publish.done', { version }))
+            refresh()
+          }}
+          tenantId={tenantId}
         />
       )}
 
@@ -239,6 +255,7 @@ function RowMenu({
   assistant,
   can,
   canRead,
+  onPublish,
   menuFor,
   setMenuFor,
   onEdit,
@@ -249,6 +266,7 @@ function RowMenu({
   assistant: Assistant
   can: (permission: string) => boolean
   canRead: (permission: string) => boolean
+  onPublish: () => void
   menuFor: string | null
   setMenuFor: (id: string | null) => void
   onEdit: () => void
@@ -262,6 +280,8 @@ function RowMenu({
   const ownable = assistant.can_edit
   const entries: { key: string; label: string; run: () => void; danger?: boolean }[] = []
   if (ownable && can('assistants:edit')) entries.push({ key: 'edit', label: t('menu.edit'), run: onEdit })
+  if (ownable && can('assistants:publish') && assistant.status !== 'disabled') entries.push({ key: 'publish', label: t('menu.publish'), run: onPublish })
+  if (canRead('assistants:view')) entries.push({ key: 'versions', label: t('menu.versions'), run: () => navigate(`/assistants/${assistant.id}/versions`) })
   if (canRead('conversations:view')) entries.push({ key: 'history', label: t('menu.history'), run: () => navigate(`/assistants/${assistant.id}/conversations`) })
   if (ownable && can('assistants:edit')) entries.push({ key: 'copy', label: t('menu.copy'), run: onCopy })
   if (ownable && can('assistants:publish') && assistant.status !== 'draft') {

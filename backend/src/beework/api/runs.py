@@ -11,6 +11,7 @@ from beework.api.assistants import (
     _visible_statement,
 )
 from beework.api.conventions import ApiError
+from beework.assistant_versions import live_version
 from beework.auth import require_csrf
 from beework.conversations import append_message, console_end_user, start_conversation
 from beework.db import get_db
@@ -20,7 +21,7 @@ from beework.models.assistants import Assistant
 from beework.models.conversations import Conversation
 from beework.models.runtime import Run
 from beework.rbac import require_tenant_permission
-from beework.runtime.dsl import dsl_from_draft
+from beework.runtime.dsl import AssistantDSLv1, dsl_from_draft
 from beework.runtime.errors import RuntimeFailure
 from beework.runtime.executor import SERVING_TENANT_STATUSES
 from beework.schemas.runs import CreateRunRequest, CreateRunResponse, RunResponse
@@ -87,12 +88,21 @@ def create_debug_run(
     """Start a debug run of the assistant's current draft; follow it via ``GET /runs/{id}/events``."""
     assistant = _load(db, membership, assistant_id)
     _admit(db, membership, assistant)
-    try:
-        dsl = dsl_from_draft(assistant)
-    except RuntimeFailure as exc:
-        raise ApiError(409, exc.code, exc.message) from exc
+    version = None
+    if payload.target == "live":
+        version = live_version(db, assistant)
+        if version is None:
+            raise ApiError(409, "runtime.not_published", "助理还没有已发布的版本")
+        dsl = AssistantDSLv1.model_validate(version.snapshot["dsl"])  # the frozen snapshot, never the draft
+        model_id = version.snapshot.get("model_id")
+    else:
+        try:
+            dsl = dsl_from_draft(assistant)
+        except RuntimeFailure as exc:
+            raise ApiError(409, exc.code, exc.message) from exc
+        model_id = assistant.draft_config.get("model_id")
     models, _ = _enabled_chat_models(db, membership.tenant_id)
-    if str(assistant.draft_config.get("model_id")) not in {str(model.id) for model, _ in models}:
+    if str(model_id) not in {str(model.id) for model, _ in models}:
         raise ApiError(409, "runtime.model_unavailable", "助理所选模型未在当前环境启用")
     if len(payload.message.strip()) > dsl.limits.max_input_chars:
         raise ApiError(422, "runtime.input_rejected", f"消息长度不能超过 {dsl.limits.max_input_chars} 个字符")
@@ -104,7 +114,7 @@ def create_debug_run(
                 Conversation.id == payload.conversation_id,
                 Conversation.tenant_id == membership.tenant_id,
                 Conversation.assistant_id == assistant.id,
-                Conversation.source == "debug",
+                Conversation.source.in_(("debug", "test")),
                 Conversation.created_by == membership.user_id,
             )
             .with_for_update()
@@ -121,17 +131,20 @@ def create_debug_run(
     else:
         end_user = console_end_user(db, membership.tenant_id, db.get(User, membership.user_id))
         conversation = start_conversation(
-            db, assistant=assistant, end_user=end_user, source="debug",
+            db, assistant=assistant, end_user=end_user, source="test" if version else "debug",
             environment=MODEL_ENVIRONMENT, created_by=membership.user_id,
         )
+        if version:
+            conversation.assistant_version = f"v{version.version}"
 
     run = Run(
         tenant_id=membership.tenant_id,
         assistant_id=assistant.id,
         conversation_id=conversation.id,
-        draft_row_version=assistant.row_version,
+        version_id=version.id if version else None,
+        draft_row_version=None if version else assistant.row_version,
         environment=MODEL_ENVIRONMENT,
-        source="debug",
+        source="test" if version else "debug",
         status="queued",
         config=dsl.model_dump(mode="json"),
         input={"message": payload.message},

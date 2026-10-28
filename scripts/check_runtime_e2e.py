@@ -80,6 +80,7 @@ def _remove_test_data(assistant_id: str) -> None:
     from sqlalchemy import delete, select
 
     from beework.db import SessionLocal
+    from beework.models.assistants import AssistantVersion
     from beework.models.conversations import Conversation, Message
     from beework.models.jobs import RunEvent
     from beework.models.memory import EndUserMemory
@@ -90,6 +91,7 @@ def _remove_test_data(assistant_id: str) -> None:
     with SessionLocal() as db:
         conversations = list(db.scalars(select(Conversation.id).where(Conversation.assistant_id == target)))
         runs = list(db.scalars(select(Run.id).where(Run.assistant_id == target)))
+        db.execute(delete(AssistantVersion).where(AssistantVersion.assistant_id == target))
         db.execute(delete(EndUserMemory).where(EndUserMemory.source_conversation_id.in_(conversations)))
         db.execute(delete(RunEvent).where(RunEvent.run_id.in_(runs)))
         db.execute(delete(Message).where(Message.conversation_id.in_(conversations)))
@@ -174,6 +176,41 @@ def main() -> None:
         detail = tenant_admin.get(f"/api/v1/conversations/{conversation_id}", headers=headers).json()
         check("conversation has 4 messages and 2 turns", len(detail["messages"]) == 4 and detail["turns"] == 2, detail["turns"])
         check("stored messages are PII-redacted", PHONE not in json.dumps(detail, ensure_ascii=False) and "[手机号]" in detail["messages"][0]["content"], detail["messages"][0]["content"])
+
+        # Publishing: immutable versions, live runs execute the snapshot, rollback.
+        published = tenant_admin.post(f"/api/v1/assistants/{assistant_id}/publish", headers=headers, json={"change_note": "e2e release"})
+        check("publish creates v1.0", published.status_code == 201 and published.json()["version"] == "1.0", published.text[:200])
+        current = tenant_admin.get(f"/api/v1/assistants/{assistant_id}", headers=headers).json()
+        edited = tenant_admin.put(
+            f"/api/v1/assistants/{assistant_id}", headers=headers,
+            json={"name": current["name"], "description": current["description"], "config": {**current["config"], "prompt": "Edited draft prompt."},
+                  "row_version": current["row_version"]},
+        )
+        check("draft edited after publishing", edited.status_code == 200, edited.text[:200])
+        live_run = tenant_admin.post(f"/api/v1/assistants/{assistant_id}/runs", headers=headers, json={"message": "live please", "target": "live"})
+        check("live run starts", live_run.status_code == 202, live_run.text[:200])
+        live_events = sse_events(tenant_admin, live_run.json()["run_id"], headers)
+        check("live run completes on the published snapshot", live_events[-1]["type"] == "done")
+        live_detail = tenant_admin.get(f"/api/v1/runs/{live_run.json()['run_id']}", headers=headers).json()
+        check("live run is bound to version 1.0", live_detail["source"] == "test" and live_detail["draft_row_version"] is None, live_detail["source"])
+        second = tenant_admin.post(f"/api/v1/assistants/{assistant_id}/publish", headers=headers, json={"change_note": "second"})
+        check("second publish creates v1.1 with a prompt diff", second.status_code == 201 and any(c["section"] == "prompt" for c in second.json()["change_diff"]), second.text[:200])
+        rolled = tenant_admin.post(f"/api/v1/assistants/{assistant_id}/versions/{published.json()['id']}/rollback", headers=headers, json={})
+        check("rollback creates v1.2 from v1.0", rolled.status_code == 201 and rolled.json()["version"] == "1.2" and rolled.json()["kind"] == "rollback", rolled.text[:200])
+        from sqlalchemy import text as sql_text
+        from sqlalchemy.exc import DBAPIError
+
+        from beework.db import SessionLocal as _Session
+
+        with _Session() as db:
+            try:
+                db.execute(sql_text("UPDATE assistant_versions SET change_note = 'x' WHERE id = :id"), {"id": published.json()["id"]})
+                db.commit()
+                tampered = True
+            except DBAPIError:
+                db.rollback()
+                tampered = False
+        check("database rejects updating a published version", tampered is False)
 
         # Long-term memory: end the conversation, extract through the real gateway path, then read it back.
         memory_answer = json.dumps({

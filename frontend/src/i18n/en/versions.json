@@ -1,0 +1,80 @@
+{
+  "publish": {
+    "title": "Publish assistant",
+    "subtitle": "Publishing creates an immutable v{{version}} and replaces the live version.",
+    "loading": "Checking…",
+    "loadFailed": "Could not load the publish preview",
+    "blockers": "Fix these first",
+    "noBlockers": "Pre-publish checks passed",
+    "firstRelease": "First release: there is no live version yet.",
+    "noChanges": "The draft is identical to the live version; nothing to publish.",
+    "changes": "Changes in this release",
+    "note": "Release note",
+    "notePlaceholder": "What changed (optional)",
+    "submit": "Publish v{{version}}",
+    "submitting": "Publishing…",
+    "cancel": "Cancel",
+    "done": "Published v{{version}}",
+    "approvalNote": "This workspace has no publish approval configured, so the release takes effect immediately."
+  },
+  "page": {
+    "title": "Version history",
+    "subtitle": "Immutable published versions and configuration snapshots.",
+    "back": "Back to assistants",
+    "loading": "Loading versions…",
+    "loadFailed": "Could not load versions",
+    "empty": "Nothing has been published yet",
+    "retry": "Retry",
+    "live": "Live",
+    "history": "Previous",
+    "by": "{{name}} · {{time}}",
+    "kindRollback": "Rollback",
+    "noNote": "(no release note)",
+    "draftVersion": "The draft will become v{{version}}"
+  },
+  "actions": {
+    "view": "View",
+    "restore": "Restore to draft",
+    "rollback": "Roll back to this version",
+    "compare": "Compare versions",
+    "close": "Close"
+  },
+  "confirm": {
+    "restoreTitle": "Restore to draft",
+    "restoreBody": "Overwrite the current draft with v{{version}}? The live version stays as is; publish again to apply it.",
+    "rollbackTitle": "Roll back to v{{version}}",
+    "rollbackBody": "Create a new version from the v{{version}} snapshot and make it live now? Your draft is not affected.",
+    "restored": "Restored to draft",
+    "rolledBack": "Rolled back; new version v{{version}} is live"
+  },
+  "view": {
+    "title": "Snapshot v{{version}}",
+    "readOnly": "Read only",
+    "changes": "Changes against the previous live version",
+    "noChanges": "No changes",
+    "snapshot": "Full configuration snapshot"
+  },
+  "compare": {
+    "title": "Compare versions",
+    "from": "Base",
+    "to": "Compare with",
+    "draft": "Current draft",
+    "run": "Compare",
+    "identical": "No differences",
+    "sections": {
+      "basics": "Basics",
+      "prompt": "Prompt",
+      "model": "Model",
+      "capabilities": "Capabilities",
+      "experience": "Experience",
+      "oc.pii": "OC · PII",
+      "oc.memory": "OC · Memory",
+      "oc.glossary": "OC · Glossary",
+      "oc.rewrite": "OC · Rewrite",
+      "oc.routing": "OC · Routing",
+      "oc.components": "OC · Components"
+    },
+    "from_label": "Before",
+    "to_label": "After"
+  }
+}
