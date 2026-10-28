@@ -15,12 +15,13 @@ from beework.api.conventions import (
     paginate,
     require_platform_admin,
 )
-from beework.auth import get_tenant_membership, require_csrf
+from beework.auth import require_csrf
 from beework.db import get_db
 from beework.models import AuditEvent, Membership, User
 from beework.models.jobs import Job
+from beework.rbac import require_tenant_permission
 from beework.schemas.jobs import JobResponse
-from beework.worker.events import run_event_tenant_id, stream_run_events
+from beework.worker.events import stream_run_events
 from beework.worker.queue import retry_job
 
 router = APIRouter(tags=["jobs"])
@@ -66,18 +67,18 @@ def retry_platform_job(
 def get_run_events(
     run_id: UUID,
     after_seq: Annotated[int, Query(ge=0)] = 0,
-    membership: Membership = Depends(get_tenant_membership),
+    membership: Membership = Depends(require_tenant_permission("assistants:view")),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    """SSE replay + live stream of a run's events, scoped to the caller's tenant.
+    """SSE replay + live stream of a run's events.
 
-    A run whose events belong to another tenant (or that has none yet) is a 404,
-    so run IDs cannot be probed across tenants. Producers must publish a first
-    event (``queued``) in the same transaction that creates the run.
+    The run must belong to the caller's tenant and to an assistant the caller may see; anything
+    else is a 404 so run IDs cannot be probed. ``POST /assistants/{id}/runs`` publishes the first
+    event (``queued``) in the transaction that creates the run.
     """
-    owner = run_event_tenant_id(db, run_id)
-    if owner is None or owner != membership.tenant_id:
-        raise ApiError(404, "not_found", "未找到指定运行")
+    from beework.api.runs import _load_run
+
+    _load_run(db, membership, run_id)
     bind = db.get_bind()
 
     def sse():

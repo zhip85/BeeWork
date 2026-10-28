@@ -25,7 +25,9 @@ from beework.models import (
     TenantModelEnvironment,
     User,
 )
+from beework.models.assistants import Assistant
 from beework.models.jobs import Job, RunEvent
+from beework.models.runtime import Run
 from beework.security import hash_password
 from isolation import disable_external_integrations, stub_public_dns
 
@@ -198,7 +200,16 @@ class TenantAuthTests(unittest.TestCase):
     def test_run_event_stream_is_tenant_scoped(self) -> None:
         own_run, foreign_run = uuid4(), uuid4()
         with self.session_factory.begin() as db:
-            for run_id, tenant_id in ((own_run, self.tenant_id), (foreign_run, self.other_tenant_id)):
+            for run_id, tenant_id, organization_id in (
+                (own_run, self.tenant_id, self.organization_id),
+                (foreign_run, self.other_tenant_id, self.other_organization_id),
+            ):
+                assistant = Assistant(
+                    tenant_id=UUID(tenant_id), organization_id=UUID(organization_id), name="Runner"
+                )
+                db.add(assistant)
+                db.flush()
+                db.add(Run(id=run_id, tenant_id=UUID(tenant_id), assistant_id=assistant.id))
                 for seq, kind in enumerate(("queued", "token", "done"), start=1):
                     db.add(
                         RunEvent(
@@ -224,7 +235,7 @@ class TenantAuthTests(unittest.TestCase):
         resumed = self.client.get(f"/api/v1/runs/{own_run}/events?after_seq=2", headers=headers)
         self.assertEqual([line for line in resumed.text.splitlines() if line.startswith("id:")], ["id: 3"])
 
-        # Another tenant's run, and a run nobody has published to, look identical: 404.
+        # Another tenant's run, and a run that does not exist, look identical: 404.
         foreign = self.client.get(f"/api/v1/runs/{foreign_run}/events", headers=headers)
         self.assertEqual(foreign.status_code, 404)
         self.assertEqual(foreign.json()["code"], "not_found")

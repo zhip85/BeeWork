@@ -185,7 +185,7 @@ def update_note(note_id: UUID, payload: NoteWriteRequest,
 - 运行事件实时推送：
   - 发布：`publish_run_event(db, run_id, type, data, tenant_id=...)` 先写 `run_events`（同一 run 内 `seq` 递增，PostgreSQL 用 advisory lock 串行）并提交，再 `PUBLISH run:{run_id}` 到 Valkey；Valkey 失败只记日志，事件不丢。
   - 订阅：`stream_run_events` 以数据库表为唯一内容来源，**先订阅 Valkey、再读历史**，Valkey 消息只用来提前唤醒，另有轮询兜底，因此不会出现“历史与实时之间的空洞”；遇到 `done` / `error` / `cancelled` 事件后结束。
-  - 接口：`GET /api/v1/runs/{run_id}/events?after_seq=`（SSE，需要租户成员身份，`X-Tenant-ID`）。**运行不属于当前租户，或还没有任何事件，一律 404**；因此创建 run 的事务里必须同时发布第一个事件（`queued`）。T-025 建立 `runs` 表后，应改为按 `runs` 校验租户与权限。
+  - 接口：`GET /api/v1/runs/{run_id}/events?after_seq=`（SSE，需要租户成员身份，`X-Tenant-ID`）。**运行不属于当前租户，或还没有任何事件，一律 404**；因此创建 run 的事务里必须同时发布第一个事件（`queued`）。T-025 起接口按 `runs` 表校验：run 必须属于当前租户且其助理对调用者可见（`assistants:view`），否则 404。
 
 ### 3.7 与第三方引擎同步
 
@@ -215,6 +215,10 @@ def update_note(note_id: UUID, payload: NoteWriteRequest,
 - 模型调用：`langchain-openai` 的 `ChatOpenAI(base_url=LiteLLM/v1, api_key=租户环境虚拟 Key, model="bw-{model_id}")`，因此限流、权限和计费都在网关侧生效。
 - 追踪：Langfuse Python SDK **v3 及以上**（基于 OpenTelemetry）的 LangChain `CallbackHandler`，trace 带 `tenant_id`、`assistant_id`、`version`、`run_id` 元数据，不上传未脱敏的敏感正文（按 SET-070）。
 - **Langfuse Cloud 的旧接口将于 2026-11-16 下线**：旧版写入接口 `POST /api/public/ingestion`（只剩 score 事件）和 `GET /api/public/traces/*`（已返回 410）都不能用。写入只走 OpenTelemetry（`/api/public/otel/v1/traces`，SDK v3 默认如此），读取只用 `GET /api/public/v2/observations` 与 `/api/public/v2/metrics`。旧版 SDK（v2）和 LiteLLM 的 `langfuse` 回调都依赖旧接口，禁止使用；LiteLLM 侧用 `langfuse_otel` 回调。
+- **运行入口与执行**：`POST /assistants/{id}/runs`（`assistants:test`）建 `runs` 行（冻结 `AssistantDSLv1` 快照）、入队 `runtime.execute` 并在同一事务发布 `queued` 事件；Worker 的 `runtime/executor.py` 执行，事件依次为 `queued → running → step* / token* → done | error | cancelled`；取消用 `POST /runs/{id}/cancel`。图是固定管线 `input_guard → retrieve → generate → output`，节点只能来自 `runtime/compiler.py` 的 `NODE_FACTORIES`。
+- **检索接缝**：运行时只依赖 `runtime/retrieval.py` 的 `Retriever` 协议；目前只有 `StubRetriever`（`mode="stub"`，不访问任何后端），所有事件、run 记录里都带 `retrieval.mode`，界面必须标注“未接真实 RAGFlow”。T-033 用真实实现替换。
+- **Langfuse**：SDK 版本锁定 `langfuse==3.15.0`（需要 `langchain`）；Langfuse Cloud 要求 span 带请求头 `x-langfuse-ingestion-version: 4`，否则 `GET /api/public/v2/observations` 读不到；读取时要加 `fields=core,basic,io,metadata` 才返回 metadata。trace id 由 `run_id` 派生（`Langfuse.create_trace_id(seed=run_id)`）。
+- **Worker 与 API 共用配置**：Worker 需要 `MODEL_CREDENTIALS_SECRET`、`LITELLM_*`、`LANGFUSE_*` 环境变量（compose 已配置），因为它要解密租户环境的网关 Key 并调用模型。
 - 需要中断/恢复的图（Chatflow 追问、人工审批）使用 PostgreSQL checkpointer，与业务库同实例、独立 schema。
 
 ## 4. 前端约定

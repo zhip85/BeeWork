@@ -138,6 +138,15 @@
 - 前端：助理列表页（统计条含配额进度、搜索/状态/组织/排序、卡片与列表视图、更多菜单、自定义确认弹窗）、4 步创建/编辑向导（保存草稿、未保存确认、配额硬限制提示），角色编辑器增加“指定助理”范围；`assistants` 命名空间中英文齐全；侧栏“助理”不再显示写死的数字。
 - 已知限制：模板、驱动方式、能力挂载、AI 生成建议均为“即将开放”（后端对非空挂载/驱动返回 422）；模型选项固定取 `production` 环境（T-006 做环境切换后再改）；卡片/列表上的调用量、成功率、渠道数、月会话量待 T-026/T-040；“对话历史/编排/版本/测试/API 对接”菜单项待对应任务；删除阻断（渠道绑定）只有 `DELETE_BLOCKERS` 注册点，T-040 接入。
 
+### LangGraph 运行时 v1（T-025，闭环切片，待验收）
+
+- 表 `runs`（迁移 0017）；`runtime/` 包：`dsl.py`（`AssistantDSLv1`）、`compiler.py`（固定管线图、节点注册表）、`llm.py`（`ChatOpenAI` → LiteLLM + 租户环境虚拟 Key）、`retrieval.py`（`Retriever` 协议 + `StubRetriever`）、`executor.py`、`tracing.py`（Langfuse SDK v3）、`jobs.py`（Worker 处理器 `runtime.execute`）。
+- 接口：`POST /assistants/{id}/runs`（调试，读取草稿并冻结快照）→ 202 + `run_id`；`GET /runs/{id}`；`POST /runs/{id}/cancel`；`GET /runs/{id}/events`（SSE，改为按 `runs` 校验）。准入：租户状态、助理状态、环境网关同步、模型仍启用；点数配额待 T-011（暂跳过）。
+- 取消、超时、模型/网关错误都有终止事件与可见状态；错误信息只给固定中文文案，不回显网关原文。
+- **验证用的是 `mock_response` 模型，不是真实供应商**（无供应商 Key）：`scripts/check_runtime_e2e.py` 把一个临时目录模型在 LiteLLM 里替换成带 `mock_response` 的部署，真实走完 API → Worker → LangGraph → LiteLLM → SSE，并在 Langfuse Cloud 读到了 `assistant.run` + `ChatOpenAI` 两个 observation（metadata 含 tenant / assistant / run）。
+- **知识检索未接真实 RAGFlow**：只有桩实现，`retrieval.mode = "stub"`。
+- 已知限制：见任务文件“遗留问题”。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

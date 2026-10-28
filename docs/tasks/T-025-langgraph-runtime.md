@@ -27,3 +27,26 @@
 - [ ] Langfuse Cloud 上能看到 trace（有 Key 时），trace 元数据含 tenant/assistant/run。
 - [ ] 取消运行、超时、模型错误都有可见状态与事件。
 - [ ] 桩检索：`retrieve` 节点只通过 `Retriever` 协议调用；run 事件与记录中带 `retrieval.mode=stub`；有测试证明伪造的跨租户 dataset ID 不会传给检索实现。完成记录必须写明“知识检索未接真实 RAGFlow”。
+
+## 完成记录
+
+**改动文件**
+- 新增：`models/runtime.py`（`Run`）、`runtime/{dsl,compiler,llm,retrieval,executor,tracing,jobs,errors}.py`、`schemas/runs.py`、`api/runs.py`、迁移 `0017_runs.py`（可降级）、`tests/test_runtime.py`（18 项）、`scripts/check_runtime_e2e.py`。
+- 修改：`api/jobs.py`（事件 SSE 改按 `runs` 校验并要求 `assistants:view`）、`models/__init__.py`、`api/__init__.py`、`worker/runner.py`（注册处理器）、`tests/test_tenant_auth.py`（事件测试改为建真实 run）、`requirements.txt`（`langchain-openai==1.7.3`、`langfuse==3.15.0`、`langchain==1.4.7`）、`compose.yaml`（Worker 补源码挂载与 `MODEL_CREDENTIALS_SECRET`/`LITELLM_*`/`LANGFUSE_*`，否则 Worker 解不了租户网关 Key、无法追踪）、`docs/architecture.md`。
+
+**验证**
+- `ruff` 通过；`./scripts/test-postgres.sh`（迁移升降级 + `alembic check` + 105 项）通过；`check_gateway_e2e.py` 通过。
+- `check_runtime_e2e.py` 通过：事件顺序 `queued → running → step… → token… → done`、流式文本与 mock 回答一致、run 记录 `succeeded`（tokens 18/17）、Langfuse 上读到 trace（`assistant.run` + `ChatOpenAI`，metadata 含 tenant/assistant/run）。
+- 单元测试覆盖（均不依赖网络，用脚本化假 ChatModel）：DSL 校验、编译图结构与固定节点注册表、输入保护、检索只传租户拥有的 dataset（伪造 ID 不会到达检索实现）、准入拒绝分支（租户只读、助理停用、网关未同步、模型被停用）、成功路径与事件序号、幂等、Worker 处理器、6 类模型/网关错误映射且不泄露原文、超时、排队中/运行中取消、权限（401/403）与跨租户 404（详情/取消/事件）。
+- **用的是 LiteLLM `mock_response`，没有连真实模型供应商**（无 Key）。**知识检索是桩，未接真实 RAGFlow。**
+
+**遗留问题**
+- 需要真实供应商 Key 后，用真实模型再跑一次 `check_runtime_e2e.py` 的前半段（流式、token 用量、成本归因）；目前 token 数来自 mock。
+- 点数配额（`monthly_points`）待 T-011 注册计数器后接入准入；现在跳过。
+- 只实现了 `debug` 来源与草稿快照；`live`/`api`/版本快照来源待 T-024/T-028。`runs.environment` 固定 production（T-006 前）。
+- 无对话历史（`history` 恒为空），T-026 接入。
+- Langfuse trace 当前带输入/输出原文；SET-070 的脱敏与保留策略在 T-026 实现后需接入（不上传未脱敏正文）。
+- Langfuse Cloud 需要 `x-langfuse-ingestion-version: 4` 请求头 SDK v3 的 span 才能被 v2 接口读到（已在 `tracing.py` 设置并写入 architecture）。
+- 事件按 `token` 合并（约 100ms/120 字符一批）后落库，长回答仍会产生较多事件行；清理策略待 T-026 的保留期任务。
+- Worker 单线程顺序执行任务：长回答会占用 Worker（上限为 `timeout_seconds`，默认 60 秒），并发能力需要后续扩容或拆分队列。
+- 本地容器内 `pip install` 的依赖已通过重建镜像固化；CI 走 `requirements.txt`。
