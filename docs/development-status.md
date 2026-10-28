@@ -117,6 +117,13 @@
 - 验证：ruff、迁移升降级 + `alembic check`、62 项测试（含 PostgreSQL 并发与真实 Valkey）、前端检查、Worker 进程端到端均通过。
 - 已知限制：事件接口待 T-025 改为按 `runs` 表校验；锁超时 15 分钟；浏览器需 `fetch` 流式读取（不能用 `EventSource`）。
 
+### 前端中英双语框架（T-003，待验收）
+
+- `i18next` + `react-i18next`（`i18next@26.5.11`、`react-i18next@17.1.9`，已锁定）；字典 `frontend/src/i18n/{zh-CN,en}/*.json`（`common`、`nav`、`auth`、`members`、`platform`、`settings`、`audit`、`enums`），`i18n/format.ts` 提供相对时间、租户时区时间、`18.2k`/`2.48M`、百分比格式化；`npm run i18n:check` 已接入 CI。
+- 语言来源：`users.locale`（迁移 0014，`PATCH /auth/me/preferences`，写审计 `auth.preferences_updated`）→ `localStorage` → `zh-CN`；顶栏、平台后台顶栏、登录页、邀请页、无权限页均有 EN / 中 切换。
+- 已迁移：应用外壳、平台后台外壳、登录/邀请/无租户页、无权访问占位页，全部枚举（`constants.ts` 已删除，改用 `enumLabel`/`enumOptions`）。
+- 已知限制：`members`、`settings`、`audit` 命名空间已建但为空，这些页面及 Dashboard、`CreateModal` 正文仍是中文，需分批迁移；后端错误信息暂不翻译。
+
 ## 4. 下一步
 
 开发任务已全部拆分到 [`tasks/README.md`](./tasks/README.md)：试点版 V0.1 共 22 个任务，V0.2 / V0.3 / V1.0 共 70 个任务（含依赖、外部条件、推荐并行批次、开发负责人的可逆决定与待产品确认事项）；其中 T-106（平台角色分权）等待产品决策；多租户已决定 V1.0 只做共享隔离，T-127（增强/独享隔离与多区域）延后到 V1.0 之后。需要用户提供的外部条件：

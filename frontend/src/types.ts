@@ -18,6 +18,7 @@ export type CurrentUser = {
   email: string
   display_name: string
   is_platform_admin: boolean
+  locale: 'zh-CN' | 'en' | null
   memberships: TenantMembership[]
 }
 

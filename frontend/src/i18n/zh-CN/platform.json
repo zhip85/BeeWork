@@ -1,0 +1,22 @@
+{
+  "brandHome": "BeeWork 平台总览",
+  "identityTitle": "SaaS 平台",
+  "identitySub": "平台管理员控制台",
+  "navLabel": "平台导航",
+  "overview": "概览",
+  "overviewPage": "平台总览",
+  "opsData": "运营数据",
+  "tenants": "租户管理",
+  "jobs": "后台任务",
+  "definitions": "平台定义",
+  "models": "模型目录",
+  "auditSection": "审计",
+  "auditPage": "操作审计",
+  "boundaryKicker": "权限边界",
+  "boundaryBody": "平台账号负责平台与租户生命周期，不自动获得企业工作区权限。",
+  "logoutTitle": "退出平台管理",
+  "adminRole": "SaaS 平台管理员",
+  "breadcrumbRoot": "BeeWork 平台",
+  "adminBadge": "平台管理员",
+  "enterWorkspace": "进入企业工作区"
+}

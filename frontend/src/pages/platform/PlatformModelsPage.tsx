@@ -6,8 +6,8 @@ import {
   X,
 } from 'lucide-react'
 import { apiRequest } from '../../api'
-import { GATEWAY_SYNC_LABELS, MODEL_AVAILABILITY, MODEL_PROVIDERS, MODEL_REGIONS, MODEL_TYPES } from '../../constants'
 import type { ModelDraft, ModelTestResult, PlatformModel, PlatformTenant } from '../../types'
+import { enumLabel, enumOptions } from '../../i18n'
 
 function emptyModelDraft(): ModelDraft {
   return {
@@ -139,7 +139,7 @@ export function PlatformModelsPage() {
   }
 
   const visibleModels = models.filter((model) => {
-    const textMatches = `${model.display_name} ${model.provider_model_id} ${MODEL_PROVIDERS[model.provider] ?? model.provider}`
+    const textMatches = `${model.display_name} ${model.provider_model_id} ${enumLabel('modelProvider', model.provider)}`
       .toLowerCase()
       .includes(search.trim().toLowerCase())
     return textMatches && (!statusFilter || model.status === statusFilter)
@@ -221,13 +221,13 @@ export function PlatformModelsPage() {
               <thead><tr><th>模型</th><th>类型与区域</th><th>开放范围</th><th>输入 / 输出价格</th><th>凭证</th><th>状态</th><th>AI 网关</th><th>操作</th></tr></thead>
               <tbody>{visibleModels.map((model) => (
                 <tr key={model.id}>
-                  <td><span className="model-name-cell"><strong>{model.display_name}</strong><small>{MODEL_PROVIDERS[model.provider] ?? model.provider} · {model.provider_model_id}</small></span></td>
-                  <td>{MODEL_TYPES[model.model_type] ?? model.model_type}<small className="platform-tenant-slug">{MODEL_REGIONS[model.region] ?? model.region}</small></td>
-                  <td>{MODEL_AVAILABILITY[model.availability] ?? model.availability}{model.availability === 'allowlist' && <small className="platform-tenant-slug">{model.allowlist_tenant_ids.length} 家企业</small>}</td>
+                  <td><span className="model-name-cell"><strong>{model.display_name}</strong><small>{enumLabel('modelProvider', model.provider)} · {model.provider_model_id}</small></span></td>
+                  <td>{enumLabel('modelType', model.model_type)}<small className="platform-tenant-slug">{enumLabel('modelRegion', model.region)}</small></td>
+                  <td>{enumLabel('modelAvailability', model.availability)}{model.availability === 'allowlist' && <small className="platform-tenant-slug">{model.allowlist_tenant_ids.length} 家企业</small>}</td>
                   <td><span className="model-price-cell">${model.input_price_per_million} / ${model.output_price_per_million}<small>每百万 Token</small></span></td>
                   <td><span className="model-key-mask">{model.credential_configured ? model.api_key_masked : '未配置'}</span></td>
                   <td><span className={`member-status ${model.status === 'healthy' ? 'active' : 'inactive'}`}><i />{model.status === 'healthy' ? '健康' : model.status === 'canary' ? '灰度发布' : '已停用'}</span></td>
-                  <td><span className={`member-status ${model.gateway_sync_status === 'synced' ? 'active' : 'inactive'}`} title={model.gateway_error ?? undefined}><i />{GATEWAY_SYNC_LABELS[model.gateway_sync_status] ?? model.gateway_sync_status}</span></td>
+                  <td><span className={`member-status ${model.gateway_sync_status === 'synced' ? 'active' : 'inactive'}`} title={model.gateway_error ?? undefined}><i />{enumLabel('gatewaySync', model.gateway_sync_status)}</span></td>
                   <td className="member-actions-cell">
                     <button className="text-action" onClick={() => editModel(model)} type="button">编辑</button>
                     <button className="text-action" disabled={busyModel === model.id} onClick={() => void resyncModel(model)} type="button">同步</button>
@@ -256,18 +256,18 @@ export function PlatformModelsPage() {
                 <strong>模型身份</strong>
                 <div className="model-editor-grid">
                   <label>显示名称<input maxLength={120} onChange={(event) => updateDraft('display_name', event.target.value)} required value={draft.display_name} /></label>
-                  <label>供应商<select onChange={(event) => updateDraft('provider', event.target.value)} value={draft.provider}>{Object.entries(MODEL_PROVIDERS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-                  <label>模型类型<select onChange={(event) => updateDraft('model_type', event.target.value)} value={draft.model_type}>{Object.entries(MODEL_TYPES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+                  <label>供应商<select onChange={(event) => updateDraft('provider', event.target.value)} value={draft.provider}>{enumOptions('modelProvider').map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+                  <label>模型类型<select onChange={(event) => updateDraft('model_type', event.target.value)} value={draft.model_type}>{enumOptions('modelType').map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
                   <label>供应商模型 ID<input maxLength={160} onChange={(event) => updateDraft('provider_model_id', event.target.value)} required value={draft.provider_model_id} /></label>
                   <label className="model-editor-wide">HTTPS 接口地址<input onChange={(event) => updateDraft('endpoint_url', event.target.value)} placeholder="https://api.provider.com/v1" required type="url" value={draft.endpoint_url} /></label>
                   <label>API 版本<input maxLength={80} onChange={(event) => updateDraft('api_version', event.target.value)} placeholder="Azure 等供应商可填写" value={draft.api_version} /></label>
-                  <label>部署区域<select onChange={(event) => updateDraft('region', event.target.value)} value={draft.region}>{Object.entries(MODEL_REGIONS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+                  <label>部署区域<select onChange={(event) => updateDraft('region', event.target.value)} value={draft.region}>{enumOptions('modelRegion').map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
                 </div>
               </div>
               <div className="model-editor-section">
                 <strong>租户开放与供给</strong>
                 <div className="model-editor-grid">
-                  <label>开放范围<select onChange={(event) => updateDraft('availability', event.target.value)} value={draft.availability}>{Object.entries(MODEL_AVAILABILITY).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+                  <label>开放范围<select onChange={(event) => updateDraft('availability', event.target.value)} value={draft.availability}>{enumOptions('modelAvailability').map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
                   <label>目录状态<select onChange={(event) => updateDraft('status', event.target.value as PlatformModel['status'])} value={draft.status}><option value="healthy">健康</option><option value="canary">灰度发布</option><option value="disabled">已停用</option></select></label>
                   {draft.availability === 'allowlist' && <fieldset className="model-allowlist"><legend>白名单租户</legend>{tenants.map((tenant) => <label key={tenant.id}><input checked={draft.allowlist_tenant_ids.includes(tenant.id)} onChange={(event) => updateDraft('allowlist_tenant_ids', event.target.checked ? [...draft.allowlist_tenant_ids, tenant.id] : draft.allowlist_tenant_ids.filter((id) => id !== tenant.id))} type="checkbox" />{tenant.name}</label>)}</fieldset>}
                   <label className="model-editor-wide">API Key<input autoComplete="new-password" onChange={(event) => updateDraft('api_key', event.target.value)} placeholder={draft.id ? '留空以保留当前密钥；输入新值则轮换' : '保存后只显示掩码'} required={!draft.id} type="password" value={draft.api_key} /><small>{draft.id ? '明文不会回显；留空不修改现有凭证。' : '凭证会加密保存，API 不会返回明文。'}</small></label>

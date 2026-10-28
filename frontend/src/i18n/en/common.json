@@ -1,0 +1,20 @@
+{
+  "requestFailed": "Request failed. Please try again later.",
+  "connectingWorkspace": "Connecting to your BeeWork workspace",
+  "logout": "Sign out",
+  "logoutFailed": "Failed to sign out",
+  "search": "Search",
+  "searchAnything": "Search anything",
+  "notifications": "Notifications",
+  "help": "Help",
+  "language": "Language",
+  "switchLanguage": "Switch language",
+  "apiOnline": "System online",
+  "apiOffline": "API unreachable",
+  "apiChecking": "Connecting",
+  "accessDenied": "Access denied",
+  "accessDeniedBody": "Your account does not have permission to use this feature. Contact your workspace administrator or a platform administrator.",
+  "placeholderKicker": "Workspace",
+  "placeholderBody": "The frontend shell is ready; this module will connect to the real API in a later release.",
+  "createItem": "Create {{name}}"
+}

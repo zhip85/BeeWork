@@ -3,8 +3,8 @@ import {
   Bot,
 } from 'lucide-react'
 import { apiRequest } from '../../api'
-import { GATEWAY_SYNC_LABELS, MODEL_TYPE_LABELS, PLAN_LABELS, REGION_LABELS } from '../../constants'
 import type { ModelTestResult, TenantModelEnvironment } from '../../types'
+import { enumLabel } from '../../i18n'
 
 export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: string; canEdit: boolean }) {
   const [environment, setEnvironment] = useState<TenantModelEnvironment['environment']>('production')
@@ -140,8 +140,8 @@ export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: strin
           <p>按环境选择可用模型，并为对话、向量化和重排序指定默认模型。</p>
         </div>
         <div className="settings-region-stamp">
-          <span>{config ? PLAN_LABELS[config.plan] ?? config.plan : '套餐核验中'}</span>
-          <strong>{config ? REGION_LABELS[config.region] ?? config.region : '读取区域…'}</strong>
+          <span>{config ? enumLabel('plan', config.plan) : '套餐核验中'}</span>
+          <strong>{config ? enumLabel('region', config.region) : '读取区域…'}</strong>
         </div>
       </div>
       <div className="model-environment-tabs" role="tablist" aria-label="选择配置环境">
@@ -177,7 +177,7 @@ export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: strin
         <div className="panel gateway-status-panel">
           <div className="members-table-heading">
             <div><div className="section-kicker">AI 网关</div><h2>本环境调用凭证</h2></div>
-            <span className={`member-status ${config.gateway_sync_status === 'synced' ? 'active' : 'inactive'}`}><i />{GATEWAY_SYNC_LABELS[config.gateway_sync_status] ?? config.gateway_sync_status}</span>
+            <span className={`member-status ${config.gateway_sync_status === 'synced' ? 'active' : 'inactive'}`}><i />{enumLabel('gatewaySync', config.gateway_sync_status)}</span>
           </div>
           <p className="model-settings-help">保存配置后，平台会在 AI 网关中为本环境签发独立的调用凭证，并只放行已启用的模型。{config.gateway_error && ` 最近错误：${config.gateway_error}`}</p>
           {canEdit && (
@@ -207,7 +207,7 @@ export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: strin
             const options = config?.models.filter((model) => model.model_type === type && enabledSet.has(model.id)) ?? []
             return (
               <label key={type}>
-                <span>{MODEL_TYPE_LABELS[type]}默认模型</span>
+                <span>{enumLabel('modelTypeLong', type)}默认模型</span>
                 <select
                   disabled={!canEdit || loading || options.length === 0}
                   onChange={(event) => selectDefault(type, event.target.value)}
@@ -257,7 +257,7 @@ export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: strin
                   <span className="tenant-model-mark"><Bot size={17} /></span>
                   <span className="tenant-model-copy">
                     <strong>{model.display_name}{isDefault && <em>默认</em>}</strong>
-                    <small>{model.provider} · {MODEL_TYPE_LABELS[model.model_type] ?? model.model_type} · {REGION_LABELS[model.region] ?? model.region}</small>
+                    <small>{model.provider} · {enumLabel('modelTypeLong', model.model_type)} · {enumLabel('region', model.region)}</small>
                   </span>
                   <span className="tenant-model-price">输入 ¥{model.input_price_per_million} / 1M tokens</span>
                   <span className={`tenant-model-state${enabled ? ' on' : ''}`}>{enabled ? '已启用' : '未启用'}</span>

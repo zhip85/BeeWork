@@ -90,6 +90,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_platform_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    locale: Mapped[str | None] = mapped_column(String(8))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 

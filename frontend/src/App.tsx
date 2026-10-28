@@ -20,7 +20,10 @@ import {
   Workflow,
 } from 'lucide-react'
 import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { apiRequest } from './api'
+import { applyLocale, currentLocale, enumLabel, isLocale } from './i18n'
+import { LanguageSwitch } from './i18n/LanguageSwitch'
 import { SectionPlaceholder } from './components/SectionPlaceholder'
 import { AuditLogPage } from './pages/audit/AuditLogPage'
 import { InviteAcceptancePage } from './pages/auth/InviteAcceptancePage'
@@ -32,18 +35,18 @@ import { PlatformConsole } from './pages/platform/PlatformConsole'
 import { TenantModelSettingsPage } from './pages/settings/TenantModelSettingsPage'
 import { roleLabel } from './roles'
 import type { CurrentUser } from './types'
-import { TENANT_STATUS_LABELS } from './constants'
 import './App.css'
 
 const navigation = [
-  { label: '工作台', to: '/', icon: LayoutDashboard, end: true, permission: 'dashboard:view' },
-  { label: '助理', to: '/assistants', icon: Bot, permission: 'assistants:view' },
-  { label: '编排中心', to: '/workflows', icon: Workflow, permission: 'orchestration:view' },
-  { label: '知识库', to: '/knowledge', icon: BookOpen, permission: 'knowledge:view' },
-  { label: '能力目录', to: '/capabilities', icon: Boxes, permission: 'capabilities:view' },
+  { labelKey: 'dashboard', to: '/', icon: LayoutDashboard, end: true, permission: 'dashboard:view' },
+  { labelKey: 'assistants', to: '/assistants', icon: Bot, permission: 'assistants:view' },
+  { labelKey: 'workflows', to: '/workflows', icon: Workflow, permission: 'orchestration:view' },
+  { labelKey: 'knowledge', to: '/knowledge', icon: BookOpen, permission: 'knowledge:view' },
+  { labelKey: 'capabilities', to: '/capabilities', icon: Boxes, permission: 'capabilities:view' },
 ]
 
 function App() {
+  const { t } = useTranslation(['nav', 'common'])
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>(
     'checking',
   )
@@ -73,17 +76,16 @@ function App() {
   ].some(hasPermission)
   const currentPage =
     location.pathname === '/members'
-      ? '成员与权限'
+      ? t('nav:members')
       : location.pathname === '/audit'
-      ? '审计日志'
+      ? t('nav:audit')
       : location.pathname === '/platform/tenants'
-      ? '企业租户'
+      ? t('nav:platformTenants')
       : location.pathname === '/settings'
-      ? '模型与环境'
-      :
-    navigation.find((item) =>
-      item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
-    )?.label ?? '工作台'
+      ? t('nav:modelSettings')
+      : t(`nav:${navigation.find((item) =>
+          item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
+        )?.labelKey ?? 'dashboard'}`)
 
   useEffect(() => {
     let active = true
@@ -99,6 +101,9 @@ function App() {
         if (!active) return
         setUser(currentUser)
         setSessionError('')
+        if (isLocale(currentUser.locale) && currentUser.locale !== currentLocale()) {
+          void applyLocale(currentUser.locale)
+        }
         const storedTenant = localStorage.getItem('beework.activeTenant')
         if (!storedTenant || !currentUser.memberships.some((item) => item.id === storedTenant)) {
           const firstTenant = currentUser.memberships[0]?.id ?? ''
@@ -125,6 +130,9 @@ function App() {
     })
     setUser(currentUser)
     setSessionError('')
+    if (isLocale(currentUser.locale) && currentUser.locale !== currentLocale()) {
+      void applyLocale(currentUser.locale)
+    }
     const firstTenant = currentUser.memberships[0]?.id ?? ''
     setActiveTenantId(firstTenant)
     if (firstTenant) localStorage.setItem('beework.activeTenant', firstTenant)
@@ -135,7 +143,7 @@ function App() {
       await apiRequest<void>('/api/v1/auth/logout', { method: 'POST' })
       setUser(null)
     } catch (error) {
-      setSessionError(error instanceof Error ? error.message : '退出登录失败')
+      setSessionError(error instanceof Error ? error.message : t('common:logoutFailed'))
     }
   }
 
@@ -145,7 +153,7 @@ function App() {
   }
 
   if (sessionLoading) {
-    return <div className="auth-loading"><span className="brand-mark"><Hexagon size={22} /><span /></span>正在连接 BeeWork 工作区</div>
+    return <div className="auth-loading"><span className="brand-mark"><Hexagon size={22} /><span /></span>{t('common:connectingWorkspace')}</div>
   }
 
   if (!user) {
@@ -175,7 +183,7 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <Link className="brand" to="/" aria-label="BeeWork 工作台">
+        <Link className="brand" to="/" aria-label={t('nav:brandHome')}>
           <span className="brand-mark">
             <Hexagon size={22} strokeWidth={2.2} />
             <span />
@@ -187,12 +195,12 @@ function App() {
         <label className="workspace-switch">
           <span className="workspace-avatar">{activeTenant?.name.slice(0, 1) ?? 'A'}</span>
           <span className="workspace-copy">
-            <strong>{activeTenant?.name ?? '未加入企业'}</strong>
-            <small>{activeTenant ? roleLabel(activeTenant.role, activeTenant.custom_role_name) : '请联系平台管理员'}</small>
+            <strong>{activeTenant?.name ?? t('nav:noTenant')}</strong>
+            <small>{activeTenant ? roleLabel(activeTenant.role, activeTenant.custom_role_name) : t('nav:contactPlatformAdmin')}</small>
           </span>
           {user.memberships.length > 1 ? (
             <select
-              aria-label="切换企业工作区"
+              aria-label={t('nav:switchWorkspace')}
               value={activeTenant?.id ?? ''}
               onChange={(event) => handleTenantChange(event.target.value)}
             >
@@ -201,9 +209,9 @@ function App() {
           ) : <ChevronDown size={15} />}
         </label>
 
-        <div className="nav-caption">工作空间</div>
-        <nav className="primary-nav" aria-label="主导航">
-          {navigation.filter((item) => hasPermission(item.permission)).map(({ label, to, icon: Icon, end }) => (
+        <div className="nav-caption">{t('nav:workspace')}</div>
+        <nav className="primary-nav" aria-label={t('nav:mainNav')}>
+          {navigation.filter((item) => hasPermission(item.permission)).map(({ labelKey, to, icon: Icon, end }) => (
             <NavLink
               className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
               end={end}
@@ -211,54 +219,54 @@ function App() {
               to={to}
             >
               <Icon size={18} strokeWidth={1.8} />
-              <span>{label}</span>
-              {label === '助理' && <span className="nav-count">12</span>}
+              <span>{t(`nav:${labelKey}`)}</span>
+              {labelKey === 'assistants' && <span className="nav-count">12</span>}
             </NavLink>
           ))}
         </nav>
 
-        <div className="nav-caption nav-caption-lower">管理</div>
+        <div className="nav-caption nav-caption-lower">{t('nav:manage')}</div>
         {canViewOperations && (
           <NavLink className="nav-link" to="/operations">
             <Activity size={18} strokeWidth={1.8} />
-            <span>运营与审计</span>
+            <span>{t('nav:operations')}</span>
           </NavLink>
         )}
         {canViewSettings && (
           <NavLink className="nav-link" to="/settings">
             <Settings2 size={18} strokeWidth={1.8} />
-            <span>设置</span>
+            <span>{t('nav:settings')}</span>
           </NavLink>
         )}
         {hasPermission('audit:view') && (
           <NavLink className="nav-link" to="/audit">
             <FileText size={18} strokeWidth={1.8} />
-            <span>审计日志</span>
+            <span>{t('nav:audit')}</span>
           </NavLink>
         )}
         {isTenantAdmin && (
           <NavLink className="nav-link" to="/members">
             <ShieldCheck size={18} strokeWidth={1.8} />
-            <span>成员与权限</span>
+            <span>{t('nav:members')}</span>
           </NavLink>
         )}
         {user.is_platform_admin && (
           <NavLink className="nav-link" to="/platform">
             <Boxes size={18} strokeWidth={1.8} />
-            <span>平台运营</span>
+            <span>{t('nav:platform')}</span>
           </NavLink>
         )}
 
         <div className="sidebar-spacer" />
         <div className="plan-card">
           <div className="plan-icon"><Sparkles size={16} /></div>
-          <strong>让 AI 团队持续进化</strong>
-          <span>探索你的企业能力图谱</span>
+          <strong>{t('nav:planTitle')}</strong>
+          <span>{t('nav:planBody')}</span>
           <Link className="plan-link" to="/capabilities">
-            查看能力目录 <ArrowRight size={14} />
+            {t('nav:viewCapabilities')} <ArrowRight size={14} />
           </Link>
         </div>
-        <button className="profile-button" type="button" onClick={handleLogout} title="退出登录">
+        <button className="profile-button" type="button" onClick={handleLogout} title={t('common:logout')}>
           <span className="profile-avatar">{user.display_name.slice(0, 2).toUpperCase()}</span>
           <span className="profile-copy"><strong>{user.display_name}</strong><small>{roleLabel(activeTenant?.role ?? '', activeTenant?.custom_role_name)}</small></span>
           <LogOut size={15} />
@@ -271,38 +279,39 @@ function App() {
             <span>{activeTenant?.name ?? 'BeeWork'}</span><span className="crumb-slash">/</span><strong>{currentPage}</strong>
           </div>
           <div className="topbar-actions">
-            <button className="search-button" type="button" aria-label="搜索">
-              <Search size={16} /><span>搜索任何内容</span><kbd><Command size={11} /> K</kbd>
+            <LanguageSwitch persist />
+            <button className="search-button" type="button" aria-label={t('common:search')}>
+              <Search size={16} /><span>{t('common:searchAnything')}</span><kbd><Command size={11} /> K</kbd>
             </button>
             <span className={`service-status ${apiStatus}`} title={`API ${apiStatus}`}>
-              <i />{apiStatus === 'online' ? '系统在线' : apiStatus === 'offline' ? 'API 未连接' : '正在连接'}
+              <i />{apiStatus === 'online' ? t('common:apiOnline') : apiStatus === 'offline' ? t('common:apiOffline') : t('common:apiChecking')}
             </span>
-            <button className="icon-button notification-button" type="button" aria-label="通知">
+            <button className="icon-button notification-button" type="button" aria-label={t('common:notifications')}>
               <Bell size={18} /><i />
             </button>
-            <button className="help-button" type="button"><CircleHelp size={17} />帮助</button>
+            <button className="help-button" type="button"><CircleHelp size={17} />{t('common:help')}</button>
           </div>
         </header>
         <div className="page-content">
           {activeTenant?.access_mode === 'read_only' && (
             <p className="tenant-readonly-banner" role="status">
-              企业工作区当前为「{TENANT_STATUS_LABELS[activeTenant.tenant_status] ?? activeTenant.tenant_status}」状态：仅可查看与导出，所有修改操作已暂停。如需恢复请联系平台。
+              {t('nav:readonlyBanner', { status: enumLabel('tenantStatus', activeTenant.tenant_status) })}
             </p>
           )}
           <Routes>
-            <Route path="/" element={hasPermission('dashboard:view') ? <Dashboard user={user} tenant={activeTenant} /> : <SectionPlaceholder title="无权访问" icon={<ShieldCheck size={22} />} />} />
-            {navigation.slice(1).map(({ label, to, icon: Icon, permission }) => (
-              <Route key={to} path={to} element={hasPermission(permission) ? <SectionPlaceholder title={label} icon={<Icon size={22} />} /> : <SectionPlaceholder title="无权访问" icon={<ShieldCheck size={22} />} />} />
+            <Route path="/" element={hasPermission('dashboard:view') ? <Dashboard user={user} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            {navigation.slice(1).map(({ labelKey, to, icon: Icon, permission }) => (
+              <Route key={to} path={to} element={hasPermission(permission) ? <SectionPlaceholder title={t(`nav:${labelKey}`)} icon={<Icon size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             ))}
-            <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title="运营与审计" icon={<Activity size={22} />} /> : <SectionPlaceholder title="无权访问" icon={<ShieldCheck size={22} />} />} />
-            <Route path="/audit" element={hasPermission('audit:view') && activeTenant ? <AuditLogPage key={activeTenant.id} tenantId={activeTenant.id} canExport={hasPermission('audit:export')} /> : <SectionPlaceholder title="无权访问" icon={<ShieldCheck size={22} />} />} />
-            <Route path="/settings" element={canViewSettings && activeTenant ? <TenantModelSettingsPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={canEditSettings} /> : <SectionPlaceholder title="无权访问" icon={<ShieldCheck size={22} />} />} />
+            <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/audit" element={hasPermission('audit:view') && activeTenant ? <AuditLogPage key={activeTenant.id} tenantId={activeTenant.id} canExport={hasPermission('audit:export')} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/settings" element={canViewSettings && activeTenant ? <TenantModelSettingsPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={canEditSettings} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/members" element={isTenantAdmin && activeTenant ? <MembersPage key={activeTenant.id} tenant={activeTenant} currentUserId={user.id} onMembershipChanged={async () => {
               const refreshed = await apiRequest<CurrentUser>('/api/v1/auth/me')
               setUser(refreshed)
-            }} /> : <SectionPlaceholder title="无权访问" icon={<ShieldCheck size={22} />} />} />
-            <Route path="/platform/*" element={<SectionPlaceholder title="无权访问" icon={<ShieldCheck size={22} />} />} />
-            <Route path="*" element={<SectionPlaceholder title="工作台" icon={<LayoutDashboard size={22} />} />} />
+            }} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/platform/*" element={<SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="*" element={<SectionPlaceholder title={t('nav:dashboard')} icon={<LayoutDashboard size={22} />} />} />
           </Routes>
         </div>
       </main>

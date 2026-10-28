@@ -336,7 +336,12 @@ class CurrentUserResponse(BaseModel):
     email: EmailStr
     display_name: str
     is_platform_admin: bool
+    locale: str | None = None
     memberships: list[TenantMembershipResponse]
+
+
+class UserPreferencesRequest(BaseModel):
+    locale: Literal["zh-CN", "en"]
 
 
 class MemberResponse(BaseModel):

@@ -1,0 +1,20 @@
+{
+  "requestFailed": "请求失败，请稍后重试",
+  "connectingWorkspace": "正在连接 BeeWork 工作区",
+  "logout": "退出登录",
+  "logoutFailed": "退出登录失败",
+  "search": "搜索",
+  "searchAnything": "搜索任何内容",
+  "notifications": "通知",
+  "help": "帮助",
+  "language": "语言",
+  "switchLanguage": "切换语言",
+  "apiOnline": "系统在线",
+  "apiOffline": "API 未连接",
+  "apiChecking": "正在连接",
+  "accessDenied": "无权访问",
+  "accessDeniedBody": "当前账号没有访问此功能的权限，请联系对应的企业管理员或平台管理员。",
+  "placeholderKicker": "工作空间",
+  "placeholderBody": "前端框架已就绪，这个模块会在后续开发中接入真实 API。",
+  "createItem": "创建{{name}}"
+}

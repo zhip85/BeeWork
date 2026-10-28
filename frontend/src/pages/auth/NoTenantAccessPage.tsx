@@ -2,6 +2,8 @@ import {
   Building2,
   LogOut,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { LanguageSwitch } from '../../i18n/LanguageSwitch'
 import type { CurrentUser } from '../../types'
 
 export function NoTenantAccessPage({
@@ -11,14 +13,16 @@ export function NoTenantAccessPage({
   user: CurrentUser
   onLogout: () => Promise<void>
 }) {
+  const { t } = useTranslation()
   return (
     <main className="no-tenant-screen">
       <section className="no-tenant-card">
+        <div className="login-language"><LanguageSwitch persist /></div>
         <span className="platform-identity-icon"><Building2 size={19} /></span>
-        <div className="section-kicker">企业工作区不可用</div>
-        <h1>当前账号没有可用的企业</h1>
-        <p>{user.email} 尚未加入运行中的企业工作区。请联系企业管理员；如果企业刚刚恢复服务，请重新登录。</p>
-        <button className="primary-button" onClick={() => void onLogout()} type="button"><LogOut size={15} />退出登录</button>
+        <div className="section-kicker">{t('auth:noTenant.kicker')}</div>
+        <h1>{t('auth:noTenant.title')}</h1>
+        <p>{t('auth:noTenant.body', { email: user.email })}</p>
+        <button className="primary-button" onClick={() => void onLogout()} type="button"><LogOut size={15} />{t('logout')}</button>
       </section>
     </main>
   )
