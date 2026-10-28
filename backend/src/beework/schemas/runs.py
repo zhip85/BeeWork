@@ -9,6 +9,8 @@ class CreateRunRequest(BaseModel):
     message: str = Field(min_length=1, max_length=20000)
     # Continue an existing console conversation; omitted: a new conversation is started.
     conversation_id: UUID | None = None
+    # "draft" runs the editable draft; "live" runs the published version's frozen snapshot.
+    target: Literal["draft", "live"] = "draft"
 
 
 class CreateRunResponse(BaseModel):

@@ -175,6 +175,15 @@
 - 顺带修复一个线程安全问题：图节点跑在 LangGraph 线程池里，原先取消检查会和主线程共用同一个 Session；现在节点内一律用自己的短会话。
 - 已知限制：见任务文件“遗留问题”。
 
+### 助理发布与不可变版本（T-024a，闭环切片，待验收）
+
+- 表 `assistant_versions`（迁移 0021）：`snapshot` 含完整草稿配置、基础信息和冻结的运行时 DSL；ORM 层禁止 UPDATE，PostgreSQL 触发器 `trg_assistant_versions_immutable` 拒绝 UPDATE（DELETE 保留，便于租户/助理清除时级联）。版本号 vX.Y（首次 1.0，之后 1.1、1.2…）。
+- 接口：`GET /assistants/{id}/publish-preview`、`POST /assistants/{id}/publish`、`GET …/versions`、`GET …/versions/{vid}`、`GET …/versions/compare?from=&to=`（版本 ID 或 `draft`；提示词给行级 diff）、`POST …/versions/{vid}/restore`（覆盖草稿，带 `row_version`，不上线）、`POST …/versions/{vid}/rollback`（用历史快照生成新版本并上线，草稿不变）。发布/回滚写审计 `assistant.published` / `assistant.rolled_back`。
+- 运行时：`POST /assistants/{id}/runs` 新增 `target: "live"`，执行线上版本的冻结快照（`source=test`，`runs.version_id` 记录版本）；草稿运行不受影响，发布后继续编辑草稿也不会改变线上行为。
+- 发布前检查（最小版）：名称/简介、模型仍启用、环境网关已同步；草稿与线上无差异时拒绝。完整“配置检查”属 T-021。
+- 前端：助理卡片菜单新增“发布”（预览变更与阻断项、填写发布说明）与“版本管理”（时间线、查看快照、恢复、回滚、对比任意两个版本/草稿）。
+- 已知限制：见任务文件“遗留问题”。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

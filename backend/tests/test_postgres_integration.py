@@ -33,7 +33,7 @@ from beework.models import (
     TenantRole,
     User,
 )
-from beework.models.assistants import Assistant
+from beework.models.assistants import Assistant, AssistantVersion
 from beework.models.jobs import Job
 from beework.security import hash_password
 from beework.worker.events import publish_run_event, stream_run_events
@@ -229,6 +229,28 @@ class PostgresIntegrationTests(unittest.TestCase):
                 select(text("count(*)")).select_from(Assistant).where(Assistant.tenant_id == self.tenant_id)
             )
         self.assertEqual(count, 5)
+
+    def test_database_trigger_rejects_assistant_version_updates(self) -> None:
+        from sqlalchemy.exc import DBAPIError
+
+        with self.session_factory.begin() as db:
+            assistant = Assistant(tenant_id=self.tenant_id, organization_id=self.organization_id, name="Versioned", draft_config={})
+            db.add(assistant)
+            db.flush()
+            version = AssistantVersion(
+                tenant_id=self.tenant_id, assistant_id=assistant.id, version_seq=1, version="1.0", snapshot={"k": "v"},
+            )
+            db.add(version)
+            db.flush()
+            version_id = version.id
+        with self.engine.begin() as connection:
+            with self.assertRaises(DBAPIError) as caught:
+                connection.execute(
+                    text("UPDATE assistant_versions SET change_note = 'tampered' WHERE id = :id"), {"id": version_id}
+                )
+            self.assertIn("immutable", str(caught.exception))
+        with self.session_factory() as db:
+            self.assertEqual(db.get(AssistantVersion, version_id).change_note, "")
 
     def test_concurrent_workers_claim_each_job_once(self) -> None:
         with self.session_factory.begin() as db:
