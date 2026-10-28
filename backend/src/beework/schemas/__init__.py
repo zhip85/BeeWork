@@ -375,6 +375,7 @@ class RoleResponse(BaseModel):
     description: str
     scope: str
     scope_organization_id: UUID | None
+    scope_assistant_ids: list[UUID] = []
     permissions: dict[str, list[str]]
     is_active: bool
     is_builtin: bool
@@ -388,8 +389,9 @@ class RoleListResponse(BaseModel):
 class CreateRoleRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     description: str = Field(default="", max_length=500)
-    scope: str = Field(pattern="^(tenant|organization)$")
+    scope: str = Field(pattern="^(tenant|organization|assistant)$")
     scope_organization_id: UUID | None = None
+    scope_assistant_ids: list[UUID] = Field(default_factory=list, max_length=200)
     permissions: dict[str, list[str]]
     is_active: bool = True
 
@@ -407,9 +409,19 @@ class CreateRoleRequest(BaseModel):
         scope = info.data.get("scope")
         if scope == "organization" and value is None:
             raise ValueError("组织范围角色必须指定组织")
-        if scope == "tenant" and value is not None:
-            raise ValueError("租户范围角色不能指定组织")
+        if scope in {"tenant", "assistant"} and value is not None:
+            raise ValueError("该范围的角色不能指定组织")
         return value
+
+    @field_validator("scope_assistant_ids")
+    @classmethod
+    def validate_scope_assistants(cls, value: list[UUID], info):
+        scope = info.data.get("scope")
+        if scope == "assistant" and not value:
+            raise ValueError("助理范围角色必须指定助理")
+        if scope != "assistant" and value:
+            raise ValueError("只有助理范围角色可以指定助理")
+        return list(dict.fromkeys(value))
 
     @field_validator("permissions")
     @classmethod

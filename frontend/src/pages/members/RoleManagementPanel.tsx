@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   Plus,
@@ -23,6 +23,16 @@ export function RoleManagementPanel({
   const [draft, setDraft] = useState<RoleDraft | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [assistantChoices, setAssistantChoices] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    if (draft?.scope !== 'assistant') return
+    let active = true
+    apiRequest<{ items: { id: string; name: string }[] }>('/api/v1/assistants?limit=100&sort=name_asc', {}, tenantId)
+      .then((result) => active && setAssistantChoices(result.items))
+      .catch(() => active && setAssistantChoices([]))
+    return () => { active = false }
+  }, [draft?.scope, tenantId])
 
   function startNewRole(source?: TenantRole) {
     setError('')
@@ -32,6 +42,7 @@ export function RoleManagementPanel({
       description: source ? `基于「${source.name}」创建` : '',
       scope: 'tenant',
       scope_organization_id: '',
+      scope_assistant_ids: [],
       permissions: source
         ? Object.fromEntries(
             Object.entries(source.permissions).map(([module, actions]) => [module, [...actions]]),
@@ -57,6 +68,7 @@ export function RoleManagementPanel({
         description: draft.description,
         scope: draft.scope,
         scope_organization_id: draft.scope === 'organization' ? draft.scope_organization_id : null,
+        scope_assistant_ids: draft.scope === 'assistant' ? draft.scope_assistant_ids : [],
         permissions: draft.permissions,
         is_active: draft.is_active,
       }
@@ -115,7 +127,7 @@ export function RoleManagementPanel({
         {roles.map((role) => (
           <article className={`role-card${role.is_active ? '' : ' is-inactive'}`} key={role.key}>
             <div className="role-card-heading">
-              <div><strong>{role.name}</strong><small>{role.is_builtin ? '系统内置' : role.scope === 'tenant' ? '全企业范围' : '部门范围'}</small></div>
+              <div><strong>{role.name}</strong><small>{role.is_builtin ? '系统内置' : role.scope === 'tenant' ? '全企业范围' : role.scope === 'assistant' ? '指定助理范围' : '部门范围'}</small></div>
               {!role.is_active && <span className="role-inactive-label">已停用</span>}
             </div>
             <p>{role.description || '未填写角色说明'}</p>
@@ -135,6 +147,7 @@ export function RoleManagementPanel({
                         description: role.description,
                         scope: role.scope,
                         scope_organization_id: role.scope_organization_id ?? '',
+                        scope_assistant_ids: role.scope_assistant_ids ?? [],
                         permissions: Object.fromEntries(
                           Object.entries(role.permissions).map(([module, actions]) => [module, [...actions]]),
                         ),
@@ -170,14 +183,41 @@ export function RoleManagementPanel({
                 onChange={(event) => setDraft({
                   ...draft,
                   scope: event.target.value as RoleDraft['scope'],
-                  scope_organization_id: event.target.value === 'tenant' ? '' : (organizations[0]?.id ?? ''),
+                  scope_organization_id: event.target.value === 'organization' ? (organizations[0]?.id ?? '') : '',
+                  scope_assistant_ids: [],
+                  permissions: event.target.value === 'assistant'
+                    ? Object.fromEntries(Object.entries(draft.permissions).filter(([module]) => ['dashboard', 'assistants'].includes(module)))
+                    : draft.permissions,
                 })}
                 value={draft.scope}
               >
                 <option value="tenant">全企业</option>
                 <option value="organization">指定部门及下级</option>
+                <option value="assistant">指定助理</option>
               </select>
             </label>
+            {draft.scope === 'assistant' && (
+              <fieldset className="role-assistant-picker">
+                <legend>授权助理</legend>
+                {assistantChoices.length === 0 && <small>暂无可选助理</small>}
+                {assistantChoices.map((item) => (
+                  <label className="wizard-radio" key={item.id}>
+                    <input
+                      checked={draft.scope_assistant_ids.includes(item.id)}
+                      onChange={(event) => setDraft({
+                        ...draft,
+                        scope_assistant_ids: event.target.checked
+                          ? [...draft.scope_assistant_ids, item.id]
+                          : draft.scope_assistant_ids.filter((id) => id !== item.id),
+                      })}
+                      type="checkbox"
+                    />
+                    {item.name}
+                  </label>
+                ))}
+                <small>助理范围角色只能配置工作台与助理权限。</small>
+              </fieldset>
+            )}
             {draft.scope === 'organization' && (
               <label>
                 <span>授权部门</span>
@@ -196,7 +236,7 @@ export function RoleManagementPanel({
               <thead><tr><th>功能模块</th>{['view', 'edit', 'publish', 'delete', 'test', 'intervene', 'export', 'approve'].map((action) => (
                 <th key={action}>{catalog.action_labels[action] ?? action}</th>
               ))}</tr></thead>
-              <tbody>{catalog.modules.map((module) => (
+              <tbody>{catalog.modules.filter((module) => draft.scope !== 'assistant' || ['dashboard', 'assistants'].includes(module.key)).map((module) => (
                 <tr key={module.key}>
                   <th>{module.label}</th>
                   {['view', 'edit', 'publish', 'delete', 'test', 'intervene', 'export', 'approve'].map((action) => (

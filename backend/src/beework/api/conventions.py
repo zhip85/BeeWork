@@ -4,7 +4,6 @@ import ipaddress
 import socket
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -13,14 +12,19 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func, select
-from sqlalchemy.orm import Mapped, Session, mapped_column
-from sqlalchemy.types import Uuid
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException
 
 from beework import rbac
 from beework.auth import get_current_user
-from beework.models import Membership, TenantRole, User, utc_now
+from beework.models import Membership, TenantRole, User, utc_now  # noqa: F401
+from beework.models.mixins import (  # noqa: F401  (re-exported: the documented import location)
+    SoftDeleteMixin,
+    TenantOwnedMixin,
+    TimestampMixin,
+    VersionedMixin,
+)
 
 
 class ApiError(Exception):
@@ -65,29 +69,6 @@ async def validation_error_handler(request: Request, exc: Exception) -> JSONResp
 # ---------------------------------------------------------------------------
 # Generic columns / optimistic locking mixins for versioned tenant resources.
 # ---------------------------------------------------------------------------
-
-
-class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
-
-
-class TenantOwnedMixin:
-    tenant_id: Mapped[UUID] = mapped_column(
-        Uuid(as_uuid=True),
-        ForeignKey("tenants.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-
-
-class SoftDeleteMixin:
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
-
-
-class VersionedMixin:
-    row_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    updated_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 def check_row_version(obj: object, expected: int, db: Session) -> None:

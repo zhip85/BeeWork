@@ -48,6 +48,10 @@ ALL_PERMISSIONS = frozenset(
 )
 
 
+# Assistant-scoped roles may only hold (and use) permissions of these modules.
+ASSISTANT_SCOPE_MODULES = frozenset({"dashboard", "assistants"})
+
+
 def _permissions(*items: str) -> frozenset[str]:
     return frozenset(items)
 
@@ -149,6 +153,10 @@ def require_tenant_permission(permission: str):
                 )
             )
             if custom_role and permission in flatten_permissions(custom_role.permissions):
+                if custom_role.scope == "assistant" and (
+                    permission.split(":", 1)[0] not in ASSISTANT_SCOPE_MODULES
+                ):
+                    raise HTTPException(status_code=403, detail="助理范围角色只能访问其指定的助理")
                 if custom_role.scope == "organization":
                     ensure_organization_scope(
                         membership,

@@ -1,0 +1,184 @@
+{
+  "title": "助理",
+  "subtitle": "构建、测试并发布覆盖所有渠道的 AI 体验。",
+  "new": "新建助理",
+  "loadFailed": "无法加载助理",
+  "retry": "重试",
+  "loading": "正在加载助理…",
+  "empty": "还没有助理",
+  "emptyFiltered": "没有匹配的助理",
+  "emptyHint": "从空白开始创建你的第一个 AI 助理。",
+  "stats": {
+    "total": "助理总数",
+    "published": "已发布",
+    "draft": "草稿",
+    "monthlyConversations": "月会话量",
+    "quota": "套餐用量",
+    "unlimited": "不限",
+    "notAvailable": "—"
+  },
+  "filters": {
+    "search": "搜索助理...",
+    "status": "状态：全部",
+    "statusAll": "全部",
+    "organization": "组织",
+    "organizationAll": "组织：全部",
+    "sort": "排序",
+    "view": "视图",
+    "cards": "卡片",
+    "list": "列表"
+  },
+  "sort": {
+    "updated_desc": "最近更新",
+    "created_desc": "最近创建",
+    "name_asc": "名称 A–Z"
+  },
+  "status": {
+    "draft": "草稿",
+    "published": "已发布",
+    "disabled": "已停用"
+  },
+  "category": {
+    "customer_service": "客服",
+    "sales": "销售",
+    "internal": "内部",
+    "insurance": "保险"
+  },
+  "card": {
+    "open": "打开",
+    "version": "v{{version}} · {{time}}更新",
+    "readOnly": "只读",
+    "newTitle": "新建助理",
+    "newHint": "从空白或模板开始",
+    "metrics": "调用量与成功率将在会话功能上线后显示"
+  },
+  "list": {
+    "assistant": "助理",
+    "status": "状态",
+    "organization": "所属组织",
+    "updated": "更新",
+    "owner": "创建者"
+  },
+  "menu": {
+    "more": "更多操作",
+    "edit": "编辑",
+    "copy": "复制",
+    "disable": "停用",
+    "enable": "启用",
+    "delete": "删除"
+  },
+  "toast": {
+    "copied": "助理已复制",
+    "deleted": "助理已删除",
+    "disabled": "助理已停用",
+    "enabled": "助理已启用",
+    "draftSaved": "草稿已保存",
+    "created": "助理已创建",
+    "saved": "助理已保存"
+  },
+  "confirm": {
+    "deleteTitle": "删除助理",
+    "deleteBody": "删除“{{name}}”？此操作不可撤销。",
+    "disableTitle": "停用助理",
+    "disableBody": "停用“{{name}}”后，全部渠道将停止服务。",
+    "cancel": "取消",
+    "confirm": "确认",
+    "working": "处理中…",
+    "discardTitle": "放弃未保存的内容？",
+    "discardBody": "关闭后当前填写的内容不会保留。",
+    "discard": "放弃",
+    "keepEditing": "继续编辑"
+  },
+  "wizard": {
+    "kickerNew": "新建助理",
+    "kickerEdit": "编辑助理",
+    "titleNew": "创建 AI 助理",
+    "titleEdit": "编辑 AI 助理",
+    "close": "关闭",
+    "cancel": "取消",
+    "back": "上一步",
+    "next": "继续",
+    "saveDraft": "保存草稿",
+    "create": "创建助手",
+    "save": "保存",
+    "saving": "保存中…",
+    "steps": {
+      "start": "开始",
+      "basics": "基础信息与模型",
+      "capabilities": "能力",
+      "experience": "体验"
+    },
+    "start": {
+      "title": "希望从哪里开始？",
+      "hint": "从空白开始，或使用已审批模板加速搭建。",
+      "blank": "从空白开始",
+      "blankHint": "配置身份、模型、能力与安全。",
+      "support": "客户支持",
+      "supportHint": "知识检索、人工转接与标准护栏。",
+      "sales": "销售副驾",
+      "salesHint": "线索筛选与个性化推荐。",
+      "soon": "即将开放",
+      "browse": "浏览模板市场中的全部模板",
+      "quotaReached": "已达套餐上限（{{used}}/{{limit}}），无法再创建助理。",
+      "quotaSoft": "已超出套餐助理数上限，超出部分将计入账单。"
+    },
+    "basics": {
+      "name": "AI 助手名称",
+      "namePlaceholder": "保险代理人成长助手",
+      "description": "使用场景 / 简介说明",
+      "descriptionPlaceholder": "专注于帮助保险代理人提升销售技能…",
+      "organization": "所属组织",
+      "organizationLocked": "创建后只有企业管理员可变更所属组织。",
+      "category": "分类",
+      "prompt": "助理提示词",
+      "chars": "当前字符数：{{count}} / {{max}}",
+      "aiSuggest": "AI 生成建议",
+      "aiSuggestSoon": "该功能即将开放",
+      "model": "LLM 模型",
+      "modelDefault": "（默认）",
+      "noModels": "当前环境尚未启用对话模型，请先在设置中启用。",
+      "driver": "驱动方式",
+      "driverNone": "不指定",
+      "driverSoon": "智能体与协作组驱动即将开放",
+      "language": "默认语言",
+      "visibility": "可见范围",
+      "visibilityOwn": "仅本组织",
+      "visibilitySpecified": "指定组织",
+      "visibilityAll": "全部组织",
+      "visibleOrgs": "可见的组织",
+      "defaultPrompt": "# 核心身份\n你是一位专业、友好的企业服务助手，具备深厚的业务知识，能够耐心细致地对待每个问题并主动提供解决方案。\n\n## 人格特征\n- 语气：专业但不生硬，友好但不随意\n- 表达：清晰简洁，逻辑性强\n- 态度：积极正面，解决问题导向\n\n# 行为规范\n1. 始终使用礼貌、专业的语言\n2. 不讨论政治、宗教等敏感话题\n3. 遇到不确定的信息时明确告知用户"
+    },
+    "capabilities": {
+      "title": "挂载能力",
+      "hint": "能力选择器会在对应模块上线后开放，本步可以直接跳过。",
+      "kb": "知识库",
+      "agent": "智能体",
+      "mcp": "MCP 工具",
+      "skill": "Skill",
+      "chatflow": "Chatflow",
+      "flow": "工作流",
+      "api": "API 插件",
+      "soon": "即将开放"
+    },
+    "experience": {
+      "greeting": "欢迎语",
+      "defaultGreeting": "你好！我是你的 AI 助手，今天有什么可以帮你？",
+      "suggested": "推荐问题",
+      "suggestedHint": "向用户展示 AI 生成的开场问题",
+      "feedback": "赞踩反馈",
+      "feedbackHint": "收集单条回复的质量反馈",
+      "ready": "将创建继承 {{tenant}} 安全基线的草稿。"
+    },
+    "language": {
+      "zh-CN": "简体中文",
+      "en": "English"
+    },
+    "errors": {
+      "nameRequired": "请填写助理名称",
+      "descriptionRequired": "请填写使用场景",
+      "promptRequired": "请填写助理提示词",
+      "modelRequired": "请选择模型",
+      "saveFailed": "保存失败"
+    }
+  }
+}
