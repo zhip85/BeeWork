@@ -65,6 +65,8 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "assistant.run_started": "发起助理调试运行",
     "compliance.updated": "更新数据与隐私设置",
     "conversation.retention_purged": "清理过期会话",
+    "memory.user_deleted": "删除终端用户的全部记忆",
+    "memory.retention_purged": "清理过期记忆",
     "assistant.run_cancelled": "取消助理运行",
 }
 
@@ -626,4 +628,11 @@ def prevent_audit_event_mutation(session, _flush_context, _instances) -> None:
 # (importing Base / utc_now from this package) and registers it here so that
 # Alembic autogenerate and `Base.metadata.create_all` see its tables.
 # from beework.models import assistants  # noqa: E402,F401  (example)
-from beework.models import assistants, conversations, jobs, plans, runtime  # noqa: E402,F401
+from beework.models import (  # noqa: E402,F401
+    assistants,
+    conversations,
+    jobs,
+    memory,
+    plans,
+    runtime,
+)

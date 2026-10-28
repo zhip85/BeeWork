@@ -81,6 +81,8 @@ class RuntimeDeps:
     callbacks: list[Any] = field(default_factory=list)
     # Opens a tracing span named ``oc.<stage>`` around a stage (no-op without Langfuse).
     span: Callable[[str], AbstractContextManager] = lambda name: nullcontext()
+    # Long-term memory snippets for the current message (the memory stage calls it; T-056a wires it).
+    memory: Callable[[str], list[dict[str, str]]] = lambda query: []
     clock: StageClock = field(default_factory=StageClock)
 
 

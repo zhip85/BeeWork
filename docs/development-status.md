@@ -166,6 +166,15 @@
 - 验证：真实栈 e2e 在 Langfuse 读到 12 个 observation（`assistant.run`、10 个 `oc.*`、`ChatOpenAI`），管线自身耗时约 4–40 ms（mock 模型；模型本身约 400 ms+）。
 - 已知限制：见任务文件“遗留问题”。
 
+### 长期记忆 v1（T-056a，闭环切片，待验收；依赖 T-054a 分支）
+
+- 表 `end_user_memories`（迁移 0020；`end_users` 增加 `(id, tenant_id)` 唯一约束以建复合外键）：UserProfile（`assistant_id` 为空，同租户各助理共享）、UserMemory 与 Session 摘要（助理私有）；内容一律先经 PII 规则脱敏再写入。
+- 写入：会话结束（T-026 的 30 分钟判定）触发钩子，入队幂等的 `memory.extract`（键含会话与结束时间）；Worker 经 LiteLLM 用该会话所用模型抽取，按 OC 设置（类型白名单、UserProfile 写入开关、各文件开关与保留期）写入；重复抽取会替换自己上次的输出，不产生重复。抽取失败（网关不可用、输出不是 JSON）抛错，由队列退避重试。
+- 读取：`memory` 阶段（`runtime/memory_stage.py`）按 优先级 UserProfile → UserMemory → Session，各取 Top-K（OC 中的值）注入系统提示词“记忆”段；`MemoryRetriever` 接口 + `KeywordMemoryRetriever`（关键词/中文双字相关度 × 30 天半衰期的时间衰减）。按租户 + 终端用户隔离，UserMemory/Session 不跨助理，已过期条目不返回。
+- 服务函数 `delete_end_user_memories`（供 T-080/T-086 调用，写审计 `memory.user_deleted`）与每日 `memory.retention` 清理。
+- 顺带修复一个线程安全问题：图节点跑在 LangGraph 线程池里，原先取消检查会和主线程共用同一个 Session；现在节点内一律用自己的短会话。
+- 已知限制：见任务文件“遗留问题”。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。
