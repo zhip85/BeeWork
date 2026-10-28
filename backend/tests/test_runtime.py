@@ -1,3 +1,5 @@
+import shutil
+import tempfile
 import time
 import unittest
 from collections.abc import Iterator
@@ -12,7 +14,6 @@ from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from beework.db import get_db
 from beework.main import app
@@ -111,14 +112,18 @@ class RuntimeTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         disable_external_integrations()
         stub_public_dns()
+        # A file database with one connection per session: graph nodes use their own sessions in worker
+        # threads, which a shared in-memory connection (StaticPool) cannot serve safely.
+        cls._db_dir = tempfile.mkdtemp(prefix="beework-test-")
         cls.engine = create_engine(
-            "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+            f"sqlite:///{cls._db_dir}/test.db", connect_args={"check_same_thread": False, "timeout": 30}
         )
 
         @event.listens_for(cls.engine, "connect")
         def enable_sqlite_foreign_keys(connection, _record) -> None:
             cursor = connection.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA journal_mode=WAL")
             cursor.close()
 
         cls.session_factory = sessionmaker(bind=cls.engine, expire_on_commit=False)
@@ -133,6 +138,7 @@ class RuntimeTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         app.dependency_overrides.clear()
         cls.engine.dispose()
+        shutil.rmtree(cls._db_dir, ignore_errors=True)
 
     def setUp(self) -> None:
         raw = self.engine.raw_connection()

@@ -1,3 +1,5 @@
+import shutil
+import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -5,7 +7,6 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from beework import conversations as conv
 from beework.compliance import get_policy
@@ -57,12 +58,18 @@ class ConversationTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         disable_external_integrations()
         stub_public_dns()
-        cls.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+        # A file database with one connection per session: graph nodes use their own sessions in worker
+        # threads, which a shared in-memory connection (StaticPool) cannot serve safely.
+        cls._db_dir = tempfile.mkdtemp(prefix="beework-test-")
+        cls.engine = create_engine(
+            f"sqlite:///{cls._db_dir}/test.db", connect_args={"check_same_thread": False, "timeout": 30}
+        )
 
         @event.listens_for(cls.engine, "connect")
         def enable_sqlite_foreign_keys(connection, _record) -> None:
             cursor = connection.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA journal_mode=WAL")
             cursor.close()
 
         cls.session_factory = sessionmaker(bind=cls.engine, expire_on_commit=False)
@@ -77,6 +84,7 @@ class ConversationTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         app.dependency_overrides.clear()
         cls.engine.dispose()
+        shutil.rmtree(cls._db_dir, ignore_errors=True)
 
     def setUp(self) -> None:
         raw = self.engine.raw_connection()
@@ -327,6 +335,17 @@ class ConversationTests(unittest.TestCase):
         other = self.login("other@example.com", tenant=self.ids["other"])
         self.assertEqual(self.client.get(f"/api/v1/conversations/{started['conversation_id']}", headers=other).status_code, 404)
         self.assertEqual(self.client.get(f"/api/v1/assistants/{self.ids['assistant']}/conversations", headers=other).status_code, 404)
+
+    def test_a_deleted_assistants_conversations_and_runs_are_not_reachable(self) -> None:
+        admin = self.login("admin@example.com")
+        started = self.say(admin, "hello")
+        with self.session_factory.begin() as db:
+            from datetime import UTC as _utc
+
+            db.get(Assistant, self.ids["assistant"]).deleted_at = datetime.now(_utc)
+        self.assertEqual(self.client.get(f"/api/v1/conversations/{started['conversation_id']}", headers=admin).status_code, 404)
+        self.assertEqual(self.client.get(f"/api/v1/runs/{started['run_id']}", headers=admin).status_code, 404)
+        self.assertEqual(self.client.get(f"/api/v1/runs/{started['run_id']}/events", headers=admin).status_code, 404)
 
     # -- ending & retention -------------------------------------------------------
 

@@ -33,6 +33,7 @@ from beework.models import (
     TenantRole,
     User,
 )
+from beework.models.assistants import Assistant
 from beework.models.jobs import Job
 from beework.security import hash_password
 from beework.worker.events import publish_run_event, stream_run_events
@@ -69,6 +70,7 @@ class PostgresIntegrationTests(unittest.TestCase):
             )
         with self.session_factory.begin() as db:
             for model in (
+                Assistant,
                 PlatformOperationRequest,
                 MemberInvitation,
                 AuthSession,
@@ -198,6 +200,35 @@ class PostgresIntegrationTests(unittest.TestCase):
                 )
             ).all()
         self.assertEqual(len(pending), 2)
+
+    def test_concurrent_assistant_creation_cannot_exceed_the_plan_quota(self) -> None:
+        def create(index: int) -> int:
+            client = TestClient(app)
+            login = client.post(
+                "/api/v1/auth/login",
+                json={"email": "pg-admin@example.com", "password": "postgres admin password"},
+            )
+            self.assertEqual(login.status_code, 200, login.text)
+            response = client.post(
+                "/api/v1/assistants",
+                json={"name": f"Concurrent {index}", "draft": True},
+                headers={
+                    "X-Tenant-ID": str(self.tenant_id),
+                    "X-CSRF-Token": client.cookies.get("beework_csrf"),
+                },
+            )
+            return response.status_code
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            statuses = list(pool.map(create, range(8)))
+
+        # The standard plan allows 5 assistants; the tenant lock serialises the count-then-insert.
+        self.assertEqual(sorted(statuses), [201] * 5 + [409] * 3)
+        with self.session_factory() as db:
+            count = db.scalar(
+                select(text("count(*)")).select_from(Assistant).where(Assistant.tenant_id == self.tenant_id)
+            )
+        self.assertEqual(count, 5)
 
     def test_concurrent_workers_claim_each_job_once(self) -> None:
         with self.session_factory.begin() as db:

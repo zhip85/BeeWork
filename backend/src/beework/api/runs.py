@@ -61,7 +61,7 @@ def _load_run(db: Session, membership: Membership, run_id: UUID, *, lock: bool =
     statement = (
         select(Run)
         .join(Assistant, (Assistant.id == Run.assistant_id) & (Assistant.tenant_id == Run.tenant_id))
-        .where(Run.id == run_id, Run.tenant_id == membership.tenant_id)
+        .where(Run.id == run_id, Run.tenant_id == membership.tenant_id, Assistant.deleted_at.is_(None))
     )
     statement = _visible_statement(statement, membership, db)
     if lock:

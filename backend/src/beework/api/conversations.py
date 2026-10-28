@@ -92,7 +92,11 @@ def get_conversation(
             Assistant,
             (Assistant.id == Conversation.assistant_id) & (Assistant.tenant_id == Conversation.tenant_id),
         )
-        .where(Conversation.id == conversation_id, Conversation.tenant_id == membership.tenant_id),
+        .where(
+            Conversation.id == conversation_id,
+            Conversation.tenant_id == membership.tenant_id,
+            Assistant.deleted_at.is_(None),  # a deleted assistant's history is not reachable by id
+        ),
         membership,
         db,
     )
