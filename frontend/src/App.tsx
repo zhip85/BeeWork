@@ -25,6 +25,7 @@ import { apiRequest } from './api'
 import { applyLocale, currentLocale, enumLabel, isLocale } from './i18n'
 import { LanguageSwitch } from './i18n/LanguageSwitch'
 import { SectionPlaceholder } from './components/SectionPlaceholder'
+import { AssistantsPage } from './pages/assistants/AssistantsPage'
 import { AuditLogPage } from './pages/audit/AuditLogPage'
 import { InviteAcceptancePage } from './pages/auth/InviteAcceptancePage'
 import { LoginPage } from './pages/auth/LoginPage'
@@ -220,7 +221,6 @@ function App() {
             >
               <Icon size={18} strokeWidth={1.8} />
               <span>{t(`nav:${labelKey}`)}</span>
-              {labelKey === 'assistants' && <span className="nav-count">12</span>}
             </NavLink>
           ))}
         </nav>
@@ -300,7 +300,8 @@ function App() {
           )}
           <Routes>
             <Route path="/" element={hasPermission('dashboard:view') ? <Dashboard user={user} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            {navigation.slice(1).map(({ labelKey, to, icon: Icon, permission }) => (
+            <Route path="/assistants" element={hasPermission('assistants:view') && activeTenant ? <AssistantsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            {navigation.slice(1).filter((item) => item.to !== '/assistants').map(({ labelKey, to, icon: Icon, permission }) => (
               <Route key={to} path={to} element={hasPermission(permission) ? <SectionPlaceholder title={t(`nav:${labelKey}`)} icon={<Icon size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             ))}
             <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />

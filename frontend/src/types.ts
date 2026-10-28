@@ -65,8 +65,9 @@ export type TenantRole = {
   id: string | null
   name: string
   description: string
-  scope: 'tenant' | 'organization'
+  scope: 'tenant' | 'organization' | 'assistant'
   scope_organization_id: string | null
+  scope_assistant_ids: string[]
   permissions: Record<string, string[]>
   is_active: boolean
   is_builtin: boolean
@@ -77,8 +78,9 @@ export type RoleDraft = {
   id: string | null
   name: string
   description: string
-  scope: 'tenant' | 'organization'
+  scope: 'tenant' | 'organization' | 'assistant'
   scope_organization_id: string
+  scope_assistant_ids: string[]
   permissions: Record<string, string[]>
   is_active: boolean
 }

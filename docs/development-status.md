@@ -130,6 +130,14 @@
 - `beework/entitlements.py`：`get_subscription`（缺快照时懒创建）、`has_entitlement`/`ensure_entitlement`/`require_entitlement`（403 `plan.feature_locked`）、`check_quota`/`enforce_quota`（409 `plan.quota_exceeded`）、用量计数器注册表；席位逻辑（邀请、重发、接受、恢复成员）已改为读订阅快照；平台创建租户同时写订阅；`GET /api/v1/tenant/subscription`（需 `settings:view`）。
 - 已知限制：只有 `seats` 注册了用量计数器，**T-020 必须注册 `assistants` 计数器**（未注册的配额调用 `check_quota` 会抛 `ValueError`，不会静默当作 0）；`environments_for_plan` 与模型可用性仍读 `tenants.plan`；平台套餐页、发布新版本、应用订阅变更、订阅与用量页、RUL-013 属 T-010 剩余部分，未做。
 
+### 助理领域模型、列表与创建向导（T-020，闭环切片，待验收）
+
+- 表 `assistants`、`assistant_visible_organizations`，`tenant_roles.scope_assistant_ids`（迁移 0016）；`draft_config` 由 `AssistantDraftConfig`（`dsl_version: 1`）定义，T-025 编译器按它读取。
+- 接口：`GET/POST /assistants`、`GET/PUT /assistants/{id}`（`row_version`）、`POST …/copy|disable|enable`、`DELETE …`、`GET /assistants/summary`、`GET /assistants/model-options`。创建/复制调用 `enforce_quota("assistants")`，并在 `api/assistants.py` 注册了 `assistants` 用量计数器；名称租户内不区分大小写唯一（软删除后释放）；所有写操作写审计（分类“助手”）。
+- 可见范围：组织范围角色可见本组织子树 + `all` + 指定了其组织的助理，但只能修改本组织子树内的助理；助理范围角色（SET-022）只看/改指定助理、不能新建，且只能配置工作台与助理权限，删除助理时自动从角色范围移除。
+- 前端：助理列表页（统计条含配额进度、搜索/状态/组织/排序、卡片与列表视图、更多菜单、自定义确认弹窗）、4 步创建/编辑向导（保存草稿、未保存确认、配额硬限制提示），角色编辑器增加“指定助理”范围；`assistants` 命名空间中英文齐全；侧栏“助理”不再显示写死的数字。
+- 已知限制：模板、驱动方式、能力挂载、AI 生成建议均为“即将开放”（后端对非空挂载/驱动返回 422）；模型选项固定取 `production` 环境（T-006 做环境切换后再改）；卡片/列表上的调用量、成功率、渠道数、月会话量待 T-026/T-040；“对话历史/编排/版本/测试/API 对接”菜单项待对应任务；删除阻断（渠道绑定）只有 `DELETE_BLOCKERS` 注册点，T-040 接入。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

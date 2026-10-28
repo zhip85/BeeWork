@@ -55,6 +55,13 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "model_catalog.tested": "测试模型连通性",
     "model_environment.tested": "测试环境模型调用",
     "job.retried": "重试后台任务",
+    "assistant.created": "创建助理",
+    "assistant.draft_saved": "保存助理草稿",
+    "assistant.updated": "更新助理草稿",
+    "assistant.copied": "复制助理",
+    "assistant.disabled": "停用助理",
+    "assistant.enabled": "启用助理",
+    "assistant.deleted": "删除助理",
 }
 
 
@@ -306,6 +313,8 @@ class TenantRole(Base):
         nullable=True,
         index=True,
     )
+    # Assistant-scoped roles (SET-022) only apply to these assistants; empty for other scopes.
+    scope_assistant_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     permissions: Mapped[dict[str, list[str]]] = mapped_column(
         JSON, nullable=False, default=dict
     )
@@ -468,11 +477,12 @@ class AuditEvent(Base):
 
     @validates("action")
     def set_audit_metadata(self, _key: str, action: str) -> str:
-        self.category = (
-            "members_permissions"
-            if action.startswith(("membership.", "role.", "organization."))
-            else "security"
-        )
+        if action.startswith(("membership.", "role.", "organization.")):
+            self.category = "members_permissions"
+        elif action.startswith("assistant."):
+            self.category = "assistants"
+        else:
+            self.category = "security"
         self.description = AUDIT_ACTION_DESCRIPTIONS.get(action, action)
         return action
 
@@ -612,4 +622,4 @@ def prevent_audit_event_mutation(session, _flush_context, _instances) -> None:
 # (importing Base / utc_now from this package) and registers it here so that
 # Alembic autogenerate and `Base.metadata.create_all` see its tables.
 # from beework.models import assistants  # noqa: E402,F401  (example)
-from beework.models import jobs, plans  # noqa: E402,F401
+from beework.models import assistants, jobs, plans  # noqa: E402,F401

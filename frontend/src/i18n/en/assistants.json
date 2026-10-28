@@ -1,0 +1,184 @@
+{
+  "title": "Assistants",
+  "subtitle": "Build, test and publish AI experiences across every channel.",
+  "new": "New assistant",
+  "loadFailed": "Could not load assistants",
+  "retry": "Retry",
+  "loading": "Loading assistants…",
+  "empty": "No assistants yet",
+  "emptyFiltered": "No matching assistants",
+  "emptyHint": "Start from scratch to create your first AI assistant.",
+  "stats": {
+    "total": "Total assistants",
+    "published": "Published",
+    "draft": "Drafts",
+    "monthlyConversations": "Monthly conversations",
+    "quota": "Plan usage",
+    "unlimited": "Unlimited",
+    "notAvailable": "—"
+  },
+  "filters": {
+    "search": "Search assistants...",
+    "status": "Status: All",
+    "statusAll": "All",
+    "organization": "Organization",
+    "organizationAll": "Organizations: All",
+    "sort": "Sort",
+    "view": "View",
+    "cards": "Cards",
+    "list": "List"
+  },
+  "sort": {
+    "updated_desc": "Recently updated",
+    "created_desc": "Recently created",
+    "name_asc": "Name A–Z"
+  },
+  "status": {
+    "draft": "Draft",
+    "published": "Published",
+    "disabled": "Disabled"
+  },
+  "category": {
+    "customer_service": "Customer service",
+    "sales": "Sales",
+    "internal": "Internal",
+    "insurance": "Insurance"
+  },
+  "card": {
+    "open": "Open",
+    "version": "v{{version}} · updated {{time}}",
+    "readOnly": "Read-only",
+    "newTitle": "New assistant",
+    "newHint": "Start from scratch or a template",
+    "metrics": "Usage and success rate appear once conversations go live"
+  },
+  "list": {
+    "assistant": "Assistant",
+    "status": "Status",
+    "organization": "Organization",
+    "updated": "Updated",
+    "owner": "Created by"
+  },
+  "menu": {
+    "more": "More actions",
+    "edit": "Edit",
+    "copy": "Duplicate",
+    "disable": "Disable",
+    "enable": "Enable",
+    "delete": "Delete"
+  },
+  "toast": {
+    "copied": "Assistant duplicated",
+    "deleted": "Assistant deleted",
+    "disabled": "Assistant disabled",
+    "enabled": "Assistant enabled",
+    "draftSaved": "Draft saved",
+    "created": "Assistant created",
+    "saved": "Assistant saved"
+  },
+  "confirm": {
+    "deleteTitle": "Delete assistant",
+    "deleteBody": "Delete \"{{name}}\"? This cannot be undone.",
+    "disableTitle": "Disable assistant",
+    "disableBody": "After disabling \"{{name}}\", every channel stops serving it.",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "working": "Working…",
+    "discardTitle": "Discard unsaved changes?",
+    "discardBody": "What you have entered will be lost when you close.",
+    "discard": "Discard",
+    "keepEditing": "Keep editing"
+  },
+  "wizard": {
+    "kickerNew": "New assistant",
+    "kickerEdit": "Edit assistant",
+    "titleNew": "Create an AI assistant",
+    "titleEdit": "Edit AI assistant",
+    "close": "Close",
+    "cancel": "Cancel",
+    "back": "Back",
+    "next": "Continue",
+    "saveDraft": "Save draft",
+    "create": "Create assistant",
+    "save": "Save",
+    "saving": "Saving…",
+    "steps": {
+      "start": "Start",
+      "basics": "Basics & model",
+      "capabilities": "Capabilities",
+      "experience": "Experience"
+    },
+    "start": {
+      "title": "Where would you like to start?",
+      "hint": "Start blank, or speed things up with an approved template.",
+      "blank": "Start blank",
+      "blankHint": "Configure identity, model, capabilities and safety.",
+      "support": "Customer support",
+      "supportHint": "Knowledge retrieval, human handoff and standard guardrails.",
+      "sales": "Sales copilot",
+      "salesHint": "Lead qualification and personalized recommendations.",
+      "soon": "Coming soon",
+      "browse": "Browse all templates in the marketplace",
+      "quotaReached": "Plan limit reached ({{used}}/{{limit}}); no more assistants can be created.",
+      "quotaSoft": "You are over the plan's assistant limit; the excess is billed."
+    },
+    "basics": {
+      "name": "Assistant name",
+      "namePlaceholder": "Insurance agent coach",
+      "description": "Use case / summary",
+      "descriptionPlaceholder": "Helps insurance agents sharpen their sales skills…",
+      "organization": "Organization",
+      "organizationLocked": "Only workspace admins can change the organization after creation.",
+      "category": "Category",
+      "prompt": "Assistant prompt",
+      "chars": "Characters: {{count}} / {{max}}",
+      "aiSuggest": "AI suggestion",
+      "aiSuggestSoon": "Coming soon",
+      "model": "LLM model",
+      "modelDefault": " (default)",
+      "noModels": "No chat model is enabled in this environment yet. Enable one in Settings first.",
+      "driver": "Driven by",
+      "driverNone": "None",
+      "driverSoon": "Agent and team drivers are coming soon",
+      "language": "Default language",
+      "visibility": "Visibility",
+      "visibilityOwn": "This organization only",
+      "visibilitySpecified": "Specific organizations",
+      "visibilityAll": "All organizations",
+      "visibleOrgs": "Visible to",
+      "defaultPrompt": "# Core identity\nYou are a professional, friendly enterprise service assistant with deep business knowledge. You treat every question patiently and offer solutions proactively.\n\n## Personality\n- Tone: professional but not stiff, friendly but not casual\n- Style: clear, concise and logical\n- Attitude: positive and solution oriented\n\n# Rules of conduct\n1. Always use polite, professional language\n2. Do not discuss politics, religion or other sensitive topics\n3. Say so plainly when you are unsure"
+    },
+    "capabilities": {
+      "title": "Mounted capabilities",
+      "hint": "The capability picker opens as each module ships; you can skip this step for now.",
+      "kb": "Knowledge bases",
+      "agent": "Agents",
+      "mcp": "MCP tools",
+      "skill": "Skills",
+      "chatflow": "Chatflows",
+      "flow": "Workflows",
+      "api": "API plugins",
+      "soon": "Coming soon"
+    },
+    "experience": {
+      "greeting": "Greeting",
+      "defaultGreeting": "Hi! I'm here to help. What can I do for you today?",
+      "suggested": "Suggested questions",
+      "suggestedHint": "Show AI-generated conversation starters to users",
+      "feedback": "Thumbs up / down",
+      "feedbackHint": "Collect quality feedback on each reply",
+      "ready": "A draft will be created that inherits {{tenant}}'s security baseline."
+    },
+    "language": {
+      "zh-CN": "简体中文",
+      "en": "English"
+    },
+    "errors": {
+      "nameRequired": "Enter an assistant name",
+      "descriptionRequired": "Describe the use case",
+      "promptRequired": "Enter the assistant prompt",
+      "modelRequired": "Choose a model",
+      "saveFailed": "Save failed"
+    }
+  }
+}

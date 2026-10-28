@@ -20,6 +20,7 @@ from beework.models import (
     TenantRole,
 )
 from beework.rbac import (
+    ASSISTANT_SCOPE_MODULES,
     BUILTIN_PERMISSIONS,
     PERMISSION_CATALOG,
     ROLE_LABELS,
@@ -118,6 +119,7 @@ def list_roles(
                 description=role.description,
                 scope=role.scope,
                 scope_organization_id=role.scope_organization_id,
+                scope_assistant_ids=[UUID(item) for item in role.scope_assistant_ids or []],
                 permissions=role.permissions,
                 is_active=role.is_active,
                 is_builtin=False,
@@ -139,7 +141,14 @@ def create_role(
     db: Session = Depends(get_db),
 ) -> RoleResponse:
     lock_tenant(db, membership.tenant_id)
-    _validate_role_scope(db, membership.tenant_id, payload.scope, payload.scope_organization_id)
+    _validate_role_scope(
+        db,
+        membership.tenant_id,
+        payload.scope,
+        payload.scope_organization_id,
+        payload.scope_assistant_ids,
+        payload.permissions,
+    )
     if db.scalar(
         select(TenantRole.id).where(
             TenantRole.tenant_id == membership.tenant_id,
@@ -153,6 +162,7 @@ def create_role(
         description=payload.description.strip(),
         scope=payload.scope,
         scope_organization_id=payload.scope_organization_id,
+        scope_assistant_ids=[str(item) for item in payload.scope_assistant_ids],
         permissions=validate_permissions(payload.permissions),
         is_active=payload.is_active,
         created_by=membership.user_id,
@@ -180,6 +190,7 @@ def create_role(
         description=role.description,
         scope=role.scope,
         scope_organization_id=role.scope_organization_id,
+        scope_assistant_ids=[UUID(item) for item in role.scope_assistant_ids or []],
         permissions=role.permissions,
         is_active=role.is_active,
         is_builtin=False,
@@ -204,7 +215,14 @@ def update_role(
     )
     if role is None:
         raise HTTPException(status_code=404, detail="未找到自定义角色")
-    _validate_role_scope(db, membership.tenant_id, payload.scope, payload.scope_organization_id)
+    _validate_role_scope(
+        db,
+        membership.tenant_id,
+        payload.scope,
+        payload.scope_organization_id,
+        payload.scope_assistant_ids,
+        payload.permissions,
+    )
     duplicate = db.scalar(
         select(TenantRole.id).where(
             TenantRole.tenant_id == membership.tenant_id,
@@ -243,6 +261,7 @@ def update_role(
     role.description = payload.description.strip()
     role.scope = payload.scope
     role.scope_organization_id = payload.scope_organization_id
+    role.scope_assistant_ids = [str(item) for item in payload.scope_assistant_ids]
     role.permissions = validate_permissions(payload.permissions)
     role.is_active = payload.is_active
     db.add(
@@ -275,6 +294,7 @@ def update_role(
         description=role.description,
         scope=role.scope,
         scope_organization_id=role.scope_organization_id,
+        scope_assistant_ids=[UUID(item) for item in role.scope_assistant_ids or []],
         permissions=role.permissions,
         is_active=role.is_active,
         is_builtin=False,
@@ -325,10 +345,34 @@ def _validate_role_scope(
     tenant_id: UUID,
     scope: str,
     scope_organization_id: UUID | None,
+    scope_assistant_ids: list[UUID] | None = None,
+    permissions: dict[str, list[str]] | None = None,
 ) -> None:
     if scope == "tenant":
         if scope_organization_id is not None:
             raise HTTPException(status_code=422, detail="租户范围角色不能指定组织")
+        return
+    if scope == "assistant":
+        # Imported here: models.assistants pulls in api.conventions, which imports this package.
+        from beework.models.assistants import Assistant
+
+        extra_modules = sorted(set(permissions or {}) - ASSISTANT_SCOPE_MODULES)
+        if extra_modules:
+            raise HTTPException(
+                status_code=422,
+                detail=f"助理范围角色只能配置工作台与助理权限，不能包含：{'、'.join(extra_modules)}",
+            )
+        found = set(
+            db.scalars(
+                select(Assistant.id).where(
+                    Assistant.tenant_id == tenant_id,
+                    Assistant.id.in_(scope_assistant_ids or []),
+                    Assistant.deleted_at.is_(None),
+                )
+            )
+        )
+        if found != set(scope_assistant_ids or []):
+            raise HTTPException(status_code=404, detail="角色范围中的助理不属于当前企业")
         return
     if scope != "organization" or scope_organization_id is None:
         raise HTTPException(status_code=422, detail="组织范围角色必须指定组织")
