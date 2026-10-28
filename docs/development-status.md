@@ -117,7 +117,7 @@
 - 验证：ruff、迁移升降级 + `alembic check`、62 项测试（含 PostgreSQL 并发与真实 Valkey）、前端检查、Worker 进程端到端均通过。
 - 已知限制：事件接口待 T-025 改为按 `runs` 表校验；锁超时 15 分钟；浏览器需 `fetch` 流式读取（不能用 `EventSource`）。
 
-### 前端中英双语框架（T-003，待验收）
+### 前端中英双语框架（T-003，已验收）
 
 - `i18next` + `react-i18next`（`i18next@26.5.11`、`react-i18next@17.1.9`，已锁定）；字典 `frontend/src/i18n/{zh-CN,en}/*.json`（`common`、`nav`、`auth`、`members`、`platform`、`settings`、`audit`、`enums`），`i18n/format.ts` 提供相对时间、租户时区时间、`18.2k`/`2.48M`、百分比格式化；`npm run i18n:check` 已接入 CI。
 - 语言来源：`users.locale`（迁移 0014，`PATCH /auth/me/preferences`，写审计 `auth.preferences_updated`）→ `localStorage` → `zh-CN`；顶栏、平台后台顶栏、登录页、邀请页、无权限页均有 EN / 中 切换。
@@ -175,7 +175,7 @@
 - 顺带修复一个线程安全问题：图节点跑在 LangGraph 线程池里，原先取消检查会和主线程共用同一个 Session；现在节点内一律用自己的短会话。
 - 已知限制：见任务文件“遗留问题”。
 
-### 助理发布与不可变版本（T-024a，闭环切片，待验收）
+### 助理发布与不可变版本（T-024a，已验收）
 
 - 表 `assistant_versions`（迁移 0021）：`snapshot` 含完整草稿配置、基础信息和冻结的运行时 DSL；ORM 层禁止 UPDATE，PostgreSQL 触发器 `trg_assistant_versions_immutable` 拒绝 UPDATE（DELETE 保留，便于租户/助理清除时级联）。版本号 vX.Y（首次 1.0，之后 1.1、1.2…）。
 - 接口：`GET /assistants/{id}/publish-preview`、`POST /assistants/{id}/publish`、`GET …/versions`、`GET …/versions/{vid}`、`GET …/versions/compare?from=&to=`（版本 ID 或 `draft`；提示词给行级 diff）、`POST …/versions/{vid}/restore`（覆盖草稿，带 `row_version`，不上线）、`POST …/versions/{vid}/rollback`（用历史快照生成新版本并上线，草稿不变）。发布/回滚写审计 `assistant.published` / `assistant.rolled_back`。
