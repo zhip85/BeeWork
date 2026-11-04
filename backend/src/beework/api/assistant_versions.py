@@ -49,6 +49,7 @@ from beework.schemas.versions import (
     VersionListResponse,
     VersionSummary,
 )
+from beework.test_cases import start_gate
 
 router = APIRouter()
 
@@ -204,6 +205,7 @@ def _submit_publish(
     latest = latest_version(db, assistant.id)
     if result.approval is None:
         return latest
+    start_gate(db, assistant, result.approval)  # AST-044: run the test cases against what is being approved
     return PendingApproval(approval_id=result.approval.id, next_version=version_label((latest.version_seq if latest else 0) + 1))
 
 

@@ -328,6 +328,49 @@ class PostgresIntegrationTests(unittest.TestCase):
             pending = list(db.scalars(select(ApprovalRequest).where(ApprovalRequest.status == "pending")))
             self.assertEqual(len(pending), 1)
 
+    def test_concurrent_test_run_starts_create_a_single_batch(self) -> None:
+        from beework.models import TenantModelSelection
+        from beework.models.testcases import AssistantTestCase, AssistantTestRun
+        from test_runtime import make_model
+
+        with self.session_factory.begin() as db:
+            model = make_model(f"Concurrent {uuid4().hex[:8]}")
+            db.add(model)
+            environment = TenantModelEnvironment(
+                tenant_id=self.tenant_id, environment="production", gateway_sync_status="synced", gateway_key_encrypted="x"
+            )
+            db.add(environment)
+            db.flush()
+            db.add(TenantModelSelection(environment_id=environment.id, model_id=model.id, model_type="chat", is_default=True))
+            assistant = Assistant(
+                tenant_id=self.tenant_id, organization_id=self.organization_id, name="Runs", description="d",
+                draft_config={"prompt": "p", "model_id": str(model.id)},
+            )
+            db.add(assistant)
+            db.flush()
+            for index in range(3):
+                db.add(AssistantTestCase(tenant_id=self.tenant_id, assistant_id=assistant.id, name=f"c{index}", input="hi", expected="hello"))
+            assistant_id = assistant.id
+        barrier = threading.Barrier(5)
+
+        def start(_index: int) -> int:
+            client = TestClient(app)
+            login = client.post("/api/v1/auth/login", json={"email": "pg-admin@example.com", "password": "postgres admin password"})
+            self.assertEqual(login.status_code, 200, login.text)
+            barrier.wait()
+            response = client.post(
+                f"/api/v1/assistants/{assistant_id}/test-runs", json={},
+                headers={"X-Tenant-ID": str(self.tenant_id), "X-CSRF-Token": client.cookies.get("beework_csrf")},
+            )
+            return response.status_code
+
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            statuses = list(pool.map(start, range(5)))
+        self.assertEqual(sorted(statuses), [202, 409, 409, 409, 409])
+        with self.session_factory() as db:
+            self.assertEqual(len(list(db.scalars(select(AssistantTestRun)))), 1)
+            self.assertEqual(len(list(db.scalars(select(Job).where(Job.kind == "testcases.run")))), 1)
+
     def test_concurrent_workers_claim_each_job_once(self) -> None:
         with self.session_factory.begin() as db:
             for index in range(8):

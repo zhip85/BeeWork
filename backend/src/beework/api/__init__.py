@@ -20,6 +20,7 @@ from beework.api import (
     runs,
     subscription,
     tenant_models,
+    test_cases,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -43,5 +44,6 @@ for module in (
     jobs,
     runs,
     subscription,
+    test_cases,
 ):
     router.include_router(module.router)

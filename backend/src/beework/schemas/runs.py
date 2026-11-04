@@ -11,6 +11,8 @@ class CreateRunRequest(BaseModel):
     conversation_id: UUID | None = None
     # "draft" runs the editable draft; "live" runs the published version's frozen snapshot.
     target: Literal["draft", "live"] = "draft"
+    # A specific published version (test console, AST-054); takes precedence over ``target``.
+    version_id: UUID | None = None
 
 
 class CreateRunResponse(BaseModel):

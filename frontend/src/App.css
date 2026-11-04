@@ -3986,3 +3986,25 @@ tr.policy-off td { opacity: 0.55; }
 .notification-panel li small, .notification-list li small { color: #9aa5a0; }
 .notification-panel footer { text-align: center; padding-top: 4px; border-top: 1px solid var(--line); }
 .notification-list { max-height: none; }
+
+.detail-overview-split { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .detail-overview-split { grid-template-columns: 1fr; } }
+.test-console { position: sticky; top: 12px; display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; max-height: calc(100vh - 100px); grid-template-rows: auto auto minmax(160px, 1fr) auto auto; }
+.test-console header { display: flex; justify-content: space-between; align-items: center; }
+.test-console h2 { display: flex; gap: 6px; align-items: center; margin: 0; font-size: 15px; }
+.test-console-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.test-console-options label { display: grid; gap: 2px; font-size: 12px; color: #7d8983; }
+.test-console-messages { display: grid; align-content: start; gap: 8px; min-height: 160px; overflow-y: auto; padding: 4px; }
+.console-message { display: grid; gap: 2px; max-width: 92%; padding: 8px 10px; border-radius: 10px; font-size: 13px; background: #f3f6f3; }
+.console-message p { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.console-message.user { justify-self: end; background: #e2f4ea; }
+.console-message.error { background: #fbe4e4; color: #9b2c2c; }
+.console-message small { color: #7d8983; }
+.console-message .text-button { justify-self: end; font-size: 11.5px; }
+.test-console-input { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: end; }
+.test-console-input textarea { resize: none; }
+.test-run-progress { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.test-run-progress .bar { height: 6px; border-radius: 999px; background: #e8eee9; overflow: hidden; }
+.test-run-progress .bar span { display: block; height: 100%; background: #1f6a43; transition: width 0.3s; }
+.test-run-progress.failed .bar span, .test-run-progress.cancelled .bar span { background: #c98a2b; }
+.row-actions { white-space: nowrap; text-align: right; }

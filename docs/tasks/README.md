@@ -33,7 +33,7 @@
 | [T-024](./T-024-assistant-versions.md) | 助理发布、不可变版本、对比与回滚 | 3 | T-021、T-022 | — | 已完成 | Claude Sonnet 5.5 | 发布/回滚已接审批；“发布前自动运行测试用例”待 T-027 |
 | [T-025](./T-025-langgraph-runtime.md) | LangGraph 运行时 v1（经 LiteLLM，Langfuse 追踪） | 3 | T-002、T-020 | 真实调用需供应商 Key（Langfuse 已就绪） | 已完成 | Claude Sonnet 5.5 | 核心任务；只能用 Langfuse SDK ≥3；含检索桩（闭环切片第 3 步） |
 | [T-026](./T-026-conversations.md) | 会话与消息、保留期与脱敏 | 3 | T-025 | — | 已完成 | Claude Sonnet 5.5 | |
-| [T-027](./T-027-test-console.md) | 助理测试控制台与测试用例 | 3 | T-025、T-021 | 供应商 Key | 待开发 | | |
+| [T-027](./T-027-test-console.md) | 助理测试控制台与测试用例 | 3 | T-025、T-021 | 供应商 Key | 已完成 | Claude Sonnet 5.5 | 全部用假模型验证，评测判定未用真实模型跑过（拿到供应商 Key 后需复验） |
 | [T-028](./T-028-open-api.md) | 租户 API 密钥与开放对话 API | 3/6 | T-024、T-025、T-010 | — | 待开发 | | 试点版对外入口 |
 | [T-030](./T-030-knowledge-bases.md) | 知识库与 RAGFlow dataset | 4 | T-001、T-002 | RAGFlow Cloud 付费版 API Key | 待开发 | | |
 | [T-031](./T-031-documents.md) | 文档上传、解析状态同步、删除与重建 | 4 | T-030 | 同上 | 待开发 | | |

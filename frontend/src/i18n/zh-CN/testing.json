@@ -1,0 +1,91 @@
+{
+  "title": "测试用例",
+  "loadFailed": "无法加载测试用例",
+  "close": "关闭",
+  "cancel": "取消",
+  "save": "保存",
+  "saving": "保存中…",
+  "saveFailed": "保存失败",
+  "new": "新建用例",
+  "runAll": "运行全部",
+  "run": "运行",
+  "edit": "编辑",
+  "copy": "复制",
+  "delete": "删除",
+  "search": "搜索用例…",
+  "runTarget": "运行目标",
+  "lastRun": "最近运行",
+  "empty": "还没有测试用例。可以在右侧测试控制台里把一轮对话“添加为测试用例”。",
+  "emptyFiltered": "没有符合条件的用例",
+  "summary": "通过 {{passed}} · 失败 {{failed}} · 未运行 {{notRun}}",
+  "copied": "用例已复制",
+  "deleted": "用例已删除",
+  "saved": "用例已保存",
+  "confirmDelete": "删除测试用例“{{name}}”？此操作不可撤销。",
+  "cancelRun": "取消运行",
+  "dialog": {
+    "create": "新建测试用例",
+    "edit": "编辑测试用例"
+  },
+  "fields": {
+    "name": "用例名称",
+    "input": "用户输入",
+    "expected": "期望行为",
+    "expectedHint": "例如：应礼貌拒绝并说明无法提供该信息",
+    "type": "类型",
+    "status": "状态"
+  },
+  "types": {
+    "regression": "回归",
+    "safety": "安全",
+    "knowledge": "知识"
+  },
+  "status": {
+    "passed": "通过",
+    "failed": "失败",
+    "not_run": "未运行"
+  },
+  "runState": {
+    "queued": "排队中",
+    "running": "运行中"
+  },
+  "filters": {
+    "allStatuses": "全部状态",
+    "allTypes": "全部类型"
+  },
+  "progress": {
+    "running": "正在运行（{{target}}）：{{completed}}/{{total}}",
+    "done": "运行完成（{{target}}）：通过 {{passed}}，失败 {{failed}}，共 {{total}}",
+    "cancelled": "已取消：完成 {{completed}}/{{total}}",
+    "failed": "运行未能完成：{{error}}"
+  },
+  "result": {
+    "title": "最近一次结果",
+    "none": "尚未运行",
+    "reason": "判定理由：",
+    "actual": "实际回复"
+  },
+  "console": {
+    "title": "实时测试",
+    "reset": "重置",
+    "environment": "环境",
+    "environmentHint": "目前只有生产环境",
+    "production": "生产",
+    "version": "版本",
+    "draft": "当前草稿",
+    "live": "线上",
+    "empty": "输入消息开始测试",
+    "placeholder": "输入测试消息…（Enter 发送，Shift+Enter 换行）",
+    "send": "发送",
+    "stop": "停止",
+    "thinking": "思考中…",
+    "cancelled": "（已停止）",
+    "failed": "运行失败",
+    "addCase": "添加为测试用例",
+    "caseAdded": "已添加为测试用例",
+    "trace": "调用链",
+    "noPermission": "当前角色不能使用测试控制台",
+    "stubRetrieval": "检索：桩实现，未接真实 RAGFlow",
+    "meta": "{{seconds}} 秒 · 输入 {{tokensIn}} / 输出 {{tokensOut}} tokens"
+  }
+}

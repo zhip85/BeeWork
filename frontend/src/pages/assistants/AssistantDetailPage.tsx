@@ -7,6 +7,8 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
 import { AssistantWizard } from './AssistantWizard'
 import { PublishDialog } from './PublishDialog'
+import { TestCasesTab } from './TestCasesTab'
+import { TestConsole } from './TestConsole'
 import type { Assistant, AssistantModelOptions, AssistantSummary, OrganizationOption } from './types'
 
 type CheckIssue = { code: string; severity: 'blocker' | 'high' | 'info'; message: string; target: string }
@@ -42,6 +44,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
   const [publishing, setPublishing] = useState(false)
   const [showPrompt, setShowPrompt] = useState(false)
   const [pending, setPending] = useState<'delete' | 'disable' | null>(null)
+  const [versionOptions, setVersionOptions] = useState<{ id: string; version: string; is_live: boolean }[]>([])
 
   const requested = params.get('tab') as Tab | null
   const tab: Tab = requested && TABS.includes(requested) ? requested : 'overview'
@@ -68,9 +71,10 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
     let active = true
     apiRequest<AssistantModelOptions>('/api/v1/assistants/model-options', {}, tenantId).then((result) => active && setModels(result)).catch(() => undefined)
     apiRequest<{ organizations: OrganizationOption[] }>('/api/v1/organizations', {}, tenantId).then((result) => active && setOrganizations(result.organizations)).catch(() => undefined)
+    apiRequest<{ items: { id: string; version: string; is_live: boolean }[] }>(`/api/v1/assistants/${assistantId}/versions`, {}, tenantId).then((result) => active && setVersionOptions(result.items)).catch(() => undefined)
     apiRequest<AssistantSummary>('/api/v1/assistants/summary', {}, tenantId).then((result) => active && setQuota(result.quota)).catch(() => undefined)
     return () => { active = false }
-  }, [tenantId])
+  }, [tenantId, assistantId, reload])
 
   const refresh = useCallback(() => setReload((value) => value + 1), [])
   const setTab = (next: Tab) => setParams(next === 'overview' ? {} : { tab: next }, { replace: true })
@@ -154,6 +158,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
       </nav>
 
       {tab === 'overview' && (
+        <div className="detail-overview-split">
         <div className="detail-overview">
           <div className="detail-card">
             <h2>{t('checks.title')}</h2>
@@ -180,7 +185,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
               <li><span>{t('path.capabilities')}</span><small>{t('path.capabilitiesHint', { count: mounts?.total ?? 0 })}</small><button className="text-button" onClick={() => setTab('capabilities')} type="button">{t('tabs.capabilities')}</button></li>
               <li><span>{t('path.oc')}</span><small>{t('path.ocHint')}</small><em>{t('soon')}</em></li>
               <li><span>{t('path.channels')}</span><small>{t('path.channelsHint')}</small><em>{t('soon')}</em></li>
-              <li><span>{t('path.tests')}</span><small>{t('path.testsHint')}</small><em>{t('soon')}</em></li>
+              <li><span>{t('path.tests')}</span><small>{t('path.testsHint')}</small><button className="text-button" onClick={() => setTab('tests')} type="button">{t('tabs.tests')}</button></li>
               <li><span>{t('path.publish')}</span><small>{t('path.publishHint')}</small><Link className="text-button" to={`/assistants/${assistant.id}/versions`}>{t('tabs.versions')}</Link></li>
             </ol>
           </div>
@@ -199,6 +204,8 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
             </dl>
           </div>
           <p className="wizard-muted">{t('metricsPending')}</p>
+        </div>
+        <TestConsole assistant={assistant} key={assistant.id + ':' + assistant.live_version_id} tenant={tenant} />
         </div>
       )}
 
@@ -233,7 +240,8 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
       {tab === 'conversations' && (
         <div className="detail-card"><p>{t('conversationsHint')}</p><Link className="primary-button" to={`/assistants/${assistant.id}/conversations`}>{t('tabs.conversations')}</Link></div>
       )}
-      {(tab === 'orchestration' || tab === 'channels' || tab === 'dependencies' || tab === 'tests') && (
+      {tab === 'tests' && <TestCasesTab assistant={assistant} tenant={tenant} versions={versionOptions} />}
+      {(tab === 'orchestration' || tab === 'channels' || tab === 'dependencies') && (
         <div className="detail-card"><p className="assistants-empty-filtered">{t('soonTab', { name: t(`tabs.${tab}`) })}</p></div>
       )}
 

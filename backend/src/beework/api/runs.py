@@ -17,7 +17,7 @@ from beework.conversations import append_message, console_end_user, start_conver
 from beework.db import get_db
 from beework.entitlements import check_quota, get_usage_counter
 from beework.models import AuditEvent, Membership, Tenant, TenantModelEnvironment, User
-from beework.models.assistants import Assistant
+from beework.models.assistants import Assistant, AssistantVersion
 from beework.models.conversations import Conversation
 from beework.models.runtime import Run
 from beework.rbac import require_tenant_permission
@@ -89,10 +89,21 @@ def create_debug_run(
     assistant = _load(db, membership, assistant_id)
     _admit(db, membership, assistant)
     version = None
-    if payload.target == "live":
+    if payload.version_id is not None:
+        version = db.scalar(
+            select(AssistantVersion).where(
+                AssistantVersion.id == payload.version_id,
+                AssistantVersion.assistant_id == assistant.id,
+                AssistantVersion.tenant_id == assistant.tenant_id,
+            )
+        )
+        if version is None:
+            raise ApiError(404, "not_found", "未找到指定版本")
+    elif payload.target == "live":
         version = live_version(db, assistant)
         if version is None:
             raise ApiError(409, "runtime.not_published", "助理还没有已发布的版本")
+    if version is not None:
         dsl = AssistantDSLv1.model_validate(version.snapshot["dsl"])  # the frozen snapshot, never the draft
         model_id = version.snapshot.get("model_id")
     else:
