@@ -30,6 +30,7 @@ from beework.models import (
     TenantRole,
     User,
 )
+from beework.notifications import notify
 from beework.rbac import (
     organization_is_within_scope,
 )
@@ -378,6 +379,11 @@ def accept_member_invitation(
             details={"invitation_id": str(invitation.id)},
         )
     )
+    if invitation.invited_by is not None:
+        notify(
+            db, tenant_id=invitation.tenant_id, recipient_ids=[invitation.invited_by], type="member.joined",
+            title=f"{user.display_name} 已接受邀请并加入企业", link="/members", params={"name": user.display_name},
+        )
     create_login_session(db, user, response)
     db.commit()
     return make_current_user_response(db, user)

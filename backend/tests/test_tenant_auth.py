@@ -1107,6 +1107,9 @@ class TenantAuthTests(unittest.TestCase):
             )["status"],
             "active",
         )
+        inbox = self.client.get("/api/v1/notifications", headers={"X-Tenant-ID": self.tenant_id}).json()
+        joined = [item for item in inbox["items"] if item["type"] == "member.joined"]
+        self.assertEqual((len(joined), joined[0]["params"]["name"], joined[0]["link"]), (1, "Invitee", "/members"))
 
     def test_invitation_resend_revokes_previous_link_and_invite_can_be_revoked(self) -> None:
         self.login()

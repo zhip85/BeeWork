@@ -1,0 +1,28 @@
+{
+  "title": "通知",
+  "subtitle": "审批待办、状态变更等站内通知。",
+  "bell": "通知",
+  "bellUnread": "通知（{{count}} 条未读）",
+  "tabAll": "全部",
+  "tabUnread": "未读 {{count}}",
+  "readAll": "全部标为已读",
+  "viewAll": "查看全部通知",
+  "empty": "暂无通知",
+  "emptyUnread": "没有未读通知",
+  "loading": "加载中…",
+  "loadFailed": "无法加载通知",
+  "unreadOnly": "仅看未读",
+  "prev": "上一页",
+  "next": "下一页",
+  "range": "{{from}}–{{to}} / {{total}}",
+  "types": {
+    "approval.submitted": "待你审批：{{title}}",
+    "approval.reminder": "审批待办已超过 24 小时：{{title}}",
+    "approval.approved": "审批已通过：{{title}}",
+    "approval.rejected": "审批被驳回：{{title}}",
+    "approval.expired": "审批已过期：{{title}}",
+    "approval.apply_failed": "审批通过但生效失败：{{title}}",
+    "member.joined": "{{name}} 已接受邀请并加入企业",
+    "tenant.status_changed": "企业工作区状态已变更：{{status}}"
+  }
+}

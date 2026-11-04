@@ -3970,3 +3970,19 @@ button.approval-card { cursor: pointer; }
 .approval-levels p, .approval-comments p { margin: 2px 0 0; }
 .secondary-button.danger { border-color: #e7b4b4; color: #9b2c2c; }
 tr.policy-off td { opacity: 0.55; }
+
+.notification-wrap { position: relative; display: inline-flex; }
+.notification-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; width: 360px; max-width: 92vw; display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(20, 40, 30, 0.14); }
+.notification-panel header { display: flex; justify-content: space-between; align-items: center; }
+.notification-tabs { display: inline-flex; gap: 4px; }
+.notification-tabs button { padding: 4px 10px; border: 0; border-radius: 999px; background: none; cursor: pointer; font: inherit; font-size: 13px; }
+.notification-tabs button.selected { background: #e2f4ea; color: #1f6a43; }
+.notification-panel ul, .notification-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; max-height: 380px; overflow-y: auto; }
+.notification-panel li button, .notification-list li button { display: grid; gap: 2px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; text-align: left; cursor: pointer; font: inherit; }
+.notification-panel li button:hover, .notification-list li button:hover { background: #f3f6f3; }
+.notification-panel li.unread button, .notification-list li.unread button { background: #f1f8f4; }
+.notification-panel li.unread strong::before, .notification-list li.unread strong::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #d9534f; }
+.notification-panel li span, .notification-list li span { color: #5d6c65; font-size: 12.5px; }
+.notification-panel li small, .notification-list li small { color: #9aa5a0; }
+.notification-panel footer { text-align: center; padding-top: 4px; border-top: 1px solid var(--line); }
+.notification-list { max-height: none; }

@@ -20,6 +20,7 @@ from beework.models import (
     Tenant,
     User,
 )
+from beework.notifications import notify
 from beework.schemas import (
     CreateTenantRequest,
     PlatformOperationResponse,
@@ -259,6 +260,10 @@ def _apply_lifecycle(db: Session, tenant: Tenant, operation: str, to_status: str
     if to_status != tenant.status:
         tenant.status = to_status
         tenant.status_changed_at = now
+        notify(
+            db, tenant_id=tenant.id, role="tenant_admin", type="tenant.status_changed",
+            title="企业工作区状态已变更", body=f"当前状态：{to_status}", params={"status": to_status},
+        )
     if to_status in {"pending_deletion", "deleted"}:
         db.query(AuthSession).filter(
             AuthSession.user_id.in_(
