@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { apiRequest } from '../../api'
+import { Link } from 'react-router-dom'
+import { ApiRequestError, apiRequest } from '../../api'
 import { ChangeList } from './VersionDiff'
 import type { VersionChange } from './VersionDiff'
 import type { Assistant } from './types'
@@ -13,6 +14,7 @@ type Preview = {
   has_changes: boolean
   diff: VersionChange[]
   can_publish: boolean
+  approval: { required: boolean; levels: number; approver_role: string; pending_approval_id: string | null }
 }
 
 export function PublishDialog({
@@ -20,17 +22,20 @@ export function PublishDialog({
   tenantId,
   onClose,
   onPublished,
+  onSubmitted,
 }: {
   assistant: Assistant
   tenantId: string
   onClose: () => void
   onPublished: (version: string) => void
+  onSubmitted: (version: string) => void
 }) {
   const { t } = useTranslation('versions')
   const [preview, setPreview] = useState<Preview | null>(null)
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [confirmReplace, setConfirmReplace] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -40,15 +45,19 @@ export function PublishDialog({
     return () => { active = false }
   }, [assistant.id, tenantId, t])
 
-  async function submit() {
+  async function submit(replacePending = false) {
     if (!preview) return
     setSubmitting(true)
     setError('')
     try {
-      await apiRequest(`/api/v1/assistants/${assistant.id}/publish`, { method: 'POST', body: JSON.stringify({ change_note: note }) }, tenantId)
-      onPublished(preview.next_version)
+      const result = await apiRequest<{ pending_approval?: boolean }>(`/api/v1/assistants/${assistant.id}/publish`, {
+        method: 'POST', body: JSON.stringify({ change_note: note, replace_pending: replacePending }),
+      }, tenantId)
+      if (result.pending_approval) onSubmitted(preview.next_version)
+      else onPublished(preview.next_version)
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : t('publish.loadFailed'))
+      if (requestError instanceof ApiRequestError && requestError.code === 'approval.pending_exists') setConfirmReplace(true)
+      else setError(requestError instanceof Error ? requestError.message : t('publish.loadFailed'))
       setSubmitting(false)
     }
   }
@@ -73,11 +82,13 @@ export function PublishDialog({
             <label className="publish-note">{t('publish.note')}
               <textarea maxLength={500} onChange={(event) => setNote(event.target.value)} placeholder={t('publish.notePlaceholder')} rows={3} value={note} />
             </label>
-            <p className="wizard-muted">{t('publish.approvalNote')}</p>
+            {preview.approval.pending_approval_id && <p className="publish-warnings">{t('publish.pendingExists')} <Link onClick={onClose} to={`/approvals?id=${preview.approval.pending_approval_id}`}>{t('publish.viewApproval')}</Link></p>}
+            {confirmReplace && <p className="publish-warnings" role="alert">{t('publish.replaceBody')} <button className="text-button" disabled={submitting} onClick={() => { setConfirmReplace(false); void submit(true) }} type="button">{t('publish.replaceConfirm')}</button></p>}
+            <p className="wizard-muted">{preview.approval.required ? t('publish.approvalRequired', { levels: preview.approval.levels, role: t(`publish.roles.${preview.approval.approver_role}`) }) : t('publish.approvalNote')}</p>
             <div className="confirm-actions">
               <button className="secondary-button" disabled={submitting} onClick={onClose} type="button">{t('publish.cancel')}</button>
               <button className="primary-button" disabled={submitting || !preview.can_publish} onClick={() => void submit()} type="button">
-                {submitting ? t('publish.submitting') : t('publish.submit', { version: preview.next_version })}
+                {submitting ? t('publish.submitting') : t(preview.approval.required ? 'publish.submitForApproval' : 'publish.submit', { version: preview.next_version })}
               </button>
             </div>
           </>

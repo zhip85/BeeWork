@@ -120,7 +120,7 @@ def main() -> None:
     )
     check("create catalog model", created.status_code == 201, created.text[:200])
     model = created.json()
-    assistant_id = run_id = None
+    assistant_id = run_id = publish_policy_restore = None
     original_env = environment
     try:
         saved = tenant_admin.put(
@@ -178,6 +178,17 @@ def main() -> None:
         check("stored messages are PII-redacted", PHONE not in json.dumps(detail, ensure_ascii=False) and "[手机号]" in detail["messages"][0]["content"], detail["messages"][0]["content"])
 
         # Publishing: immutable versions, live runs execute the snapshot, rollback.
+        # The dev tenant has a single admin, who cannot approve their own request (APR-003), so the publish
+        # approval policy is switched off for this check and restored afterwards.
+        policies = tenant_admin.get("/api/v1/tenant/approval-policies", headers=headers).json()["items"]
+        publish_policy = next(item for item in policies if item["event"] == "publish")
+        if publish_policy["enabled"]:
+            publish_policy_restore = publish_policy
+            turned_off = tenant_admin.put(
+                "/api/v1/tenant/approval-policies", headers=headers,
+                json={"items": [{**{k: publish_policy[k] for k in ("event", "approver_role", "levels")}, "enabled": False}]},
+            )
+            check("publish approval policy switched off for the check", turned_off.status_code == 200, turned_off.text[:200])
         published = tenant_admin.post(f"/api/v1/assistants/{assistant_id}/publish", headers=headers, json={"change_note": "e2e release"})
         check("publish creates v1.0", published.status_code == 201 and published.json()["version"] == "1.0", published.text[:200])
         current = tenant_admin.get(f"/api/v1/assistants/{assistant_id}", headers=headers).json()
@@ -224,7 +235,7 @@ def main() -> None:
             "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-dummy", "mock_response": memory_answer},
             "model_info": {"id": model["id"], "mode": "chat"},
         }).raise_for_status()
-        from datetime import UTC, datetime, timedelta
+        from datetime import UTC, datetime
         from uuid import UUID
 
         from beework import conversations as conversation_service
@@ -270,6 +281,11 @@ def main() -> None:
             check("trace metadata carries tenant / assistant / run", all(v in metadata for v in (tenant["id"], assistant_id, run_id)))
             check("trace does not contain the raw phone number (redaction policy)", PHONE not in metadata)
     finally:
+        if publish_policy_restore:
+            tenant_admin.put(
+                "/api/v1/tenant/approval-policies", headers=headers,
+                json={"items": [{**{k: publish_policy_restore[k] for k in ("event", "approver_role", "levels", "enabled")}}]},
+            )
         if assistant_id:
             tenant_admin.delete(f"/api/v1/assistants/{assistant_id}", headers=headers)
             _remove_test_data(assistant_id)

@@ -36,7 +36,8 @@
   "status": {
     "draft": "草稿",
     "published": "已发布",
-    "disabled": "已停用"
+    "disabled": "已停用",
+    "pendingApproval": "审批中"
   },
   "category": {
     "customer_service": "客服",

@@ -132,7 +132,7 @@ def execute_publish(
     *,
     change_note: str,
     kind: str,
-    actor_user_id: UUID,
+    actor_user_id: UUID | None,
     actor_name: str,
     source_version_id: UUID | None = None,
     approval_id: UUID | None = None,

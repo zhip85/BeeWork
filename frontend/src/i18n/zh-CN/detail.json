@@ -27,7 +27,11 @@
     "title": "配置检查",
     "allClear": "配置检查已通过",
     "fix": "去处理",
-    "severity": { "blocker": "阻断", "high": "高影响", "info": "提示" }
+    "severity": {
+      "blocker": "阻断",
+      "high": "高影响",
+      "info": "提示"
+    }
   },
   "path": {
     "title": "配置路径",
@@ -54,7 +58,11 @@
     "driverDefault": "直接对话",
     "language": "默认语言",
     "visibility": "可见范围",
-    "visibilityValue": { "own_org": "所属组织", "specified": "指定组织", "all": "全部组织" },
+    "visibilityValue": {
+      "own_org": "所属组织",
+      "specified": "指定组织",
+      "all": "全部组织"
+    },
     "prompt": "系统指令",
     "none": "未设置",
     "viewPrompt": "查看完整提示词",
@@ -67,7 +75,20 @@
     "soonHint": "知识库等能力的挂载将在对应模块上线后开放",
     "empty": "暂未挂载能力",
     "draftNote": "挂载变更写入草稿，发布更新后生效。",
-    "kinds": { "kb": "知识库", "agent": "智能体", "mcp": "MCP", "skill": "技能", "chatflow": "Chatflow", "flow": "工作流", "api": "API 插件" },
-    "state": { "available": "可用", "disabled": "已停用", "deleted": "已删除 / 失效" }
-  }
+    "kinds": {
+      "kb": "知识库",
+      "agent": "智能体",
+      "mcp": "MCP",
+      "skill": "技能",
+      "chatflow": "Chatflow",
+      "flow": "工作流",
+      "api": "API 插件"
+    },
+    "state": {
+      "available": "可用",
+      "disabled": "已停用",
+      "deleted": "已删除 / 失效"
+    }
+  },
+  "submitted": "已提交至审批中心"
 }

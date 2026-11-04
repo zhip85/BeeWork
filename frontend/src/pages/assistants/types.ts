@@ -31,6 +31,7 @@ export type Assistant = {
   config: AssistantConfig
   draft_version: string
   live_version_id: string | null
+  pending_approval_id: string | null
   owner_id: string | null
   created_by: string | null
   updated_by: string | null

@@ -65,6 +65,7 @@ _APPROVAL_TITLES = {
     "approval.approved": "审批已通过：{title}",
     "approval.rejected": "审批被驳回：{title}",
     "approval.expired": "审批已过期：{title}",
+    "approval.withdrawn": "审批已被撤回（已有更新的变更直接生效）：{title}",
     "approval.apply_failed": "审批通过但生效失败：{title}",
 }
 

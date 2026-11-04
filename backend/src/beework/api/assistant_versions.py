@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,11 +17,12 @@ from beework.api.assistants import (
     _visible_org_ids,
 )
 from beework.api.conventions import ApiError, check_row_version
+from beework.approvals import ensure_policies, pending_request, submit_change
 from beework.assistant_checks import check_assistant
+from beework.assistant_publish import ACTION as PUBLISH_ACTION
 from beework.assistant_versions import (
     build_snapshot,
     diff_snapshots,
-    execute_publish,
     latest_version,
     live_version,
     version_label,
@@ -36,7 +37,9 @@ from beework.runtime.errors import RuntimeFailure
 from beework.schemas.assistant_checks import CheckIssue
 from beework.schemas.assistants import AssistantResponse
 from beework.schemas.versions import (
+    ApprovalInfo,
     CompareResponse,
+    PendingApproval,
     PublishBlocker,
     PublishPreview,
     PublishRequest,
@@ -130,6 +133,8 @@ def _preview(db: Session, assistant: Assistant) -> tuple[PublishPreview, dict[st
     blockers = [PublishBlocker(code=i.code, message=i.message) for i in issues if i.severity == "blocker"]
     next_seq = (latest_version(db, assistant.id).version_seq if latest_version(db, assistant.id) else 0) + 1
     has_changes = live is None or bool(diff)
+    policy = ensure_policies(db, assistant.tenant_id)["publish"]
+    pending = pending_request(db, assistant.tenant_id, "assistant", assistant.id)
     return (
         PublishPreview(
             next_version=version_label(next_seq),
@@ -138,6 +143,10 @@ def _preview(db: Session, assistant: Assistant) -> tuple[PublishPreview, dict[st
             has_changes=has_changes,
             diff=diff,
             can_publish=not blockers and has_changes and assistant.status != "disabled",
+            approval=ApprovalInfo(
+                required=policy.enabled, levels=policy.levels, approver_role=policy.approver_role,
+                pending_approval_id=pending.id if pending else None,
+            ),
         ),
         snapshot,
     )
@@ -154,6 +163,54 @@ def _assistant_response(db: Session, membership: Membership, assistant: Assistan
 # ---------------------------------------------------------------------------
 
 
+def _submit_publish(
+    db: Session,
+    membership: Membership,
+    assistant: Assistant,
+    snapshot: dict[str, Any],
+    issues: list[CheckIssue],
+    *,
+    kind: str,
+    title: str,
+    change_note: str,
+    diff: list[dict[str, Any]],
+    replace_pending: bool,
+    source_version_id: UUID | None = None,
+) -> AssistantVersion | PendingApproval:
+    """Hand the publish to the approval engine: applied now when the policy is off, otherwise a pending request."""
+    warnings = [{"label": i.message, "level": "warn"} for i in issues if i.severity != "blocker"]
+    result = submit_change(
+        db,
+        tenant_id=assistant.tenant_id,
+        event="publish",
+        action=PUBLISH_ACTION,
+        object_type="assistant",
+        object_id=assistant.id,
+        title=title,
+        payload={
+            "snapshot": snapshot,
+            "change_note": change_note,
+            "kind": kind,
+            "source_version_id": str(source_version_id) if source_version_id else None,
+        },
+        change_diff=diff,
+        checks=warnings or [{"label": "配置检查通过", "level": "ok"}],
+        description=change_note,
+        requester_id=membership.user_id,
+        organization_id=assistant.organization_id,
+        owner_user_id=assistant.owner_id,
+        replace_pending=replace_pending,
+    )
+    latest = latest_version(db, assistant.id)
+    if result.approval is None:
+        return latest
+    return PendingApproval(approval_id=result.approval.id, next_version=version_label((latest.version_seq if latest else 0) + 1))
+
+
+def _version_response(version: AssistantVersion) -> VersionDetail:
+    return VersionDetail(**_summary(version, version.id).model_dump(), snapshot=version.snapshot, change_diff=version.change_diff)
+
+
 @router.get("/assistants/{assistant_id}/publish-preview", response_model=PublishPreview)
 def publish_preview(
     assistant_id: UUID,
@@ -161,17 +218,21 @@ def publish_preview(
     db: Session = Depends(get_db),
 ) -> PublishPreview:
     assistant = _load(db, membership, assistant_id)
-    return _preview(db, assistant)[0]
+    preview = _preview(db, assistant)[0]
+    db.commit()  # persists lazily created default approval policies
+    return preview
 
 
-@router.post("/assistants/{assistant_id}/publish", response_model=VersionDetail, status_code=status.HTTP_201_CREATED)
+@router.post("/assistants/{assistant_id}/publish", response_model=VersionDetail | PendingApproval, status_code=status.HTTP_201_CREATED)
 def publish_assistant(
     assistant_id: UUID,
     payload: PublishRequest,
+    response: Response,
     membership: Membership = Depends(require_tenant_permission("assistants:publish")),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
-) -> VersionDetail:
+) -> VersionDetail | PendingApproval:
+    """201 with the new version when the publish policy is off; 202 with the pending approval otherwise."""
     assistant = _load_for_write(db, membership, assistant_id)
     if assistant.status == "disabled":
         raise ApiError(409, "assistant.invalid_transition", "已停用的助理需先启用才能发布")
@@ -180,18 +241,17 @@ def publish_assistant(
         raise ApiError(409, "assistant.publish_blocked", "；".join(b.message for b in preview.blockers))
     if not preview.has_changes:
         raise ApiError(409, "assistant.no_changes", "草稿与线上版本没有差异")
-    # Without an approval flow (T-022) the publish takes effect immediately.
-    version = execute_publish(
-        db,
-        assistant,
-        snapshot,
-        change_note=payload.change_note,
-        kind="publish",
-        actor_user_id=membership.user_id,
-        actor_name=_actor_name(db, membership),
+    issues = publish_issues(db, assistant, snapshot, None)
+    outcome = _submit_publish(
+        db, membership, assistant, snapshot, issues, kind="publish",
+        title=f"发布 {assistant.name} v{preview.next_version}", change_note=payload.change_note,
+        diff=preview.diff, replace_pending=payload.replace_pending,
     )
     db.commit()
-    return VersionDetail(**_summary(version, version.id).model_dump(), snapshot=version.snapshot, change_diff=version.change_diff)
+    if isinstance(outcome, PendingApproval):
+        response.status_code = status.HTTP_202_ACCEPTED
+        return outcome
+    return _version_response(outcome)
 
 
 @router.get("/assistants/{assistant_id}/versions", response_model=VersionListResponse)
@@ -284,35 +344,39 @@ def restore_version(
     return _assistant_response(db, membership, assistant)
 
 
-@router.post("/assistants/{assistant_id}/versions/{version_id}/rollback", response_model=VersionDetail, status_code=status.HTTP_201_CREATED)
+@router.post("/assistants/{assistant_id}/versions/{version_id}/rollback", response_model=VersionDetail | PendingApproval, status_code=status.HTTP_201_CREATED)
 def rollback_to_version(
     assistant_id: UUID,
     version_id: UUID,
     payload: RollbackRequest,
+    response: Response,
     membership: Membership = Depends(require_tenant_permission("assistants:publish")),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
-) -> VersionDetail:
-    """Create a new version from a historical snapshot and make it live (the draft is left alone)."""
+) -> VersionDetail | PendingApproval:
+    """Create a new version from a historical snapshot and make it live (the draft is left alone).
+
+    Like publishing, this goes through the publish approval policy (RUL-001)."""
     assistant = _load_for_write(db, membership, assistant_id)
     if assistant.status == "disabled":
         raise ApiError(409, "assistant.invalid_transition", "已停用的助理需先启用才能回滚")
     target = _version_of(db, assistant, version_id)
     if target.id == assistant.live_version_id:
         raise ApiError(409, "assistant.no_changes", "该版本已经是线上版本")
-    blockers = _snapshot_blockers(db, assistant, target.snapshot)
+    issues = publish_issues(db, assistant, target.snapshot, None)
+    blockers = [i for i in issues if i.severity == "blocker"]
     if blockers:
         raise ApiError(409, "assistant.publish_blocked", "；".join(b.message for b in blockers))
+    live = live_version(db, assistant)
     note = payload.change_note.strip() or f"回滚到 v{target.version}"
-    version = execute_publish(
-        db,
-        assistant,
-        dict(target.snapshot),
-        change_note=note,
-        kind="rollback",
-        actor_user_id=membership.user_id,
-        actor_name=_actor_name(db, membership),
-        source_version_id=target.id,
+    outcome = _submit_publish(
+        db, membership, assistant, dict(target.snapshot), issues, kind="rollback",
+        title=f"回滚 {assistant.name} 到 v{target.version}", change_note=note,
+        diff=diff_snapshots(live.snapshot if live else None, target.snapshot),
+        replace_pending=payload.replace_pending, source_version_id=target.id,
     )
     db.commit()
-    return VersionDetail(**_summary(version, version.id).model_dump(), snapshot=version.snapshot, change_diff=version.change_diff)
+    if isinstance(outcome, PendingApproval):
+        response.status_code = status.HTTP_202_ACCEPTED
+        return outcome
+    return _version_response(outcome)

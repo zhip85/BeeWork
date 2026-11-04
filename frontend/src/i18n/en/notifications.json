@@ -23,6 +23,8 @@
     "approval.expired": "Approval expired: {{title}}",
     "approval.apply_failed": "Approved, but applying the change failed: {{title}}",
     "member.joined": "{{name}} accepted the invitation and joined",
-    "tenant.status_changed": "Workspace status changed: {{status}}"
+    "tenant.status_changed": "Workspace status changed: {{status}}",
+    "assistant.published": "Assistant “{{name}}” published v{{version}}",
+    "approval.withdrawn": "Approval withdrawn (a newer change took effect directly): {{title}}"
   }
 }

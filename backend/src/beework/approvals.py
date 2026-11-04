@@ -197,14 +197,20 @@ def submit_change(
         raise ValueError(f"Unknown approval event: {event}")
     payload = payload or {}
     policy = ensure_policies(db, tenant_id)[event]
+    request_type = POLICY_DEFAULTS[event][0]
     if not policy.enabled:
         executor = ACTIONS.get(action)
         if executor is None:
             raise ApiError(500, "approval.unknown_action", f"未注册的审批动作：{action}")
         executor(db, ApplyContext(tenant_id, object_type, object_id, payload, requester_id, None))
+        # A request left over from before the policy was switched off describes an older state of the object;
+        # approving it later would overwrite this change, so it is withdrawn as superseded.
+        superseded = _pending_for(db, tenant_id, object_type, object_id, request_type)
+        if superseded is not None:
+            _withdraw(db, superseded, requester_id)
+            _notify(db, "approval.withdrawn", superseded, [superseded.requester_id])
         return SubmitResult(None, True)
 
-    request_type = POLICY_DEFAULTS[event][0]
     existing = _pending_for(db, tenant_id, object_type, object_id, request_type)
     if existing is not None:
         if not replace_pending:
@@ -258,6 +264,17 @@ def _pending_for(db: Session, tenant_id: UUID, object_type: str, object_id: UUID
             ApprovalRequest.object_type == object_type,
             ApprovalRequest.object_id == object_id,
             ApprovalRequest.type == request_type,
+            ApprovalRequest.status == "pending",
+        )
+    )
+
+
+def pending_request(db: Session, tenant_id: UUID, object_type: str, object_id: UUID) -> ApprovalRequest | None:
+    return db.scalar(
+        select(ApprovalRequest).where(
+            ApprovalRequest.tenant_id == tenant_id,
+            ApprovalRequest.object_type == object_type,
+            ApprovalRequest.object_id == object_id,
             ApprovalRequest.status == "pending",
         )
     )

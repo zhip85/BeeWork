@@ -85,6 +85,8 @@ class AssistantResponse(BaseModel):
     row_version: int
     created_at: datetime
     updated_at: datetime
+    # The open publish approval request, if any (APR-002: the assistant shows as “审批中”).
+    pending_approval_id: UUID | None = None
     # The caller may edit / delete it (organization or assistant scope can see more than it owns).
     can_edit: bool
 

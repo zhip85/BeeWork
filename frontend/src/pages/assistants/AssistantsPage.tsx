@@ -161,6 +161,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
               <header>
                 <span className="assistant-icon"><Bot size={18} /></span>
                 <span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span>
+                {assistant.pending_approval_id && <Link className="assistant-status in_progress" to={`/approvals?id=${assistant.pending_approval_id}`}>{t('status.pendingApproval')}</Link>}
                 <RowMenu assistant={assistant} can={can} canRead={canRead} onPublish={() => setPublishing(assistant)} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} />
               </header>
               <h3><Link className="assistant-name-link" to={`/assistants/${assistant.id}`}>{assistant.name}</Link></h3>
@@ -186,7 +187,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
               {items.map((assistant) => (
                 <tr key={assistant.id}>
                   <td><strong><Link className="assistant-name-link" to={`/assistants/${assistant.id}`}>{assistant.name}</Link></strong><small className="platform-tenant-slug">v{assistant.draft_version}</small></td>
-                  <td><span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span></td>
+                  <td><span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span>{assistant.pending_approval_id && <> <Link className="assistant-status in_progress" to={`/approvals?id=${assistant.pending_approval_id}`}>{t('status.pendingApproval')}</Link></>}</td>
                   <td>{assistant.organization_name}</td>
                   <td>{formatRelativeTime(assistant.updated_at)}</td>
                   <td><RowMenu assistant={assistant} can={can} canRead={canRead} onPublish={() => setPublishing(assistant)} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} /></td>
@@ -220,6 +221,11 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
           onPublished={(version) => {
             setPublishing(null)
             setNotice(tv('publish.done', { version }))
+            refresh()
+          }}
+          onSubmitted={() => {
+            setPublishing(null)
+            setNotice(tv('publish.submitted'))
             refresh()
           }}
           tenantId={tenantId}

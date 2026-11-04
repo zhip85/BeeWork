@@ -9,6 +9,8 @@ from beework.schemas.assistant_checks import CheckIssue
 
 class PublishRequest(BaseModel):
     change_note: str = Field(default="", max_length=500)
+    # APR-002: withdraw the assistant's pending request and submit this one instead.
+    replace_pending: bool = False
 
 
 class RestoreRequest(BaseModel):
@@ -17,6 +19,7 @@ class RestoreRequest(BaseModel):
 
 class RollbackRequest(BaseModel):
     change_note: str = Field(default="", max_length=500)
+    replace_pending: bool = False
 
 
 class VersionSummary(BaseModel):
@@ -48,6 +51,21 @@ class PublishBlocker(BaseModel):
     message: str
 
 
+class ApprovalInfo(BaseModel):
+    required: bool
+    levels: int
+    approver_role: str
+    pending_approval_id: UUID | None
+
+
+class PendingApproval(BaseModel):
+    """Returned with 202 when the publish policy requires approval: nothing is live until it is approved."""
+
+    pending_approval: bool = True
+    approval_id: UUID
+    next_version: str
+
+
 class PublishPreview(BaseModel):
     next_version: str
     blockers: list[PublishBlocker]
@@ -56,6 +74,7 @@ class PublishPreview(BaseModel):
     has_changes: bool
     diff: list[dict[str, Any]]
     can_publish: bool
+    approval: ApprovalInfo
 
 
 class CompareResponse(BaseModel):

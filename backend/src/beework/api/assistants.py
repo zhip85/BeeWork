@@ -15,6 +15,7 @@ from beework.api.conventions import (
     normalize_name,
     paginate,
 )
+from beework.approvals import pending_request
 from beework.auth import require_csrf
 from beework.db import get_db
 from beework.entitlements import enforce_quota, get_subscription, register_usage_counter
@@ -48,7 +49,11 @@ MODEL_ENVIRONMENT = "production"  # until T-006 adds the environment switcher
 UNNAMED = "未命名助理"
 
 # Callbacks that return a reason string when something (e.g. a channel binding, T-040) blocks deletion.
-DELETE_BLOCKERS: list[Callable[[Session, Assistant], str | None]] = []
+DELETE_BLOCKERS: list[Callable[[Session, Assistant], str | None]] = [
+    lambda db, assistant: "该助理有待审批的发布申请，请先在审批中心撤回"
+    if pending_request(db, assistant.tenant_id, "assistant", assistant.id)
+    else None
+]
 
 
 def _count_assistants(db: Session, tenant_id: UUID) -> int:
@@ -317,6 +322,7 @@ def _response(db: Session, membership: Membership, assistant: Assistant) -> Assi
         row_version=assistant.row_version,
         created_at=assistant.created_at,
         updated_at=assistant.updated_at,
+        pending_approval_id=pending.id if (pending := pending_request(db, assistant.tenant_id, "assistant", assistant.id)) else None,
         can_edit=_can_edit(membership, assistant, db),
     )
 
