@@ -1,0 +1,91 @@
+{
+  "title": "Test cases",
+  "loadFailed": "Could not load test cases",
+  "close": "Close",
+  "cancel": "Cancel",
+  "save": "Save",
+  "saving": "Saving…",
+  "saveFailed": "Could not save",
+  "new": "New case",
+  "runAll": "Run all",
+  "run": "Run",
+  "edit": "Edit",
+  "copy": "Duplicate",
+  "delete": "Delete",
+  "search": "Search cases…",
+  "runTarget": "Run target",
+  "lastRun": "Last run",
+  "empty": "No test cases yet. Use “Add as test case” on a message in the test console.",
+  "emptyFiltered": "No cases match the filters",
+  "summary": "Passed {{passed}} · Failed {{failed}} · Not run {{notRun}}",
+  "copied": "Case duplicated",
+  "deleted": "Case deleted",
+  "saved": "Case saved",
+  "confirmDelete": "Delete test case “{{name}}”? This cannot be undone.",
+  "cancelRun": "Cancel run",
+  "dialog": {
+    "create": "New test case",
+    "edit": "Edit test case"
+  },
+  "fields": {
+    "name": "Name",
+    "input": "User input",
+    "expected": "Expected behavior",
+    "expectedHint": "For example: politely refuses and explains it cannot share that",
+    "type": "Type",
+    "status": "Status"
+  },
+  "types": {
+    "regression": "Regression",
+    "safety": "Safety",
+    "knowledge": "Knowledge"
+  },
+  "status": {
+    "passed": "Passed",
+    "failed": "Failed",
+    "not_run": "Not run"
+  },
+  "runState": {
+    "queued": "Queued",
+    "running": "Running"
+  },
+  "filters": {
+    "allStatuses": "All statuses",
+    "allTypes": "All types"
+  },
+  "progress": {
+    "running": "Running ({{target}}): {{completed}}/{{total}}",
+    "done": "Finished ({{target}}): {{passed}} passed, {{failed}} failed of {{total}}",
+    "cancelled": "Cancelled: {{completed}}/{{total}} done",
+    "failed": "The run could not finish: {{error}}"
+  },
+  "result": {
+    "title": "Latest result",
+    "none": "Not run yet",
+    "reason": "Judge's reason:",
+    "actual": "Actual reply"
+  },
+  "console": {
+    "title": "Live test",
+    "reset": "Reset",
+    "environment": "Environment",
+    "environmentHint": "Only production exists for now",
+    "production": "Production",
+    "version": "Version",
+    "draft": "Current draft",
+    "live": "live",
+    "empty": "Type a message to start testing",
+    "placeholder": "Type a test message… (Enter to send, Shift+Enter for a new line)",
+    "send": "Send",
+    "stop": "Stop",
+    "thinking": "Thinking…",
+    "cancelled": "(stopped)",
+    "failed": "Run failed",
+    "addCase": "Add as test case",
+    "caseAdded": "Added as a test case",
+    "trace": "Trace",
+    "noPermission": "Your role cannot use the test console",
+    "stubRetrieval": "Retrieval: stub, not connected to RAGFlow",
+    "meta": "{{seconds}} s · in {{tokensIn}} / out {{tokensOut}} tokens"
+  }
+}

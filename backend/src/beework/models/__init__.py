@@ -71,6 +71,11 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "memory.user_deleted": "删除终端用户的全部记忆",
     "memory.retention_purged": "清理过期记忆",
     "assistant.run_cancelled": "取消助理运行",
+    "assistant.test_case_created": "创建测试用例",
+    "assistant.test_case_updated": "更新测试用例",
+    "assistant.test_case_copied": "复制测试用例",
+    "assistant.test_case_deleted": "删除测试用例",
+    "assistant.test_run_started": "运行测试用例",
     "approval.policy_updated": "更新审批策略",
     "approval.submitted": "提交审批",
     "approval.approved": "通过审批",
@@ -652,4 +657,5 @@ from beework.models import (  # noqa: E402,F401
     notifications,
     plans,
     runtime,
+    testcases,
 )
