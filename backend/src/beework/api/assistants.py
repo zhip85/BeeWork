@@ -165,25 +165,27 @@ def _actor_name(db: Session, membership: Membership) -> str:
     return user.display_name if user else ""
 
 
-def _enabled_chat_models(db: Session, tenant_id: UUID) -> tuple[list[tuple[PlatformModel, bool]], str]:
-    environment = db.scalar(
+def _enabled_chat_models(
+    db: Session, tenant_id: UUID, environment: str = MODEL_ENVIRONMENT
+) -> tuple[list[tuple[PlatformModel, bool]], str]:
+    config = db.scalar(
         select(TenantModelEnvironment).where(
             TenantModelEnvironment.tenant_id == tenant_id,
-            TenantModelEnvironment.environment == MODEL_ENVIRONMENT,
+            TenantModelEnvironment.environment == environment,
         )
     )
-    if environment is None:
-        return [], MODEL_ENVIRONMENT
+    if config is None:
+        return [], environment
     rows = db.execute(
         select(PlatformModel, TenantModelSelection.is_default)
         .join(TenantModelSelection, TenantModelSelection.model_id == PlatformModel.id)
         .where(
-            TenantModelSelection.environment_id == environment.id,
+            TenantModelSelection.environment_id == config.id,
             TenantModelSelection.model_type == "chat",
         )
         .order_by(PlatformModel.provider, PlatformModel.display_name)
     ).all()
-    return [(model, bool(is_default)) for model, is_default in rows], MODEL_ENVIRONMENT
+    return [(model, bool(is_default)) for model, is_default in rows], environment
 
 
 def _validate_organization(db: Session, membership: Membership, organization_id: UUID) -> None:

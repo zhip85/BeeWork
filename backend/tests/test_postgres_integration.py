@@ -469,6 +469,35 @@ class PostgresIntegrationTests(unittest.TestCase):
             seqs = sorted(pool.map(publish, range(24)))
         self.assertEqual(seqs, list(range(1, 25)))
 
+    def test_the_valkey_token_bucket_is_shared_and_exact_under_concurrency(self) -> None:
+        import redis
+
+        from beework.config import settings
+        from beework.ratelimit import Limiter, ValkeyStore
+
+        try:
+            client = redis.Redis.from_url(settings.valkey_url)
+            client.ping()
+        except redis.RedisError:
+            self.skipTest("Valkey is not reachable")
+        key = f"it:{uuid4()}"
+        # Several "instances" (separate Limiter objects) share one bucket through Valkey.
+        limiters = [Limiter(primary=ValkeyStore(client)) for _ in range(4)]
+        barrier = threading.Barrier(12)
+
+        def hit(index: int) -> bool:
+            barrier.wait()
+            return limiters[index % 4].check(key, per_second=0.01, burst=5).allowed
+
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            allowed = list(pool.map(hit, range(12)))
+        self.assertEqual(sum(allowed), 5)  # exactly the burst, never more
+        denied = limiters[0].check(key, per_second=0.01, burst=5)
+        self.assertFalse(denied.allowed)
+        self.assertGreaterEqual(denied.retry_after, 1)
+        self.assertTrue(limiters[0].check(f"{key}:other", per_second=0.01, burst=5).allowed)
+        client.delete(f"bw:ratelimit:{key}", f"bw:ratelimit:{key}:other")
+
     def test_stream_receives_live_events_through_real_valkey(self) -> None:
         import redis
 

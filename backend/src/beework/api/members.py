@@ -13,6 +13,7 @@ from beework.api.common import (
     make_current_user_response,
 )
 from beework.api.conventions import ApiError
+from beework.api_keys import revoke_keys_of_user
 from beework.auth import (
     require_csrf,
     require_tenant_roles,
@@ -525,6 +526,8 @@ def change_member_status(
             AuthSession.user_id == target_user.id,
             AuthSession.revoked_at.is_(None),
         ).update({"revoked_at": now}, synchronize_session=False)
+        # SET-013: a suspended member's personal API keys stop working at once.
+        revoke_keys_of_user(db, membership.tenant_id, target_user.id, "member_suspended")
     db.add(
         AuditEvent(
             tenant_id=membership.tenant_id,
@@ -583,6 +586,7 @@ def remove_member(
         AuthSession.user_id == target_user.id,
         AuthSession.revoked_at.is_(None),
     ).update({"revoked_at": datetime.now(UTC)}, synchronize_session=False)
+    revoke_keys_of_user(db, membership.tenant_id, target_user.id, "member_removed")
     db.add(
         AuditEvent(
             tenant_id=membership.tenant_id,

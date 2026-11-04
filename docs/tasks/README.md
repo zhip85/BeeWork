@@ -34,12 +34,12 @@
 | [T-025](./T-025-langgraph-runtime.md) | LangGraph 运行时 v1（经 LiteLLM，Langfuse 追踪） | 3 | T-002、T-020 | 真实调用需供应商 Key（Langfuse 已就绪） | 已完成 | Claude Sonnet 5.5 | 核心任务；只能用 Langfuse SDK ≥3；含检索桩（闭环切片第 3 步） |
 | [T-026](./T-026-conversations.md) | 会话与消息、保留期与脱敏 | 3 | T-025 | — | 已完成 | Claude Sonnet 5.5 | |
 | [T-027](./T-027-test-console.md) | 助理测试控制台与测试用例 | 3 | T-025、T-021 | 供应商 Key | 已完成 | Claude Sonnet 5.5 | 全部用假模型验证，评测判定未用真实模型跑过（拿到供应商 Key 后需复验） |
-| [T-028](./T-028-open-api.md) | 租户 API 密钥与开放对话 API | 3/6 | T-024、T-025、T-010 | — | 待开发 | | 试点版对外入口 |
+| [T-028](./T-028-open-api.md) | 租户 API 密钥与开放对话 API | 3/6 | T-024、T-025、T-010 | — | 已完成 | Claude Sonnet 5.5 | 与 T-040 一并合入；真实供应商对话待 Key（目前只用 `mock_response` 验证） |
 | [T-030](./T-030-knowledge-bases.md) | 知识库与 RAGFlow dataset | 4 | T-001、T-002 | RAGFlow Cloud 付费版 API Key | 待开发 | | |
 | [T-031](./T-031-documents.md) | 文档上传、解析状态同步、删除与重建 | 4 | T-030 | 同上 | 待开发 | | |
 | [T-032](./T-032-faq.md) | FAQ 生命周期与推送 | 4 | T-030 | 同上 | 待开发 | | |
 | [T-033](./T-033-knowledge-retrieval.md) | 知识挂载、运行时检索与引用 | 4 | T-025、T-031 | 同上 | 待开发 | | 须替换 T-025 的检索桩才算完成 |
-| [T-040](./T-040-website-channel.md) | 网站渠道（最小版）：实例、发布快照、嵌入脚本 | 6 | T-024、T-025 | — | 待开发 | | |
+| [T-040](./T-040-website-channel.md) | 网站渠道（最小版）：实例、发布快照、嵌入脚本 | 6 | T-024、T-025 | — | 已完成 | Claude Sonnet 5.5 | `widget.js` 已用 jsdom 在真实栈上跑通一次对话，**未在真实浏览器里验证** |
 
 ## 闭环切片（优先线，2026-10-28 起）
 

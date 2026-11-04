@@ -1,0 +1,126 @@
+{
+  "title": "Channels",
+  "subtitle": "Connect assistants to your website. A channel only serves its published snapshot; drafts never affect what is live.",
+  "embeddedTitle": "Channels",
+  "loadFailed": "Could not load channels",
+  "saveFailed": "Could not save",
+  "close": "Close",
+  "cancel": "Cancel",
+  "save": "Save",
+  "saving": "Saving…",
+  "new": "New channel",
+  "search": "Search channels…",
+  "empty": "No channels yet.",
+  "edit": "Edit",
+  "delete": "Delete",
+  "enable": "Enable",
+  "disable": "Disable",
+  "assistantMissing": "Assistant unavailable",
+  "unpublished": "Unpublished changes",
+  "inApproval": "In approval",
+  "saved": "Channel saved",
+  "deleted": "Channel deleted",
+  "enabledToast": "Channel enabled",
+  "disabledToast": "Channel disabled",
+  "deleteBody": "Delete “{{name}}”? The channel stops serving immediately.",
+  "type": {
+    "website": "Website"
+  },
+  "environments": {
+    "development": "Development",
+    "staging": "Staging",
+    "production": "Production"
+  },
+  "status": {
+    "draft": "Draft",
+    "active": "Active",
+    "disabled": "Disabled"
+  },
+  "columns": {
+    "channel": "Channel",
+    "assistant": "Assistant",
+    "environment": "Environment",
+    "version": "Published version",
+    "status": "Status"
+  },
+  "dialog": {
+    "create": "New website channel",
+    "edit": "Edit website channel"
+  },
+  "fields": {
+    "name": "Name",
+    "namePlaceholder": "e.g. Website support",
+    "assistant": "Assistant",
+    "assistantHint": "A channel serves exactly one assistant.",
+    "environment": "Environment",
+    "environmentHint": "Production serves the assistant's published version; development and staging serve the latest draft.",
+    "origins": "Allowed websites",
+    "originsHint": "One per line, like https://www.example.com. Only these sites can use the widget (http only for localhost).",
+    "color": "Brand color",
+    "assistantName": "Assistant name",
+    "welcome": "Welcome message",
+    "inherit": "Leave empty to inherit"
+  },
+  "publish": {
+    "action": "Publish",
+    "done": "Channel published",
+    "submitted": "Submitted to the approval center; it takes effect once approved.",
+    "viewApproval": "View approval",
+    "replaceBody": "There is already a pending request. Withdraw it and submit again?"
+  },
+  "embed": {
+    "action": "Get embed code",
+    "title": "Embed code",
+    "body": "Paste this just before </body> on your page.",
+    "copy": "Copy",
+    "copied": "Embed code copied",
+    "origins": "Allowed websites: {{origins}}"
+  },
+  "rotate": {
+    "action": "Reset SDK key",
+    "body": "After resetting the SDK key of “{{name}}”, pages with the old embed code stop working until you update them. Continue?",
+    "done": "SDK key reset; update the embed code on your pages"
+  },
+  "openApi": {
+    "title": "Open API",
+    "intro": "Call this assistant from your own systems with a tenant API key.",
+    "endpoint": "Endpoint",
+    "auth": "Authentication",
+    "authHint": "Create one in Settings → API keys",
+    "versions": "Version",
+    "versionsHint": "Production keys call the published version; development/staging keys call the latest draft.",
+    "limits": "Rate limit",
+    "limitsHint": "Above your plan's QPS you get 429 with Retry-After.",
+    "request": "Request example",
+    "response": "Response example",
+    "docs": "Full reference:",
+    "keysHint": "With stream=true the reply is SSE."
+  },
+  "keys": {
+    "title": "API keys",
+    "subtitle": "For your own systems to call assistants; a key is shown only once, when created.",
+    "create": "Create API key",
+    "creating": "Creating…",
+    "name": "Name",
+    "environment": "Environment",
+    "scopes": "Scopes",
+    "expires": "Expires (optional)",
+    "key": "Key",
+    "lastUsed": "Last used",
+    "status": "Status",
+    "revoke": "Revoke",
+    "revokeBody": "Revoke “{{name}}”? It stops working immediately and callers get 401.",
+    "revoked": "Key revoked",
+    "empty": "No API keys",
+    "copyNow": "Copy the key now — it cannot be shown again:",
+    "copyClose": "Copy and close",
+    "copied": "Copied",
+    "loadFailed": "Could not load API keys",
+    "createFailed": "Action failed",
+    "statuses": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    }
+  }
+}

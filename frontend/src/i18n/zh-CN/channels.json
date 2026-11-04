@@ -1,0 +1,126 @@
+{
+  "title": "渠道",
+  "subtitle": "把助理接入网站等对外入口。渠道只服务已发布的快照，草稿不会影响线上。",
+  "embeddedTitle": "渠道",
+  "loadFailed": "无法加载渠道",
+  "saveFailed": "保存失败",
+  "close": "关闭",
+  "cancel": "取消",
+  "save": "保存",
+  "saving": "保存中…",
+  "new": "新建渠道",
+  "search": "搜索渠道…",
+  "empty": "还没有渠道。",
+  "edit": "编辑",
+  "delete": "删除",
+  "enable": "启用",
+  "disable": "停用",
+  "assistantMissing": "助手不可用",
+  "unpublished": "有未发布修改",
+  "inApproval": "审批中",
+  "saved": "渠道已保存",
+  "deleted": "渠道已删除",
+  "enabledToast": "渠道已启用",
+  "disabledToast": "渠道已停用",
+  "deleteBody": "删除“{{name}}”？删除后该渠道立即停止服务。",
+  "type": {
+    "website": "网站"
+  },
+  "environments": {
+    "development": "开发",
+    "staging": "预发",
+    "production": "生产"
+  },
+  "status": {
+    "draft": "草稿",
+    "active": "启用",
+    "disabled": "停用"
+  },
+  "columns": {
+    "channel": "渠道",
+    "assistant": "助手",
+    "environment": "环境",
+    "version": "已发布版本",
+    "status": "状态"
+  },
+  "dialog": {
+    "create": "新建网站渠道",
+    "edit": "编辑网站渠道"
+  },
+  "fields": {
+    "name": "渠道名称",
+    "namePlaceholder": "例如：官网在线客服",
+    "assistant": "绑定助手",
+    "assistantHint": "每个渠道只绑定一个助手。",
+    "environment": "环境",
+    "environmentHint": "生产环境使用助理已发布版本；开发/预发环境使用最新草稿。",
+    "origins": "允许嵌入的网站",
+    "originsHint": "每行一个，形如 https://www.example.com；只有这些网站可以使用挂件（仅 localhost 可用 http）。",
+    "color": "品牌主色",
+    "assistantName": "助手名称",
+    "welcome": "欢迎语",
+    "inherit": "留空则继承助理 / 平台默认"
+  },
+  "publish": {
+    "action": "发布",
+    "done": "渠道已发布",
+    "submitted": "已提交至审批中心，审批通过后生效。",
+    "viewApproval": "查看审批",
+    "replaceBody": "已有待审批的申请，是否撤回并重新提交？"
+  },
+  "embed": {
+    "action": "获取接入代码",
+    "title": "接入代码",
+    "body": "把下面这段代码放到网页的 </body> 之前即可。",
+    "copy": "复制",
+    "copied": "接入代码已复制",
+    "origins": "允许的网站：{{origins}}"
+  },
+  "rotate": {
+    "action": "重置 SDK Key",
+    "body": "重置“{{name}}”的 SDK Key 后，已嵌入旧代码的页面将停止服务，需要换成新的接入代码。继续？",
+    "done": "SDK Key 已重置，请更新网页上的接入代码"
+  },
+  "openApi": {
+    "title": "开放 API",
+    "intro": "用租户 API 密钥从自己的系统调用这个助理。",
+    "endpoint": "接口",
+    "auth": "认证",
+    "authHint": "在 设置 → API 密钥 创建",
+    "versions": "版本",
+    "versionsHint": "生产环境密钥调用已发布版本；开发/预发环境密钥调用最新草稿。",
+    "limits": "限流",
+    "limitsHint": "超过套餐 QPS 返回 429 与 Retry-After。",
+    "request": "请求示例",
+    "response": "响应示例",
+    "docs": "完整文档：",
+    "keysHint": "stream=true 时返回 SSE。"
+  },
+  "keys": {
+    "title": "API 密钥",
+    "subtitle": "供自有系统调用助手；密钥仅在创建时显示一次。",
+    "create": "创建 API 密钥",
+    "creating": "创建中…",
+    "name": "名称",
+    "environment": "环境",
+    "scopes": "权限范围",
+    "expires": "过期日期（可选）",
+    "key": "密钥",
+    "lastUsed": "最近使用",
+    "status": "状态",
+    "revoke": "吊销",
+    "revokeBody": "吊销“{{name}}”？吊销后立即失效，使用它的系统会收到 401。",
+    "revoked": "密钥已吊销",
+    "empty": "暂无 API 密钥",
+    "copyNow": "请立即复制密钥（之后无法再次查看）：",
+    "copyClose": "复制并关闭",
+    "copied": "已复制",
+    "loadFailed": "无法加载 API 密钥",
+    "createFailed": "操作失败",
+    "statuses": {
+      "active": "有效",
+      "expired": "已过期",
+      "revoked": "已吊销"
+    }
+  }
+}

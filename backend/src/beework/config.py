@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     bootstrap_platform_reviewer_name: str = "BeeWork Platform Reviewer"
     bootstrap_platform_reviewer_password: str = "BeeWork-Reviewer-2026!"
     environment: str = "development"
+    # Public base URL of this API as seen by browsers (embed code, widget script); empty = derive it from the request.
+    public_api_url: str = ""
     # Session lifetime and idle timeout (T-004); the tenant-level setting arrives with T-093. 15 minutes – 7 days.
     session_max_minutes: int = 720
     session_idle_minutes: int = 120

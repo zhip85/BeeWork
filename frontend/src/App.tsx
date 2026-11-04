@@ -11,6 +11,7 @@ import {
   Command,
   FileText,
   Hexagon,
+  Radio,
   LayoutDashboard,
   LogOut,
   Search,
@@ -26,6 +27,7 @@ import { applyLocale, currentLocale, enumLabel, isLocale } from './i18n'
 import { LanguageSwitch } from './i18n/LanguageSwitch'
 import { SectionPlaceholder } from './components/SectionPlaceholder'
 import { AssistantsPage } from './pages/assistants/AssistantsPage'
+import { ChannelsPage } from './pages/channels/ChannelsPage'
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage'
 import { EnvironmentSwitcher } from './components/EnvironmentSwitcher'
 import { NotificationBell } from './components/NotificationBell'
@@ -40,6 +42,7 @@ import { NoTenantAccessPage } from './pages/auth/NoTenantAccessPage'
 import { Dashboard } from './pages/dashboard/Dashboard'
 import { MembersPage } from './pages/members/MembersPage'
 import { PlatformConsole } from './pages/platform/PlatformConsole'
+import { ApiKeysPage } from './pages/settings/ApiKeysPage'
 import { ApprovalPoliciesPage } from './pages/settings/ApprovalPoliciesPage'
 import { DataPrivacyPage } from './pages/settings/DataPrivacyPage'
 import { TenantModelSettingsPage } from './pages/settings/TenantModelSettingsPage'
@@ -54,10 +57,11 @@ const navigation = [
   { labelKey: 'knowledge', to: '/knowledge', icon: BookOpen, permission: 'knowledge:view' },
   { labelKey: 'capabilities', to: '/capabilities', icon: Boxes, permission: 'capabilities:view' },
   { labelKey: 'approvals', to: '/approvals', icon: ClipboardCheck, permission: 'approvals:view' },
+  { labelKey: 'channels', to: '/channels', icon: Radio, permission: 'channels:view' },
 ]
 
 function App() {
-  const { t } = useTranslation(['nav', 'common', 'settings', 'notifications'])
+  const { t } = useTranslation(['nav', 'common', 'settings', 'notifications', 'channels'])
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>(
     'checking',
   )
@@ -114,6 +118,8 @@ function App() {
       ? t('nav:platformTenants')
       : location.pathname === '/notifications'
       ? t('notifications:title')
+      : location.pathname === '/settings/api'
+      ? t('channels:keys.title')
       : location.pathname === '/settings/approvals'
       ? t('settings:tabs.approvals')
       : location.pathname === '/settings/privacy'
@@ -367,12 +373,14 @@ function App() {
           <Routes key={`${activeTenant?.id ?? ''}:${environment}`}>
             <Route path="/" element={hasPermission('dashboard:view') ? <Dashboard user={user} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants" element={hasPermission('assistants:view') && activeTenant ? <AssistantsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            {navigation.slice(1).filter((item) => item.to !== '/assistants' && item.to !== '/approvals').map(({ labelKey, to, icon: Icon, permission }) => (
+            {navigation.slice(1).filter((item) => item.to !== '/assistants' && item.to !== '/approvals' && item.to !== '/channels').map(({ labelKey, to, icon: Icon, permission }) => (
               <Route key={to} path={to} element={hasPermission(permission) ? <SectionPlaceholder title={t(`nav:${labelKey}`)} icon={<Icon size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             ))}
             <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/audit" element={hasPermission('audit:view') && activeTenant ? <AuditLogPage key={activeTenant.id} tenantId={activeTenant.id} canExport={hasPermission('audit:export')} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/notifications" element={activeTenant ? <NotificationsPage key={activeTenant.id} tenantId={activeTenant.id} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/channels" element={hasPermission('channels:view') && activeTenant ? <ChannelsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/settings/api" element={hasPermission('settings:view') && activeTenant ? <ApiKeysPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} environments={activeTenant.environments} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/approvals" element={canSeeApprovals && activeTenant ? <ApprovalsPage key={activeTenant.id} onChanged={() => setApprovalsTick((value) => value + 1)} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/approvals" element={hasPermission('settings:view') && activeTenant ? <ApprovalPoliciesPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={isTenantAdmin && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/privacy" element={hasPermission('settings:view') && activeTenant ? <DataPrivacyPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
