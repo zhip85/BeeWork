@@ -120,6 +120,7 @@ def list_roles(
                 scope=role.scope,
                 scope_organization_id=role.scope_organization_id,
                 scope_assistant_ids=[UUID(item) for item in role.scope_assistant_ids or []],
+                approver_tags=role.approver_tags or [],
                 permissions=role.permissions,
                 is_active=role.is_active,
                 is_builtin=False,
@@ -163,6 +164,7 @@ def create_role(
         scope=payload.scope,
         scope_organization_id=payload.scope_organization_id,
         scope_assistant_ids=[str(item) for item in payload.scope_assistant_ids],
+        approver_tags=list(payload.approver_tags),
         permissions=validate_permissions(payload.permissions),
         is_active=payload.is_active,
         created_by=membership.user_id,
@@ -191,6 +193,7 @@ def create_role(
         scope=role.scope,
         scope_organization_id=role.scope_organization_id,
         scope_assistant_ids=[UUID(item) for item in role.scope_assistant_ids or []],
+        approver_tags=role.approver_tags or [],
         permissions=role.permissions,
         is_active=role.is_active,
         is_builtin=False,
@@ -262,6 +265,7 @@ def update_role(
     role.scope = payload.scope
     role.scope_organization_id = payload.scope_organization_id
     role.scope_assistant_ids = [str(item) for item in payload.scope_assistant_ids]
+    role.approver_tags = list(payload.approver_tags)
     role.permissions = validate_permissions(payload.permissions)
     role.is_active = payload.is_active
     db.add(
@@ -295,6 +299,7 @@ def update_role(
         scope=role.scope,
         scope_organization_id=role.scope_organization_id,
         scope_assistant_ids=[UUID(item) for item in role.scope_assistant_ids or []],
+        approver_tags=role.approver_tags or [],
         permissions=role.permissions,
         is_active=role.is_active,
         is_builtin=False,

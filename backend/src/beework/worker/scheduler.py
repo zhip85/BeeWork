@@ -30,3 +30,4 @@ def enqueue_scheduled_jobs(db: Session, *, now: datetime | None = None) -> None:
     enqueue(db, "memory.retention", {}, idempotency_key=f"memory.retention:{window}")
     five_minutes = f"{window}T{current_time.hour:02d}:{current_time.minute // 5 * 5:02d}"
     enqueue(db, "conversations.end_inactive", {}, idempotency_key=f"conversations.end_inactive:{five_minutes}")
+    enqueue(db, "approvals.sweep", {}, idempotency_key=f"approvals.sweep:{five_minutes}")

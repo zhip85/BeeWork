@@ -1,7 +1,8 @@
 {
   "tabs": {
     "models": "Models & environments",
-    "privacy": "Data & privacy"
+    "privacy": "Data & privacy",
+    "approvals": "Approval policies"
   },
   "privacy": {
     "title": "Data & privacy",

@@ -8,6 +8,7 @@ import {
   Boxes,
   ChevronDown,
   CircleHelp,
+  ClipboardCheck,
   Command,
   FileText,
   Hexagon,
@@ -26,6 +27,7 @@ import { applyLocale, currentLocale, enumLabel, isLocale } from './i18n'
 import { LanguageSwitch } from './i18n/LanguageSwitch'
 import { SectionPlaceholder } from './components/SectionPlaceholder'
 import { AssistantsPage } from './pages/assistants/AssistantsPage'
+import { ApprovalsPage } from './pages/approvals/ApprovalsPage'
 import { AssistantDetailPage } from './pages/assistants/AssistantDetailPage'
 import { VersionsPage } from './pages/assistants/VersionsPage'
 import { ConversationsPage } from './pages/assistants/ConversationsPage'
@@ -36,6 +38,7 @@ import { NoTenantAccessPage } from './pages/auth/NoTenantAccessPage'
 import { Dashboard } from './pages/dashboard/Dashboard'
 import { MembersPage } from './pages/members/MembersPage'
 import { PlatformConsole } from './pages/platform/PlatformConsole'
+import { ApprovalPoliciesPage } from './pages/settings/ApprovalPoliciesPage'
 import { DataPrivacyPage } from './pages/settings/DataPrivacyPage'
 import { TenantModelSettingsPage } from './pages/settings/TenantModelSettingsPage'
 import { roleLabel } from './roles'
@@ -48,6 +51,7 @@ const navigation = [
   { labelKey: 'workflows', to: '/workflows', icon: Workflow, permission: 'orchestration:view' },
   { labelKey: 'knowledge', to: '/knowledge', icon: BookOpen, permission: 'knowledge:view' },
   { labelKey: 'capabilities', to: '/capabilities', icon: Boxes, permission: 'capabilities:view' },
+  { labelKey: 'approvals', to: '/approvals', icon: ClipboardCheck, permission: 'approvals:view' },
 ]
 
 function App() {
@@ -67,6 +71,9 @@ function App() {
     [activeTenantId, user],
   )
   const isTenantAdmin = activeTenant?.role === 'tenant_admin'
+  const [pendingApprovals, setPendingApprovals] = useState(0)
+  const [approvalsInvolved, setApprovalsInvolved] = useState(false)
+  const [approvalsTick, setApprovalsTick] = useState(0)
   const hasPermission = (permission: string) => Boolean(activeTenant?.permissions.includes(permission))
   const canViewSettings = hasPermission('models:view')
   const canEditSettings = hasPermission('models:edit') && activeTenant?.access_mode === 'full'
@@ -86,6 +93,8 @@ function App() {
       ? t('nav:audit')
       : location.pathname === '/platform/tenants'
       ? t('nav:platformTenants')
+      : location.pathname === '/settings/approvals'
+      ? t('settings:tabs.approvals')
       : location.pathname === '/settings/privacy'
       ? t('settings:tabs.privacy')
       : location.pathname === '/settings'
@@ -93,6 +102,24 @@ function App() {
       : t(`nav:${navigation.find((item) =>
           item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
         )?.labelKey ?? 'dashboard'}`)
+
+  const canSeeApprovals = Boolean(activeTenant?.permissions.includes('approvals:view')) || approvalsInvolved
+  const activeTenantKey = activeTenant?.id
+  useEffect(() => {
+    if (!user || !activeTenantKey) return
+    let active = true
+    // Approvers are defined by the approval policy, not module permissions (PER-001), so this is not permission-gated.
+    const load = () => apiRequest<{ pending_mine: number; visible_count: number }>('/api/v1/approvals/summary', {}, activeTenantKey)
+      .then((result) => {
+        if (!active) return
+        setPendingApprovals(result.pending_mine)
+        setApprovalsInvolved(result.visible_count > 0)
+      })
+      .catch(() => active && setPendingApprovals(0))
+    void load()
+    const timer = window.setInterval(() => void load(), 60000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [user, activeTenantKey, approvalsTick])
 
   useEffect(() => {
     let active = true
@@ -218,7 +245,7 @@ function App() {
 
         <div className="nav-caption">{t('nav:workspace')}</div>
         <nav className="primary-nav" aria-label={t('nav:mainNav')}>
-          {navigation.filter((item) => hasPermission(item.permission)).map(({ labelKey, to, icon: Icon, end }) => (
+          {navigation.filter((item) => hasPermission(item.permission) || (item.to === '/approvals' && approvalsInvolved)).map(({ labelKey, to, icon: Icon, end }) => (
             <NavLink
               className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
               end={end}
@@ -227,6 +254,7 @@ function App() {
             >
               <Icon size={18} strokeWidth={1.8} />
               <span>{t(`nav:${labelKey}`)}</span>
+              {to === '/approvals' && pendingApprovals > 0 && <b className="nav-badge" aria-label={t('nav:pendingApprovals', { count: pendingApprovals })}>{pendingApprovals}</b>}
             </NavLink>
           ))}
         </nav>
@@ -307,11 +335,13 @@ function App() {
           <Routes>
             <Route path="/" element={hasPermission('dashboard:view') ? <Dashboard user={user} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants" element={hasPermission('assistants:view') && activeTenant ? <AssistantsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            {navigation.slice(1).filter((item) => item.to !== '/assistants').map(({ labelKey, to, icon: Icon, permission }) => (
+            {navigation.slice(1).filter((item) => item.to !== '/assistants' && item.to !== '/approvals').map(({ labelKey, to, icon: Icon, permission }) => (
               <Route key={to} path={to} element={hasPermission(permission) ? <SectionPlaceholder title={t(`nav:${labelKey}`)} icon={<Icon size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             ))}
             <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/audit" element={hasPermission('audit:view') && activeTenant ? <AuditLogPage key={activeTenant.id} tenantId={activeTenant.id} canExport={hasPermission('audit:export')} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/approvals" element={canSeeApprovals && activeTenant ? <ApprovalsPage key={activeTenant.id} onChanged={() => setApprovalsTick((value) => value + 1)} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/settings/approvals" element={hasPermission('settings:view') && activeTenant ? <ApprovalPoliciesPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={isTenantAdmin && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/privacy" element={hasPermission('settings:view') && activeTenant ? <DataPrivacyPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants/:assistantId" element={hasPermission('assistants:view') && activeTenant ? <AssistantDetailPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants/:assistantId/versions" element={hasPermission('assistants:view') && activeTenant ? <VersionsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />

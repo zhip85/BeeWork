@@ -1,0 +1,113 @@
+{
+  "title": "审批中心",
+  "subtitle": "在一个队列中审核所有受治理的发布与高影响变更。",
+  "loading": "加载中…",
+  "loadFailed": "无法加载审批数据",
+  "retry": "重试",
+  "search": "搜索审批…",
+  "empty": "暂无审批单",
+  "total": "共 {{count}} 条",
+  "review": "审阅",
+  "view": "查看",
+  "close": "关闭",
+  "applyFailed": "生效失败",
+  "cards": {
+    "pending": "待我审批",
+    "submitted": "我提交的",
+    "completed": "本月已完成",
+    "avg": "平均审批时长"
+  },
+  "scope": {
+    "pending_mine": "待我审批",
+    "submitted": "我提交的",
+    "all": "全部申请"
+  },
+  "filters": {
+    "type": "对象类型",
+    "status": "状态",
+    "sort": "排序",
+    "scope": "范围",
+    "allTypes": "全部类型",
+    "allStatuses": "全部状态",
+    "oldest": "最早提交优先",
+    "newest": "最新提交优先"
+  },
+  "table": {
+    "object": "对象",
+    "requester": "提交人",
+    "organization": "组织",
+    "submitted": "提交时间",
+    "checks": "检查",
+    "status": "状态"
+  },
+  "types": {
+    "publish": "发布",
+    "capability_access": "能力接入",
+    "data_export": "数据导出",
+    "rule_change": "规则变更"
+  },
+  "status": {
+    "pending": "待审批",
+    "pendingLevel": "待审批（第 {{level}}/{{total}} 级）",
+    "approved": "已通过",
+    "rejected": "已驳回",
+    "withdrawn": "已撤回",
+    "expired": "已过期"
+  },
+  "levelStatus": {
+    "pending": "待审批",
+    "approved": "已通过",
+    "rejected": "已驳回"
+  },
+  "by": "{{name}} 于 {{time}} 提交",
+  "applyError": "变更生效失败：{{error}}",
+  "diff": "变更内容",
+  "checks": "自动检查",
+  "progress": "审批进度",
+  "level": "第 {{level}} 级",
+  "decidedBy": "{{name}} · {{time}}",
+  "waiting": "等待：{{names}}",
+  "comments": "评论",
+  "noComments": "暂无评论",
+  "commentLabel": "意见 / 评论",
+  "commentPlaceholder": "写下评论…",
+  "commentPlaceholderDecide": "通过时可选填；驳回必须填写意见",
+  "rejectNeedsComment": "驳回必须填写意见",
+  "actions": {
+    "approve": "通过",
+    "reject": "驳回",
+    "withdraw": "撤回",
+    "comment": "评论",
+    "retry": "重试生效"
+  },
+  "policies": {
+    "title": "审批策略",
+    "subtitle": "选择哪些变更需要审批通过后才能生效。",
+    "pending": "{{count}} 条待审批",
+    "event": "变更事项",
+    "approver": "审批人",
+    "levels": "审批级数",
+    "required": "需要审批",
+    "level": "{{count}} 级",
+    "enterpriseOnly": "仅企业版",
+    "enabledToast": "已开启审批",
+    "disabledToast": "已关闭审批",
+    "hint": "两级审批的第二级固定为租户管理员；审批人为空或只有申请人时，自动升级到租户管理员。",
+    "readOnly": "仅企业管理员可修改审批策略。",
+    "events": {
+      "publish": "发布助手到生产环境",
+      "channel": "接入新的外部渠道",
+      "byok": "添加或轮换自有模型密钥",
+      "kb": "发布知识库更新",
+      "skill": "启用第三方 Skill / MCP",
+      "rule": "助理规则变更（OC / 规则库 / 术语表）",
+      "export": "数据导出"
+    },
+    "roles": {
+      "tenant_admin": "租户管理员",
+      "security_officer": "安全负责人",
+      "knowledge_owner": "知识负责人",
+      "assistant_owner": "助理负责人"
+    }
+  }
+}

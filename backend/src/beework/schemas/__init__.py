@@ -376,6 +376,7 @@ class RoleResponse(BaseModel):
     scope: str
     scope_organization_id: UUID | None
     scope_assistant_ids: list[UUID] = []
+    approver_tags: list[str] = []
     permissions: dict[str, list[str]]
     is_active: bool
     is_builtin: bool
@@ -392,6 +393,7 @@ class CreateRoleRequest(BaseModel):
     scope: str = Field(pattern="^(tenant|organization|assistant)$")
     scope_organization_id: UUID | None = None
     scope_assistant_ids: list[UUID] = Field(default_factory=list, max_length=200)
+    approver_tags: list[Literal["security_officer", "knowledge_owner"]] = Field(default_factory=list, max_length=2)
     permissions: dict[str, list[str]]
     is_active: bool = True
 

@@ -21,5 +21,7 @@
   "planTitle": "Keep your AI team evolving",
   "planBody": "Explore your enterprise capability map",
   "viewCapabilities": "View capabilities",
-  "readonlyBanner": "This workspace is currently \"{{status}}\": view and export only; all changes are paused. Contact the platform to restore access."
+  "readonlyBanner": "This workspace is currently \"{{status}}\": view and export only; all changes are paused. Contact the platform to restore access.",
+  "approvals": "Approvals",
+  "pendingApprovals": "{{count}} awaiting your approval"
 }

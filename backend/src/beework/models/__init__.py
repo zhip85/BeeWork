@@ -71,6 +71,16 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "memory.user_deleted": "删除终端用户的全部记忆",
     "memory.retention_purged": "清理过期记忆",
     "assistant.run_cancelled": "取消助理运行",
+    "approval.policy_updated": "更新审批策略",
+    "approval.submitted": "提交审批",
+    "approval.approved": "通过审批",
+    "approval.level_approved": "通过审批（本级）",
+    "approval.rejected": "驳回审批",
+    "approval.withdrawn": "撤回审批",
+    "approval.expired": "审批已过期",
+    "approval.applied": "审批变更已生效",
+    "approval.apply_failed": "审批变更生效失败",
+    "approval.apply_retried": "重试审批变更",
 }
 
 
@@ -322,6 +332,8 @@ class TenantRole(Base):
         nullable=True,
         index=True,
     )
+    # Approver duty tags (PER-001): "security_officer" / "knowledge_owner" make the role's members approvers.
+    approver_tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     # Assistant-scoped roles (SET-022) only apply to these assistants; empty for other scopes.
     scope_assistant_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     permissions: Mapped[dict[str, list[str]]] = mapped_column(
@@ -632,6 +644,7 @@ def prevent_audit_event_mutation(session, _flush_context, _instances) -> None:
 # Alembic autogenerate and `Base.metadata.create_all` see its tables.
 # from beework.models import assistants  # noqa: E402,F401  (example)
 from beework.models import (  # noqa: E402,F401
+    approvals,
     assistants,
     conversations,
     jobs,

@@ -1,0 +1,113 @@
+{
+  "title": "Approval center",
+  "subtitle": "Review every governed release and high-impact change in one queue.",
+  "loading": "Loading…",
+  "loadFailed": "Could not load approvals",
+  "retry": "Retry",
+  "search": "Search approvals…",
+  "empty": "No approval requests",
+  "total": "{{count}} total",
+  "review": "Review",
+  "view": "View",
+  "close": "Close",
+  "applyFailed": "Apply failed",
+  "cards": {
+    "pending": "Awaiting me",
+    "submitted": "Submitted by me",
+    "completed": "Completed this month",
+    "avg": "Average review time"
+  },
+  "scope": {
+    "pending_mine": "Awaiting me",
+    "submitted": "Submitted by me",
+    "all": "All requests"
+  },
+  "filters": {
+    "type": "Type",
+    "status": "Status",
+    "sort": "Sort",
+    "scope": "Scope",
+    "allTypes": "All types",
+    "allStatuses": "All statuses",
+    "oldest": "Oldest first",
+    "newest": "Newest first"
+  },
+  "table": {
+    "object": "Object",
+    "requester": "Requester",
+    "organization": "Organization",
+    "submitted": "Submitted",
+    "checks": "Checks",
+    "status": "Status"
+  },
+  "types": {
+    "publish": "Publish",
+    "capability_access": "Capability access",
+    "data_export": "Data export",
+    "rule_change": "Rule change"
+  },
+  "status": {
+    "pending": "Pending",
+    "pendingLevel": "Pending (level {{level}}/{{total}})",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "withdrawn": "Withdrawn",
+    "expired": "Expired"
+  },
+  "levelStatus": {
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected"
+  },
+  "by": "Submitted by {{name}} {{time}}",
+  "applyError": "The change failed to apply: {{error}}",
+  "diff": "Changes",
+  "checks": "Automated checks",
+  "progress": "Approval progress",
+  "level": "Level {{level}}",
+  "decidedBy": "{{name}} · {{time}}",
+  "waiting": "Waiting for: {{names}}",
+  "comments": "Comments",
+  "noComments": "No comments yet",
+  "commentLabel": "Comment",
+  "commentPlaceholder": "Write a comment…",
+  "commentPlaceholderDecide": "Optional when approving; required when rejecting",
+  "rejectNeedsComment": "A comment is required to reject",
+  "actions": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "withdraw": "Withdraw",
+    "comment": "Comment",
+    "retry": "Retry apply"
+  },
+  "policies": {
+    "title": "Approval policies",
+    "subtitle": "Choose which changes need approval before they take effect.",
+    "pending": "{{count}} pending",
+    "event": "Change",
+    "approver": "Approver",
+    "levels": "Levels",
+    "required": "Approval required",
+    "level": "{{count}} level(s)",
+    "enterpriseOnly": "Enterprise only",
+    "enabledToast": "Approval turned on",
+    "disabledToast": "Approval turned off",
+    "hint": "The second level is always the tenant admin; if a level has no approver other than the requester it escalates to tenant admins.",
+    "readOnly": "Only tenant admins can change approval policies.",
+    "events": {
+      "publish": "Publish assistants to production",
+      "channel": "Connect a new external channel",
+      "byok": "Add or rotate your own model keys",
+      "kb": "Publish knowledge base updates",
+      "skill": "Enable third-party Skill / MCP",
+      "rule": "Assistant rule changes (OC / rule library / glossary)",
+      "export": "Data export"
+    },
+    "roles": {
+      "tenant_admin": "Tenant admin",
+      "security_officer": "Security officer",
+      "knowledge_owner": "Knowledge owner",
+      "assistant_owner": "Assistant owner"
+    }
+  }
+}

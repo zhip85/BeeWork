@@ -68,6 +68,7 @@ export type TenantRole = {
   scope: 'tenant' | 'organization' | 'assistant'
   scope_organization_id: string | null
   scope_assistant_ids: string[]
+  approver_tags: string[]
   permissions: Record<string, string[]>
   is_active: boolean
   is_builtin: boolean
@@ -81,6 +82,7 @@ export type RoleDraft = {
   scope: 'tenant' | 'organization' | 'assistant'
   scope_organization_id: string
   scope_assistant_ids: string[]
+  approver_tags: string[]
   permissions: Record<string, string[]>
   is_active: boolean
 }

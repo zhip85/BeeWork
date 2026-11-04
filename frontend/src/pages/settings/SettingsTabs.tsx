@@ -7,6 +7,7 @@ export function SettingsTabs() {
     <nav aria-label="settings" className="settings-tabs">
       <NavLink end to="/settings">{t('tabs.models')}</NavLink>
       <NavLink to="/settings/privacy">{t('tabs.privacy')}</NavLink>
+      <NavLink to="/settings/approvals">{t('tabs.approvals')}</NavLink>
     </nav>
   )
 }
