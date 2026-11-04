@@ -1,0 +1,73 @@
+{
+  "back": "助理",
+  "loading": "加载中…",
+  "loadFailed": "无法加载助理",
+  "subtitle": "{{org}} · v{{version}}",
+  "tabsLabel": "助理页签",
+  "test": "测试",
+  "publish": "发布更新",
+  "published": "已发布 v{{version}}",
+  "close": "关闭",
+  "soon": "即将开放",
+  "soonTab": "“{{name}}”即将开放",
+  "metricsPending": "调用量、成功率等指标将在会话记录上线后显示。",
+  "versionsHint": "查看、对比、恢复或回滚已发布的版本。",
+  "conversationsHint": "查看该助理的会话与消息记录。",
+  "tabs": {
+    "overview": "概览",
+    "capabilities": "能力",
+    "orchestration": "编排",
+    "channels": "渠道",
+    "versions": "版本",
+    "dependencies": "依赖",
+    "tests": "测试用例",
+    "conversations": "会话记录"
+  },
+  "checks": {
+    "title": "配置检查",
+    "allClear": "配置检查已通过",
+    "fix": "去处理",
+    "severity": { "blocker": "阻断", "high": "高影响", "info": "提示" }
+  },
+  "path": {
+    "title": "配置路径",
+    "identity": "身份与模型",
+    "identityHint": "名称、提示词、模型",
+    "driver": "驱动方",
+    "driverHint": "智能体或协作组",
+    "capabilities": "挂载能力",
+    "capabilitiesHint": "已挂载 {{count}} 项",
+    "oc": "编排 OC",
+    "ocHint": "护栏、路由、委派",
+    "channels": "渠道",
+    "channelsHint": "网页、App、IM、API",
+    "tests": "测试",
+    "testsHint": "发布前运行用例",
+    "publish": "审批与发布",
+    "publishHint": "生成版本并发布"
+  },
+  "basic": {
+    "title": "基础配置",
+    "model": "主模型",
+    "modelUnknown": "模型已不可用",
+    "driver": "驱动方式",
+    "driverDefault": "直接对话",
+    "language": "默认语言",
+    "visibility": "可见范围",
+    "visibilityValue": { "own_org": "所属组织", "specified": "指定组织", "all": "全部组织" },
+    "prompt": "系统指令",
+    "none": "未设置",
+    "viewPrompt": "查看完整提示词",
+    "promptTitle": "完整提示词",
+    "copy": "复制"
+  },
+  "capabilities": {
+    "title": "已挂载能力 {{count}}",
+    "mount": "挂载能力",
+    "soonHint": "知识库等能力的挂载将在对应模块上线后开放",
+    "empty": "暂未挂载能力",
+    "draftNote": "挂载变更写入草稿，发布更新后生效。",
+    "kinds": { "kb": "知识库", "agent": "智能体", "mcp": "MCP", "skill": "技能", "chatflow": "Chatflow", "flow": "工作流", "api": "API 插件" },
+    "state": { "available": "可用", "disabled": "已停用", "deleted": "已删除 / 失效" }
+  }
+}

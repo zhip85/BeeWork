@@ -68,7 +68,8 @@
     "delete": "Delete",
     "history": "Conversations",
     "publish": "Publish",
-    "versions": "Versions"
+    "versions": "Versions",
+    "detail": "Details"
   },
   "toast": {
     "copied": "Assistant duplicated",

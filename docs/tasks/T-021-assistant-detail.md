@@ -13,3 +13,26 @@
 
 - [ ] 编辑草稿不改变线上版本（T-024 后补集成测试）。
 - [ ] 配置检查覆盖上述规则并有单元测试。
+
+## 完成记录
+
+**改动文件**
+- 后端：新增 `assistant_checks.py`（配置检查规则）、`capabilities.py`（挂载解析注册表 `MOUNT_RESOLVERS`）、`schemas/assistant_checks.py`、`api/assistant_checks.py`（在 `api/__init__.py` 注册）；修改 `api/assistant_versions.py`（发布阻断项改为调用配置检查，预览新增 `warnings`）、`schemas/versions.py`；测试加在 `tests/test_versions.py`（6 项）。无迁移。
+- 前端：新增 `pages/assistants/AssistantDetailPage.tsx`、`i18n/{zh-CN,en}/detail.json`；修改 `App.tsx`（路由 `/assistants/:assistantId`，`?tab=` 指定页签）、`AssistantsPage.tsx`（名称链接与“查看详情”菜单）、`PublishDialog.tsx`（显示高影响/提示）、`App.css`、`i18n/index.ts`。
+
+**接口**
+- `GET /assistants/{id}/checks`：问题列表（`blocker` 阻断 / `high` 高影响 / `info` 提示）及各级计数。规则：未命名、简介为空、未选模型、模型不再启用、提示词为空、环境未同步到网关（阻断）；挂载资源已停用/已删除（高影响，GLB-083、RUL-011）；开场白为空（提示）。
+- `GET /assistants/{id}/mounts`：按类型分组的挂载列表，含状态 `available/disabled/deleted`，并返回当前可挂载的类型 `mountable_kinds`。
+- `GET /assistants/{id}/publish-preview` 新增 `warnings`（高影响与提示，不阻止发布）。发布与回滚的阻断项沿用原错误码，现由同一套检查产生。
+
+**验证**
+- `ruff` 通过；`./scripts/test-postgres.sh`（迁移升降级 + 全量 177 项）通过；前端 `tsc -b`、`lint`、`i18n:check`、`build` 通过。
+- 新测试覆盖：完整草稿仅有“开场白为空”提示；模型、提示词、网关各规则；未命名草稿；失效挂载为高影响且不阻止发布；已注册解析器时的停用/可用状态；查看者可读、跨租户 404、未登录 401。
+- **没有在浏览器里目视检查页面**（无浏览器工具），界面仅由 `tsc`/lint/build 保证，验收时请手动点一遍详情页、概览、能力页签、提示词弹窗、编辑向导与发布弹窗。未连接任何第三方引擎。
+
+**遗留问题**
+- 当前没有任何能力类型注册了解析器（知识库等待 T-033/T-070 及各自任务），因此“挂载能力”按钮为禁用状态，挂载写入仍由 T-020 的校验返回 422；任何已存在的挂载 ID 都会被判为“已删除”。后续任务注册解析器后，列表、状态和检查自动生效；挂载弹窗（AST-062）与卸载校验（AST-065，依赖路由规则 T-058）待这些任务补齐。
+- 概览的指标行、表现图（AST-051/053）与实时测试（AST-054）依赖 T-026 统计与 T-027；“编排 OC”“渠道”“测试用例”入口显示“即将开放”。
+- 页头未显示“驱动方”链接（驱动方式尚未开放）；“测试”按钮目前切到“测试用例”占位页签。
+- 发布前的审批、自动运行测试用例（AST-044）属 T-022/T-024/T-027。
+- 编辑草稿不改变线上版本已有 T-024a 测试覆盖。

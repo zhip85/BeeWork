@@ -15,7 +15,8 @@
     "submitting": "Publishing…",
     "cancel": "Cancel",
     "done": "Published v{{version}}",
-    "approvalNote": "This workspace has no publish approval configured, so the release takes effect immediately."
+    "approvalNote": "This workspace has no publish approval configured, so the release takes effect immediately.",
+    "warnings": "High-impact findings and notices (do not block publishing)"
   },
   "page": {
     "title": "Version history",
