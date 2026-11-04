@@ -3,11 +3,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from beework.api.conventions import current_environment
 from beework.auth import (
+    get_tenant_membership,
     require_csrf,
 )
 from beework.db import get_db
-from beework.gateway_sync import sync_tenant_environment, tenant_gateway_key
+from beework.gateway_sync import request_environment_sync, tenant_gateway_key
 from beework.integrations.litellm import GatewayError, model_alias
 from beework.model_testing import run_model_test
 from beework.models import (
@@ -24,6 +26,8 @@ from beework.rbac import (
 )
 from beework.schemas import (
     ModelTestResponse,
+    TenantEnvironmentItem,
+    TenantEnvironmentsResponse,
     TenantModelEnvironmentResponse,
     TenantModelEnvironmentWriteRequest,
     TenantModelOption,
@@ -129,6 +133,34 @@ def _tenant_model_environment_response(
     )
 
 
+@router.get("/tenant/environments", response_model=TenantEnvironmentsResponse)
+def list_tenant_environments(
+    current: str = Depends(current_environment),
+    membership: Membership = Depends(get_tenant_membership),
+    db: Session = Depends(get_db),
+) -> TenantEnvironmentsResponse:
+    """Environments for the top-bar switcher: which the plan offers, the caller's current one, and gateway health."""
+    tenant = db.get(Tenant, membership.tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="未找到企业工作区")
+    offered = environments_for_plan(tenant.plan)
+    statuses = {
+        row.environment: row.gateway_sync_status
+        for row in db.scalars(select(TenantModelEnvironment).where(TenantModelEnvironment.tenant_id == tenant.id))
+    }
+    return TenantEnvironmentsResponse(
+        current=current,
+        environments=[
+            TenantEnvironmentItem(
+                environment=name, available=name in offered,
+                # Gateway sync state drives the health dot: synced → green, failed → red, anything else → grey.
+                gateway_sync_status=statuses.get(name, "not_configured"),
+            )
+            for name in ENVIRONMENTS
+        ],
+    )
+
+
 @router.get(
     "/tenant/model-environments/{environment}",
     response_model=TenantModelEnvironmentResponse,
@@ -221,7 +253,7 @@ def update_tenant_model_environment(
     )
     db.commit()
     db.refresh(config)
-    sync_tenant_environment(db, tenant, config)
+    request_environment_sync(db, config)
     return _tenant_model_environment_response(db, tenant, environment)
 
 
@@ -254,7 +286,7 @@ def resync_tenant_model_environment(
     db: Session = Depends(get_db),
 ) -> TenantModelEnvironmentResponse:
     tenant, config = _environment_config(db, membership, environment)
-    sync_tenant_environment(db, tenant, config)
+    request_environment_sync(db, config)
     return _tenant_model_environment_response(db, tenant, environment)
 
 

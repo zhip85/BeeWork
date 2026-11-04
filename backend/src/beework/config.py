@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     bootstrap_platform_reviewer_name: str = "BeeWork Platform Reviewer"
     bootstrap_platform_reviewer_password: str = "BeeWork-Reviewer-2026!"
     environment: str = "development"
+    # Session lifetime and idle timeout (T-004); the tenant-level setting arrives with T-093. 15 minutes – 7 days.
+    session_max_minutes: int = 720
+    session_idle_minutes: int = 120
     # Third-party engines are integrated over their HTTP APIs; empty URL = not configured.
     litellm_base_url: str = ""
     litellm_master_key: str = ""
@@ -43,6 +46,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_auth(self) -> "Settings":
+        for name in ("session_max_minutes", "session_idle_minutes"):
+            if not 15 <= getattr(self, name) <= 7 * 24 * 60:
+                raise ValueError(f"{name.upper()} must be between 15 minutes and 7 days")
         if (
             self.bootstrap_admin_email.strip().lower()
             == self.bootstrap_platform_admin_email.strip().lower()

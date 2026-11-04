@@ -25,6 +25,7 @@
     "member.joined": "{{name}} accepted the invitation and joined",
     "tenant.status_changed": "Workspace status changed: {{status}}",
     "assistant.published": "Assistant “{{name}}” published v{{version}}",
-    "approval.withdrawn": "Approval withdrawn (a newer change took effect directly): {{title}}"
+    "approval.withdrawn": "Approval withdrawn (a newer change took effect directly): {{title}}",
+    "security.account_locked": "Account {{email}} was locked for 15 minutes after repeated failed sign-ins"
   }
 }

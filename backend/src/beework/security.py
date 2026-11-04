@@ -7,8 +7,9 @@ from pwdlib import PasswordHash
 from beework.config import settings
 
 password_hash = PasswordHash.recommended()
+# Verified against when the account does not exist, so unknown emails cost the same time as known ones.
+DUMMY_PASSWORD_HASH = password_hash.hash("not-a-real-password-for-timing-only")
 TOKEN_ALGORITHM = "HS256"
-TOKEN_LIFETIME_HOURS = 8
 
 
 def hash_password(password: str) -> str:
@@ -26,7 +27,7 @@ def create_access_token(user_id: UUID, session_id: str) -> str:
             "sub": str(user_id),
             "sid": session_id,
             "iat": now,
-            "exp": now + timedelta(hours=TOKEN_LIFETIME_HOURS),
+            "exp": now + timedelta(minutes=settings.session_max_minutes),
         },
         settings.auth_secret,
         algorithm=TOKEN_ALGORITHM,

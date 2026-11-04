@@ -18,6 +18,8 @@ from starlette.exceptions import HTTPException
 
 from beework import rbac
 from beework.auth import get_current_user
+from beework.auth import get_tenant_membership as rbac_membership
+from beework.db import get_db
 from beework.errors import ApiError  # noqa: F401  (re-exported: the documented import location)
 from beework.models import Membership, TenantRole, User, utc_now  # noqa: F401
 from beework.models.mixins import (  # noqa: F401  (re-exported: the documented import location)
@@ -38,7 +40,7 @@ def error_response(
 
 async def api_error_handler(request: Request, exc: Exception) -> JSONResponse:
     if isinstance(exc, ApiError):
-        return error_response(exc.status_code, exc.code, exc.detail)
+        return error_response(exc.status_code, exc.code, exc.detail, exc.headers)
     if isinstance(exc, HTTPException):
         return error_response(exc.status_code, "error", str(exc.detail), exc.headers)
     return error_response(500, "error.internal", "内部服务器错误")
@@ -223,3 +225,32 @@ def validate_public_https_url(url: str, resolver: Callable[[str], list[str]] | N
         ):
             raise ApiError(status_code=400, code="security.invalid_url", detail="地址不得指向内网、回环或保留地址")
     return url
+
+
+# ---------------------------------------------------------------------------
+# Environment context (T-006, GLB-021).
+# ---------------------------------------------------------------------------
+
+DEFAULT_ENVIRONMENT = "production"
+
+
+def current_environment(
+    request: Request,
+    membership: Membership = Depends(rbac_membership),
+    db: Session = Depends(get_db),
+) -> str:
+    """The environment the caller selected in the top bar (``X-Environment``, default production).
+
+    A value that is not an environment is a 422; one the tenant's plan does not offer is a 403, so workspaces
+    on plans with only production can never read or write development / staging data.
+    """
+    from beework.models import Tenant
+    from beework.tenant_access import ENVIRONMENTS, environments_for_plan
+
+    requested = (request.headers.get("X-Environment") or DEFAULT_ENVIRONMENT).strip().lower()
+    if requested not in ENVIRONMENTS:
+        raise ApiError(422, "environment.invalid", "环境必须是开发、预发或生产")
+    tenant = db.get(Tenant, membership.tenant_id)
+    if tenant is None or requested not in environments_for_plan(tenant.plan):
+        raise ApiError(403, "environment.unavailable", "当前套餐仅提供生产环境，开发与预发环境需企业版")
+    return requested

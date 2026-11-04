@@ -56,7 +56,8 @@
   "gatewaySync": {
     "not_configured": "Gateway not configured",
     "synced": "Synced",
-    "failed": "Sync failed"
+    "failed": "Sync failed",
+    "pending": "Syncing"
   },
   "role": {
     "tenant_admin": "Workspace admin",

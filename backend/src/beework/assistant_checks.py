@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from beework.capabilities import resolve_mounts
+from beework.gateway_sync import environment_ready
 from beework.models import TenantModelEnvironment
 from beework.models.assistants import Assistant
 from beework.schemas.assistant_checks import CheckIssue
@@ -49,7 +50,7 @@ def check_assistant(
             TenantModelEnvironment.environment == environment,
         )
     )
-    if env is None or env.gateway_sync_status != "synced":
+    if not environment_ready(env):
         issues.append(CheckIssue(code="runtime.gateway_not_ready", severity="blocker", message="该环境尚未同步到 AI 网关", target="environment"))
 
     for mount in resolve_mounts(db, assistant.tenant_id, config.get("mounts") or {}):

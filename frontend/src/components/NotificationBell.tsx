@@ -20,7 +20,7 @@ export function NotificationBell({ tenantId }: { tenantId: string }) {
   const box = useRef<HTMLSpanElement>(null)
 
   const loadCount = useCallback(() => {
-    apiRequest<{ unread: number }>('/api/v1/notifications/unread-count', {}, tenantId)
+    apiRequest<{ unread: number }>('/api/v1/notifications/unread-count', {}, tenantId, true)
       .then((result) => setUnread(result.unread))
       .catch(() => setUnread(0))
   }, [tenantId])

@@ -19,14 +19,15 @@ import {
   Sparkles,
   Workflow,
 } from 'lucide-react'
-import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { apiRequest } from './api'
+import { apiRequest, setCurrentEnvironment } from './api'
 import { applyLocale, currentLocale, enumLabel, isLocale } from './i18n'
 import { LanguageSwitch } from './i18n/LanguageSwitch'
 import { SectionPlaceholder } from './components/SectionPlaceholder'
 import { AssistantsPage } from './pages/assistants/AssistantsPage'
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage'
+import { EnvironmentSwitcher } from './components/EnvironmentSwitcher'
 import { NotificationBell } from './components/NotificationBell'
 import { NotificationsPage } from './pages/notifications/NotificationsPage'
 import { AssistantDetailPage } from './pages/assistants/AssistantDetailPage'
@@ -43,7 +44,7 @@ import { ApprovalPoliciesPage } from './pages/settings/ApprovalPoliciesPage'
 import { DataPrivacyPage } from './pages/settings/DataPrivacyPage'
 import { TenantModelSettingsPage } from './pages/settings/TenantModelSettingsPage'
 import { roleLabel } from './roles'
-import type { CurrentUser } from './types'
+import type { CurrentUser, TenantEnvironmentName } from './types'
 import './App.css'
 
 const navigation = [
@@ -72,6 +73,23 @@ function App() {
     [activeTenantId, user],
   )
   const isTenantAdmin = activeTenant?.role === 'tenant_admin'
+  const navigate = useNavigate()
+  const [environmentChoice, setEnvironmentChoice] = useState<Record<string, TenantEnvironmentName>>(() => {
+    try { return JSON.parse(localStorage.getItem('beework.environments') ?? '{}') } catch { return {} }
+  })
+  // Only an environment the plan offers is ever used; anything stale falls back to production.
+  const environment: TenantEnvironmentName =
+    activeTenant && environmentChoice[activeTenant.id] && activeTenant.environments.includes(environmentChoice[activeTenant.id])
+      ? environmentChoice[activeTenant.id]
+      : 'production'
+  // Set during render (not in an effect) so child pages' first requests already carry the right header.
+  setCurrentEnvironment(activeTenant ? environment : null)
+  function handleEnvironmentChange(next: TenantEnvironmentName) {
+    if (!activeTenant) return
+    const updated = { ...environmentChoice, [activeTenant.id]: next }
+    setEnvironmentChoice(updated)
+    try { localStorage.setItem('beework.environments', JSON.stringify(updated)) } catch { /* private mode */ }
+  }
   const [pendingApprovals, setPendingApprovals] = useState(0)
   const [approvalsInvolved, setApprovalsInvolved] = useState(false)
   const [approvalsTick, setApprovalsTick] = useState(0)
@@ -112,7 +130,7 @@ function App() {
     if (!user || !activeTenantKey) return
     let active = true
     // Approvers are defined by the approval policy, not module permissions (PER-001), so this is not permission-gated.
-    const load = () => apiRequest<{ pending_mine: number; visible_count: number }>('/api/v1/approvals/summary', {}, activeTenantKey)
+    const load = () => apiRequest<{ pending_mine: number; visible_count: number }>('/api/v1/approvals/summary', {}, activeTenantKey, true)
       .then((result) => {
         if (!active) return
         setPendingApprovals(result.pending_mine)
@@ -160,6 +178,17 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setUser((current) => {
+        if (current) setSessionError(t('common:sessionEnded'))
+        return null
+      })
+    }
+    window.addEventListener('beework:unauthorized', onUnauthorized)
+    return () => window.removeEventListener('beework:unauthorized', onUnauthorized)
+  }, [t])
+
   async function handleLogin(email: string, password: string) {
     const currentUser = await apiRequest<CurrentUser>('/api/v1/auth/login', {
       method: 'POST',
@@ -187,6 +216,7 @@ function App() {
   function handleTenantChange(tenantId: string) {
     setActiveTenantId(tenantId)
     localStorage.setItem('beework.activeTenant', tenantId)
+    navigate('/')
   }
 
   if (sessionLoading) {
@@ -233,7 +263,7 @@ function App() {
           <span className="workspace-avatar">{activeTenant?.name.slice(0, 1) ?? 'A'}</span>
           <span className="workspace-copy">
             <strong>{activeTenant?.name ?? t('nav:noTenant')}</strong>
-            <small>{activeTenant ? roleLabel(activeTenant.role, activeTenant.custom_role_name) : t('nav:contactPlatformAdmin')}</small>
+            <small>{activeTenant ? enumLabel('plan', activeTenant.plan) : t('nav:contactPlatformAdmin')}</small>
           </span>
           {user.memberships.length > 1 ? (
             <select
@@ -316,6 +346,7 @@ function App() {
             <span>{activeTenant?.name ?? 'BeeWork'}</span><span className="crumb-slash">/</span><strong>{currentPage}</strong>
           </div>
           <div className="topbar-actions">
+            {activeTenant && <EnvironmentSwitcher onChange={handleEnvironmentChange} tenantId={activeTenant.id} value={environment} />}
             <LanguageSwitch persist />
             <button className="search-button" type="button" aria-label={t('common:search')}>
               <Search size={16} /><span>{t('common:searchAnything')}</span><kbd><Command size={11} /> K</kbd>
@@ -333,7 +364,7 @@ function App() {
               {t('nav:readonlyBanner', { status: enumLabel('tenantStatus', activeTenant.tenant_status) })}
             </p>
           )}
-          <Routes>
+          <Routes key={`${activeTenant?.id ?? ''}:${environment}`}>
             <Route path="/" element={hasPermission('dashboard:view') ? <Dashboard user={user} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants" element={hasPermission('assistants:view') && activeTenant ? <AssistantsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             {navigation.slice(1).filter((item) => item.to !== '/assistants' && item.to !== '/approvals').map(({ labelKey, to, icon: Icon, permission }) => (
@@ -348,7 +379,7 @@ function App() {
             <Route path="/assistants/:assistantId" element={hasPermission('assistants:view') && activeTenant ? <AssistantDetailPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants/:assistantId/versions" element={hasPermission('assistants:view') && activeTenant ? <VersionsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants/:assistantId/conversations" element={hasPermission('conversations:view') && activeTenant ? <ConversationsPage key={activeTenant.id} tenantId={activeTenant.id} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            <Route path="/settings" element={canViewSettings && activeTenant ? <TenantModelSettingsPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={canEditSettings} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/settings" element={canViewSettings && activeTenant ? <TenantModelSettingsPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={canEditSettings} defaultEnvironment={environment} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/members" element={isTenantAdmin && activeTenant ? <MembersPage key={activeTenant.id} tenant={activeTenant} currentUserId={user.id} onMembershipChanged={async () => {
               const refreshed = await apiRequest<CurrentUser>('/api/v1/auth/me')
               setUser(refreshed)

@@ -13,3 +13,25 @@
 
 - [ ] 测试覆盖：第 5 次失败后锁定、锁定期内正确密码也失败、15 分钟后恢复（用可注入时钟）、IP 限流 429。
 - [ ] 不泄露账号是否存在（不存在的邮箱也计入 IP 限流，提示文案一致）。
+
+## 完成记录
+
+**改动文件**
+- 后端：新增 `login_security.py`（计数、锁定、IP 限流、空闲会话规则）、`models/__init__.py` 的 `LoginThrottle` 与 `AuthSession.last_active_at`、迁移 `0025_login_security`（可降级）、`tests/test_login_security.py`（14 项）、`tests/test_postgres_integration.py`（并发失败只锁定一次）；修改 `api/auth.py`（登录流程）、`auth.py`（会话空闲与滑动续期）、`api/common.py`（会话有效期取配置）、`security.py`、`config.py`（`SESSION_MAX_MINUTES` 默认 720、`SESSION_IDLE_MINUTES` 默认 120，均限 15 分钟–7 天，启动时校验）、`errors.py` 与 `api/conventions.py`（`ApiError` 可带响应头）、`worker/scheduler.py`（每 5 分钟 `auth.release_locks`）。
+- 前端：`api.ts`（后台轮询请求带 `X-Background-Request`；401 时通知外壳回到登录页）、`NotificationBell.tsx`、`App.tsx`、`i18n`。
+
+**行为**
+- 同一账号连续 5 次失败锁定 15 分钟：第 5 次失败即返回 423 `auth.locked` 和剩余分钟数（`Retry-After` 头），期间正确密码也拒绝；失败超过 15 分钟不再算“连续”；成功登录清零。锁定与解锁写审计（`auth.account_locked` / `auth.account_unlocked`，安全类，解锁由登录时或定时任务写入且只写一次），并给该账号所在企业的企业管理员发站内通知（`security.account_locked`）。
+- 同一 IP 1 分钟内失败 20 次返回 429 `auth.rate_limited` 和 `Retry-After`；限流先于密码校验，期间连合法登录也等待。
+- 不泄露账号是否存在：计数按邮箱字符串进行，不存在的邮箱同样会被锁定，两种情况返回完全相同的文案和状态码；不存在的账号也做一次密码哈希校验，避免计时差异；只有真实账号才写审计与通知。
+- 计数存 PostgreSQL（行锁），多实例一致；时钟集中在 `login_security.now`，测试可注入。
+- 会话：绝对有效期可配（默认 12 小时）；空闲超时（默认 120 分钟）按请求滑动续期，超时即吊销会话并返回 401。**后台轮询（铃铛、审批角标、环境健康）带 `X-Background-Request` 头，不算活动**，否则放着不管的标签页会永远保持登录。活动时间最多每 30 秒落库一次。
+
+**验证**
+- `ruff` 通过；`./scripts/test-postgres.sh`（迁移升降级 + 全量 287 项）通过；前端 `tsc -b`、`lint`、`i18n:check`、`build` 通过。
+- 覆盖：第 5 次失败锁定与 `Retry-After`、锁定期内正确密码仍失败、15 分钟后恢复并审计、成功清零、失败衰减、定时任务解锁且幂等、锁定通知仅发企业管理员、不存在邮箱与真实邮箱的响应一致且不写审计、一个账号锁定不影响另一个、IP 限流 429 与恢复（含 `Retry-After` 递减）、其他 IP 不受影响、空闲过期与活动续期、后台轮询不续期、可配置的绝对有效期、默认值与范围校验；PostgreSQL 下 8 个并发失败只写一次锁定审计与一条通知。
+
+**遗留问题**
+- IP 取自 `request.client.host`；部署在反向代理后面时需要配置可信代理头（否则所有用户共用代理地址的限流计数）。
+- 租户级配置界面属 T-093；SSO/MFA/IP 白名单未做。
+- 登录前端没有专门的“锁定”样式，沿用通用错误文案（服务端文案已含剩余时间）。

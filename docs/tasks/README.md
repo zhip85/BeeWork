@@ -21,9 +21,9 @@
 | [T-001](./T-001-api-conventions.md) | API 公共约定：错误码、分页、row_version、平台管理员依赖、URL 安全校验 | 0 | — | — | 已完成 | Flint / Claude Sonnet 5.5 | 其他所有业务任务的基础，最先做 |
 | [T-002](./T-002-worker-queue.md) | Worker 与 PostgreSQL 任务队列、运行事件推送 | 0 | T-001 | — | 已完成 | GPT-5.6 / Claude Sonnet 5.5 | 阶段 3 的硬前置 |
 | [T-003](./T-003-i18n.md) | 前端中英双语框架与外壳文案迁移 | 1 | — | — | 已完成 | Claude Sonnet 5.5 | 可与 T-001 并行 |
-| [T-004](./T-004-login-security.md) | 登录失败锁定与会话超时 | 1 | T-001 | — | 待开发 | | 可并行 |
-| [T-005](./T-005-tenant-lifecycle-jobs.md) | 租户生命周期自动流转与网关同步入队 | 2 | T-002 | — | 待开发 | | |
-| [T-006](./T-006-topbar-context.md) | 顶栏环境切换与租户切换 | 2 | T-001 | — | 待开发 | | |
+| [T-004](./T-004-login-security.md) | 登录失败锁定与会话超时 | 1 | T-001 | — | 已完成 | Claude Sonnet 5.5 | 与 T-005、T-006 一并合入；锁定会通知企业管理员 |
+| [T-005](./T-005-tenant-lifecycle-jobs.md) | 租户生命周期自动流转与网关同步入队 | 2 | T-002 | — | 已完成 | Claude Sonnet 5.5 | 网关与运行时 e2e 已在真实栈上跑通 |
+| [T-006](./T-006-topbar-context.md) | 顶栏环境切换与租户切换 | 2 | T-001 | — | 已完成 | Claude Sonnet 5.5 | 助理等既有接口尚未读取 `X-Environment` |
 | [T-010](./T-010-plans-quotas.md) | 套餐版本、权益、订阅快照与配额服务 | 2 | T-001 | — | 待开发 | | T-010a 先行（闭环切片），其余部分之后做 |
 | [T-011](./T-011-usage-metering.md) | 用量汇总：LiteLLM 花费 → 点数，订阅与用量页 | 2 | T-002、T-010 | — | 待开发 | | |
 | [T-020](./T-020-assistant-domain.md) | 助理领域模型、列表与创建向导 | 3 | T-001、T-010a | — | 已完成 | Claude Sonnet 5.5 | 闭环切片第 2 步 |

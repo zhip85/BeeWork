@@ -69,7 +69,7 @@ class PostgresIntegrationTests(unittest.TestCase):
         with self.engine.begin() as connection:
             # Audit tables are append-only via triggers; truncate is the reset path.
             connection.execute(
-                text("TRUNCATE audit_events, audit_chain_checkpoints, jobs, run_events RESTART IDENTITY CASCADE")
+                text("TRUNCATE audit_events, audit_chain_checkpoints, jobs, run_events, login_throttles RESTART IDENTITY CASCADE")
             )
         with self.session_factory.begin() as db:
             for model in (
@@ -370,6 +370,35 @@ class PostgresIntegrationTests(unittest.TestCase):
         with self.session_factory() as db:
             self.assertEqual(len(list(db.scalars(select(AssistantTestRun)))), 1)
             self.assertEqual(len(list(db.scalars(select(Job).where(Job.kind == "testcases.run")))), 1)
+
+    def test_concurrent_failed_logins_lock_the_account_exactly_once(self) -> None:
+        from beework.models import LoginThrottle
+        from beework.models.notifications import InAppNotification
+
+        with self.session_factory.begin() as db:
+            victim = User(email="pg-victim@example.com", display_name="Victim", password_hash=hash_password("the right password"))
+            db.add(victim)
+            db.flush()
+            db.add(Membership(tenant_id=self.tenant_id, user_id=victim.id, organization_id=self.organization_id, role="builder"))
+        barrier = threading.Barrier(8)
+
+        def fail(_index: int) -> int:
+            client = TestClient(app)
+            barrier.wait()
+            return client.post("/api/v1/auth/login", json={"email": "pg-victim@example.com", "password": "wrong password!"}).status_code
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            statuses = list(pool.map(fail, range(8)))
+        self.assertTrue(set(statuses) <= {401, 423, 429}, statuses)
+        with self.session_factory() as db:
+            locks = list(db.scalars(select(AuditEvent).where(AuditEvent.action == "auth.account_locked")))
+            self.assertEqual(len(locks), 1)
+            row = db.scalar(select(LoginThrottle).where(LoginThrottle.scope == "account"))
+            self.assertIsNotNone(row.locked_until)
+            self.assertGreaterEqual(row.failed_count, 5)
+            self.assertEqual(len(list(db.scalars(select(InAppNotification).where(InAppNotification.type == "security.account_locked")))), 1)
+        correct = TestClient(app).post("/api/v1/auth/login", json={"email": "pg-victim@example.com", "password": "the right password"})
+        self.assertEqual((correct.status_code, correct.json()["code"]), (423, "auth.locked"))
 
     def test_concurrent_workers_claim_each_job_once(self) -> None:
         with self.session_factory.begin() as db:

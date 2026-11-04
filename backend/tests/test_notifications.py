@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import sessionmaker
 
-from beework.api.platform_tenants import _apply_lifecycle
 from beework.approvals import approval_action, submit_change
 from beework.db import get_db
 from beework.main import app
@@ -16,6 +15,7 @@ from beework.models import Base, Membership, Organization, Tenant, User, utc_now
 from beework.models.notifications import InAppNotification
 from beework.notifications import notify, safe_link
 from beework.security import hash_password
+from beework.tenant_lifecycle import apply_transition
 from isolation import disable_external_integrations, stub_public_dns
 
 PASSWORD = "correct horse battery"
@@ -192,8 +192,8 @@ class NotificationTests(unittest.TestCase):
     def test_tenant_status_change_notifies_tenant_admins_only(self) -> None:
         with self.session_factory.begin() as db:
             tenant = db.get(Tenant, self.ids["tenant"])
-            _apply_lifecycle(db, tenant, "suspend", "suspended")
-            _apply_lifecycle(db, tenant, "suspend", "suspended")  # no change, no second notification
+            apply_transition(db, tenant, "suspend", "suspended")
+            apply_transition(db, tenant, "suspend", "suspended")  # no change, no second notification
         admin_items = self.client.get("/api/v1/notifications", headers=self.login("admin")).json()["items"]
         self.assertEqual([(i["type"], i["params"]) for i in admin_items], [("tenant.status_changed", {"status": "suspended"})])
         with self.session_factory() as db:
