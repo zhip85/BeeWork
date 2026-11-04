@@ -1,11 +1,12 @@
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import UUID
 
 from fastapi import HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from beework import login_security
 from beework.auth import (
     ACCESS_COOKIE,
     CSRF_COOKIE,
@@ -28,22 +29,20 @@ from beework.schemas import (
     CurrentUserResponse,
     TenantMembershipResponse,
 )
-from beework.security import (
-    TOKEN_LIFETIME_HOURS,
-    create_access_token,
-)
-from beework.tenant_access import tenant_access_mode
+from beework.security import create_access_token
+from beework.tenant_access import environments_for_plan, tenant_access_mode
 
 
 def create_login_session(db: Session, user: User, response: Response) -> None:
     token_id = secrets.token_urlsafe(32)
-    expires_at = datetime.now(UTC) + timedelta(hours=TOKEN_LIFETIME_HOURS)
-    db.add(AuthSession(user_id=user.id, token_id=token_id, expires_at=expires_at))
+    now = login_security.now()
+    expires_at = now + timedelta(minutes=settings.session_max_minutes)
+    db.add(AuthSession(user_id=user.id, token_id=token_id, expires_at=expires_at, last_active_at=now))
     db.flush()
     session_token = create_access_token(user.id, token_id)
     csrf_token = secrets.token_urlsafe(32)
     cookie_options = {
-        "max_age": TOKEN_LIFETIME_HOURS * 60 * 60,
+        "max_age": settings.session_max_minutes * 60,
         "secure": settings.auth_cookie_secure,
         "samesite": "strict",
         "path": "/",
@@ -128,6 +127,8 @@ def make_current_user_response(db: Session, user: User) -> CurrentUserResponse:
                 organization_id=member.organization_id,
                 tenant_status=tenant.status,
                 access_mode=tenant_access_mode(tenant.status, member.role),
+                plan=tenant.plan,
+                environments=list(environments_for_plan(tenant.plan)),
                 permissions=sorted(
                     flatten_permissions(custom_role.permissions)
                     if custom_role and custom_role.is_active

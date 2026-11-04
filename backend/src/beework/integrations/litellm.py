@@ -147,6 +147,13 @@ class LiteLLMClient:
         )
         return created["key"]
 
+    def block_key(self, key: str) -> None:
+        """Make the virtual key unusable without deleting it, so unblocking restores access (T-005)."""
+        self._request("POST", "/key/block", json={"key": key})
+
+    def unblock_key(self, key: str) -> None:
+        self._request("POST", "/key/unblock", json={"key": key})
+
     def accessible_models(self, *, api_key: str) -> list[str]:
         """Model aliases the given key may call; validates the key without a provider call."""
         payload = self._request(

@@ -22,6 +22,9 @@ class CreateTenantRequest(BaseModel):
     admin_email: EmailStr
     admin_name: str = Field(min_length=1, max_length=120)
     admin_password: str = Field(min_length=12, max_length=256)
+    # "trial" starts the workspace in trial status; it is suspended automatically when the trial ends (T-005).
+    provisioning: Literal["formal", "trial"] = "formal"
+    trial_days: int = Field(default=14, ge=1, le=90)
 
     @field_validator("admin_name")
     @classmethod
@@ -84,6 +87,9 @@ class TenantMembershipResponse(BaseModel):
     organization_id: UUID | None = None
     tenant_status: str = "active"
     access_mode: Literal["full", "read_only"] = "full"
+    # Plan code (standard / professional / enterprise) and the environments it offers (GLB-003, GLB-021).
+    plan: str = "standard"
+    environments: list[str] = Field(default_factory=lambda: ["production"])
 
 
 class PlatformTenantResponse(BaseModel):
@@ -98,6 +104,8 @@ class PlatformTenantResponse(BaseModel):
     admin_email: EmailStr | None = None
     admin_name: str | None = None
     trial_ends_at: datetime | None = None
+    # Shown next to the status when something is not yet true, e.g. a deleted tenant whose data is not yet purged.
+    status_note: str | None = None
     available_actions: list["TenantLifecycleActionOption"] = Field(default_factory=list)
 
 
@@ -264,6 +272,17 @@ class TenantModelOption(BaseModel):
     model_type: str
     region: str
     input_price_per_million: Decimal
+
+
+class TenantEnvironmentItem(BaseModel):
+    environment: str
+    available: bool
+    gateway_sync_status: str
+
+
+class TenantEnvironmentsResponse(BaseModel):
+    current: str
+    environments: list[TenantEnvironmentItem]
 
 
 class TenantModelEnvironmentResponse(BaseModel):

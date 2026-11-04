@@ -1,5 +1,7 @@
 
 
+export type TenantEnvironmentName = 'development' | 'staging' | 'production'
+
 export type TenantMembership = {
   id: string
   name: string
@@ -11,6 +13,8 @@ export type TenantMembership = {
   permissions: string[]
   tenant_status: string
   access_mode: 'full' | 'read_only'
+  plan: string
+  environments: TenantEnvironmentName[]
 }
 
 export type CurrentUser = {
@@ -110,6 +114,7 @@ export type PlatformTenant = {
   admin_email: string | null
   admin_name: string | null
   trial_ends_at: string | null
+  status_note: string | null
   available_actions: TenantLifecycleActionOption[]
 }
 
@@ -175,7 +180,7 @@ export type TenantModelEnvironment = {
   enabled_model_ids: string[]
   default_model_ids: Record<'chat' | 'embedding' | 'rerank', string | null>
   unavailable_enabled_model_ids: string[]
-  gateway_sync_status: 'not_configured' | 'synced' | 'failed'
+  gateway_sync_status: 'not_configured' | 'pending' | 'synced' | 'failed'
   gateway_error: string | null
 }
 
@@ -202,7 +207,7 @@ export type PlatformModel = {
   rpm_limit: number | null
   fallback_model_id: string | null
   allowlist_tenant_ids: string[]
-  gateway_sync_status: 'not_configured' | 'synced' | 'failed'
+  gateway_sync_status: 'not_configured' | 'pending' | 'synced' | 'failed'
   gateway_error: string | null
   gateway_synced_at: string | null
   created_at: string

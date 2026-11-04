@@ -1,5 +1,5 @@
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, timedelta
 from uuid import UUID
 
 import jwt
@@ -7,6 +7,7 @@ from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from beework import login_security
 from beework.config import settings
 from beework.db import get_db
 from beework.models import AuthSession, Membership, Tenant, User
@@ -18,6 +19,7 @@ CSRF_COOKIE = "beework_csrf"
 
 
 def get_current_user(
+    request: Request,
     session_cookie: str | None = Cookie(default=None, alias=ACCESS_COOKIE),
     db: Session = Depends(get_db),
 ) -> User:
@@ -34,12 +36,13 @@ def get_current_user(
     user = db.get(User, user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号不可用")
+    current = login_security.now()
     auth_session = db.scalar(
         select(AuthSession).where(
             AuthSession.token_id == token_id,
             AuthSession.user_id == user.id,
             AuthSession.revoked_at.is_(None),
-            AuthSession.expires_at > datetime.now(UTC),
+            AuthSession.expires_at > current,
         )
     )
     if auth_session is None:
@@ -47,6 +50,21 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="登录已失效，请重新登录",
         )
+    last_active = auth_session.last_active_at or auth_session.created_at
+    last_active = last_active if last_active.tzinfo else last_active.replace(tzinfo=UTC)
+    idle = current - last_active
+    if idle > timedelta(minutes=settings.session_idle_minutes):
+        auth_session.revoked_at = current
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="登录已因长时间无操作而失效，请重新登录",
+        )
+    # Every request slides the idle window, except background polling (the bell, badges), which would otherwise
+    # keep an abandoned tab signed in for ever.
+    if request.headers.get("X-Background-Request") != "1" and idle >= login_security.SESSION_ACTIVITY_WRITE_INTERVAL:
+        auth_session.last_active_at = current
+        db.commit()
     return user
 
 

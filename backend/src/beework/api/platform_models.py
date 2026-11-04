@@ -11,7 +11,7 @@ from beework.auth import (
 )
 from beework.config import settings
 from beework.db import get_db
-from beework.gateway_sync import sync_environments_using_model, sync_platform_model
+from beework.gateway_sync import request_model_sync, sync_environments_using_model
 from beework.integrations.litellm import model_alias
 from beework.model_secrets import encrypt_model_api_key
 from beework.model_testing import run_model_test
@@ -216,7 +216,7 @@ def create_platform_model(
         db.rollback()
         raise HTTPException(status_code=409, detail="模型显示名称已存在") from error
     db.refresh(model)
-    sync_platform_model(db, model)
+    request_model_sync(db, model)
     return _platform_model_response(model)
 
 
@@ -263,7 +263,7 @@ def update_platform_model(
         db.rollback()
         raise HTTPException(status_code=409, detail="模型目录更新冲突") from error
     db.refresh(model)
-    sync_platform_model(db, model)
+    request_model_sync(db, model)
     sync_environments_using_model(db, model.id)
     db.refresh(model)
     return _platform_model_response(model)
@@ -284,7 +284,7 @@ def resync_platform_model(
     db: Session = Depends(get_db),
 ) -> PlatformModelResponse:
     model = _platform_model_or_404(db, model_id)
-    sync_platform_model(db, model)
+    request_model_sync(db, model)
     return _platform_model_response(model)
 
 

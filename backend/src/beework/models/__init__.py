@@ -45,6 +45,8 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "organization.deleted": "删除组织",
     "auth.login": "登录成功",
     "auth.login_failed": "登录失败",
+    "auth.account_locked": "账号因连续登录失败被锁定",
+    "auth.account_unlocked": "账号锁定已解除",
     "auth.logout": "退出登录",
     "audit.exported": "导出审计日志",
     "model_catalog.created": "新增模型目录项",
@@ -243,6 +245,8 @@ class TenantModelEnvironment(Base):
     # LiteLLM team + virtual key that scope this environment's model access.
     gateway_team_id: Mapped[str | None] = mapped_column(String(80))
     gateway_key_encrypted: Mapped[str | None] = mapped_column(String(4096))
+    # True while the tenant's status forbids model use and the virtual key is blocked in the gateway (T-005).
+    gateway_key_blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     gateway_sync_status: Mapped[str] = mapped_column(
         String(16), nullable=False, default="not_configured"
     )
@@ -417,6 +421,27 @@ class AuthSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    # Slides with activity; a session idle for longer than ``SESSION_IDLE_MINUTES`` is no longer valid (T-004).
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class LoginThrottle(Base):
+    """Failed-login counters kept in PostgreSQL so every API instance sees the same state (T-004).
+
+    ``scope`` is ``account`` (key = normalised email, whether or not the account exists, so lock-outs do not
+    reveal which emails are registered) or ``ip`` (key = client address).
+    """
+
+    __tablename__ = "login_throttles"
+    __table_args__ = (UniqueConstraint("scope", "key", name="uq_login_throttles_scope_key"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    scope: Mapped[str] = mapped_column(String(8), nullable=False)
+    key: Mapped[str] = mapped_column(String(320), nullable=False)
+    failed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    window_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    last_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class MemberInvitation(Base):

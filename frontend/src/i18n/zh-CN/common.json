@@ -16,5 +16,20 @@
   "accessDeniedBody": "当前账号没有访问此功能的权限，请联系对应的企业管理员或平台管理员。",
   "placeholderKicker": "工作空间",
   "placeholderBody": "前端框架已就绪，这个模块会在后续开发中接入真实 API。",
-  "createItem": "创建{{name}}"
+  "createItem": "创建{{name}}",
+  "sessionEnded": "登录已失效或长时间无操作，请重新登录",
+  "environment": {
+    "label": "当前环境",
+    "names": {
+      "development": "开发",
+      "staging": "预发",
+      "production": "生产"
+    },
+    "productionOnly": "当前套餐只提供生产环境",
+    "health": {
+      "ok": "模型网关已同步",
+      "bad": "模型网关同步失败",
+      "idle": "模型网关未同步或未配置"
+    }
+  }
 }

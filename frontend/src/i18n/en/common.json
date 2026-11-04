@@ -16,5 +16,20 @@
   "accessDeniedBody": "Your account does not have permission to use this feature. Contact your workspace administrator or a platform administrator.",
   "placeholderKicker": "Workspace",
   "placeholderBody": "The frontend shell is ready; this module will connect to the real API in a later release.",
-  "createItem": "Create {{name}}"
+  "createItem": "Create {{name}}",
+  "sessionEnded": "Your session ended or was idle for too long. Please sign in again.",
+  "environment": {
+    "label": "Environment",
+    "names": {
+      "development": "Development",
+      "staging": "Staging",
+      "production": "Production"
+    },
+    "productionOnly": "Your plan only includes production",
+    "health": {
+      "ok": "Model gateway in sync",
+      "bad": "Model gateway sync failed",
+      "idle": "Model gateway not synced or not configured"
+    }
+  }
 }

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -13,14 +13,12 @@ from beework.db import get_db
 from beework.entitlements import create_subscription
 from beework.models import (
     AuditEvent,
-    AuthSession,
     Membership,
     Organization,
     PlatformOperationRequest,
     Tenant,
     User,
 )
-from beework.notifications import notify
 from beework.schemas import (
     CreateTenantRequest,
     PlatformOperationResponse,
@@ -35,10 +33,13 @@ from beework.security import (
     hash_password,
 )
 from beework.tenant_lifecycle import (
+    DATA_NOT_PURGED_NOTE,
     LIFECYCLE_ACTIONS,
     REVIEW_TIMEOUT,
-    TRIAL_EXTENSION,
+    apply_transition,
+    as_utc,
     lifecycle_action,
+    record_lifecycle_audit,
 )
 
 router = APIRouter()
@@ -69,6 +70,11 @@ def create_tenant(
         plan=payload.plan,
         region=payload.region,
     )
+    if payload.provisioning == "trial":
+        started = datetime.now(UTC)
+        tenant.status = "trial"
+        tenant.trial_ends_at = started + timedelta(days=payload.trial_days)
+        tenant.status_changed_at = started
     db.add(tenant)
     db.flush()
     root_organization = Organization(tenant_id=tenant.id, name=tenant.name)
@@ -114,6 +120,8 @@ def create_tenant(
                 "slug": tenant.slug,
                 "plan": tenant.plan,
                 "region": tenant.region,
+                "provisioning": payload.provisioning,
+                **({"trial_days": str(payload.trial_days)} if payload.provisioning == "trial" else {}),
             },
         )
     )
@@ -191,6 +199,7 @@ def _tenant_response(db: Session, tenant: Tenant) -> PlatformTenantResponse:
         admin_email=admin.email if admin else None,
         admin_name=admin.display_name if admin else None,
         trial_ends_at=tenant.trial_ends_at,
+        status_note=DATA_NOT_PURGED_NOTE if tenant.status == "deleted" else None,
         available_actions=[
             TenantLifecycleActionOption(
                 action=key,
@@ -201,10 +210,6 @@ def _tenant_response(db: Session, tenant: Tenant) -> PlatformTenantResponse:
             for key, action in LIFECYCLE_ACTIONS.get(tenant.status, {}).items()
         ],
     )
-
-
-def _as_utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
 def _operation_response(db: Session, request: PlatformOperationRequest) -> PlatformOperationResponse:
@@ -232,53 +237,12 @@ def _operation_response(db: Session, request: PlatformOperationRequest) -> Platf
     )
 
 
-def _record_lifecycle_audit(
-    db: Session,
-    *,
-    actor_id: UUID,
-    tenant: Tenant,
-    action: str,
-    details: dict[str, str],
-) -> None:
-    # Platform actions on a tenant are recorded in both chains (PRD 3.12, SET-113).
-    db.add(AuditEvent(tenant_id=tenant.id, actor_user_id=actor_id, action=action, details={**details, "operator": "platform"}))
-    db.add(
-        AuditEvent(
-            tenant_id=None,
-            actor_user_id=actor_id,
-            action=action,
-            details={**details, "target_tenant_id": str(tenant.id), "tenant_name": tenant.name},
-        )
-    )
-
-
-def _apply_lifecycle(db: Session, tenant: Tenant, operation: str, to_status: str) -> None:
-    now = datetime.now(UTC)
-    if operation == "extend_trial":
-        base = _as_utc(tenant.trial_ends_at) if tenant.trial_ends_at else now
-        tenant.trial_ends_at = max(base, now) + TRIAL_EXTENSION
-    if to_status != tenant.status:
-        tenant.status = to_status
-        tenant.status_changed_at = now
-        notify(
-            db, tenant_id=tenant.id, role="tenant_admin", type="tenant.status_changed",
-            title="企业工作区状态已变更", body=f"当前状态：{to_status}", params={"status": to_status},
-        )
-    if to_status in {"pending_deletion", "deleted"}:
-        db.query(AuthSession).filter(
-            AuthSession.user_id.in_(
-                select(Membership.user_id).where(Membership.tenant_id == tenant.id)
-            ),
-            AuthSession.revoked_at.is_(None),
-        ).update({"revoked_at": now}, synchronize_session=False)
-
-
 def _expire_stale_operations(db: Session) -> None:
     now = datetime.now(UTC)
     for request in db.scalars(
         select(PlatformOperationRequest).where(PlatformOperationRequest.status == "pending")
     ):
-        if _as_utc(request.expires_at) <= now:
+        if as_utc(request.expires_at) <= now:
             request.status = "rejected"
             request.review_comment = "72 小时内未复核，已自动驳回"
             request.reviewed_at = now
@@ -309,10 +273,10 @@ def run_tenant_lifecycle_action(
         "reason": payload.reason,
     }
     if not action.requires_review:
-        _record_lifecycle_audit(
+        record_lifecycle_audit(
             db, actor_id=user.id, tenant=tenant, action="tenant.status_changed", details=details
         )
-        _apply_lifecycle(db, tenant, payload.action, action.to_status)
+        apply_transition(db, tenant, payload.action, action.to_status)
         db.commit()
         db.refresh(tenant)
         return TenantLifecycleResponse(tenant=_tenant_response(db, tenant))
@@ -339,7 +303,7 @@ def run_tenant_lifecycle_action(
     )
     db.add(request)
     db.flush()
-    _record_lifecycle_audit(
+    record_lifecycle_audit(
         db,
         actor_id=user.id,
         tenant=tenant,
@@ -412,7 +376,7 @@ def approve_platform_operation(
     request.reviewed_by = user.id
     request.review_comment = payload.comment.strip() or None
     request.reviewed_at = datetime.now(UTC)
-    _record_lifecycle_audit(
+    record_lifecycle_audit(
         db,
         actor_id=user.id,
         tenant=tenant,
@@ -426,7 +390,7 @@ def approve_platform_operation(
             "requested_by": str(request.requested_by),
         },
     )
-    _apply_lifecycle(db, tenant, request.operation, request.to_status)
+    apply_transition(db, tenant, request.operation, request.to_status)
     db.commit()
     return _operation_response(db, request)
 
@@ -449,7 +413,7 @@ def reject_platform_operation(
     request.review_comment = payload.comment.strip() or None
     request.reviewed_at = datetime.now(UTC)
     if tenant is not None:
-        _record_lifecycle_audit(
+        record_lifecycle_audit(
             db,
             actor_id=user.id,
             tenant=tenant,

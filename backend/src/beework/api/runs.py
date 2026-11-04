@@ -16,6 +16,7 @@ from beework.auth import require_csrf
 from beework.conversations import append_message, console_end_user, start_conversation
 from beework.db import get_db
 from beework.entitlements import check_quota, get_usage_counter
+from beework.gateway_sync import environment_ready
 from beework.models import AuditEvent, Membership, Tenant, TenantModelEnvironment, User
 from beework.models.assistants import Assistant, AssistantVersion
 from beework.models.conversations import Conversation
@@ -49,7 +50,7 @@ def _admit(db: Session, membership: Membership, assistant: Assistant) -> None:
             TenantModelEnvironment.environment == MODEL_ENVIRONMENT,
         )
     )
-    if environment is None or environment.gateway_sync_status != "synced":
+    if not environment_ready(environment):
         raise ApiError(409, "runtime.gateway_not_ready", "该环境尚未同步到 AI 网关，请先在设置中保存模型配置")
     # Model points are metered by T-011; until its counter exists this check is skipped.
     if get_usage_counter("monthly_points") is not None:

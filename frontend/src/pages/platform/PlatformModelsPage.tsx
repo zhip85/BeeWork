@@ -147,6 +147,15 @@ export function PlatformModelsPage() {
 
   const [busyModel, setBusyModel] = useState('')
 
+  // Gateway syncs run in the Worker (T-005): refresh the list while any row is still pending.
+  useEffect(() => {
+    if (!models.some((model) => model.gateway_sync_status === 'pending')) return
+    const timer = window.setInterval(() => {
+      apiRequest<{ models: PlatformModel[] }>('/api/v1/platform/models').then((result) => setModels(result.models)).catch(() => undefined)
+    }, 2000)
+    return () => window.clearInterval(timer)
+  }, [models])
+
   async function resyncModel(model: PlatformModel) {
     setBusyModel(model.id)
     setError('')
@@ -154,7 +163,7 @@ export function PlatformModelsPage() {
     try {
       const updated = await apiRequest<PlatformModel>(`/api/v1/platform/models/${model.id}/sync`, { method: 'POST' })
       setModels((current) => current.map((item) => item.id === updated.id ? updated : item))
-      setNotice(updated.gateway_sync_status === 'synced' ? `${model.display_name} 已同步到 AI 网关。` : `同步未完成：${updated.gateway_error ?? 'AI 网关未配置'}`)
+      setNotice(updated.gateway_sync_status === 'pending' ? `${model.display_name} 已提交同步，正在同步到 AI 网关…` : updated.gateway_sync_status === 'synced' ? `${model.display_name} 已同步到 AI 网关。` : `同步未完成：${updated.gateway_error ?? 'AI 网关未配置'}`)
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '同步失败')
     } finally {

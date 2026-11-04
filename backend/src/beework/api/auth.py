@@ -1,10 +1,11 @@
 from datetime import UTC, datetime
 
 import jwt
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from beework import login_security
 from beework.api.common import (
     create_login_session,
     make_current_user_response,
@@ -28,6 +29,7 @@ from beework.schemas import (
     UserPreferencesRequest,
 )
 from beework.security import (
+    DUMMY_PASSWORD_HASH,
     decode_access_token,
     verify_password,
 )
@@ -38,14 +40,17 @@ router = APIRouter()
 @router.post("/auth/login", response_model=CurrentUserResponse)
 def login(
     payload: LoginRequest,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
 ) -> CurrentUserResponse:
     email = str(payload.email).strip().lower()
+    ip = request.client.host if request.client else None
+    login_security.ensure_not_throttled(db, ip=ip, email=email)
     user = db.scalar(select(User).where(User.email == email))
-    if not user or not user.is_active or not verify_password(
-        payload.password, user.password_hash
-    ):
+    # A password check runs for unknown accounts too, so timing does not reveal which emails exist.
+    password_ok = verify_password(payload.password, user.password_hash if user else DUMMY_PASSWORD_HASH)
+    if not user or not user.is_active or not password_ok:
         if user and user.is_active:
             record_user_activity(
                 db,
@@ -54,8 +59,12 @@ def login(
                 result="failure",
                 details={"email": email},
             )
-            db.commit()
+        locked = login_security.record_failure(db, ip=ip, email=email, user=user if user and user.is_active else None)
+        db.commit()
+        if locked is not None:
+            raise locked
         raise HTTPException(status_code=401, detail="邮箱或密码不正确")
+    login_security.record_success(db, email=email)
 
     current = make_current_user_response(db, user)
     if not user.is_platform_admin and not current.memberships:

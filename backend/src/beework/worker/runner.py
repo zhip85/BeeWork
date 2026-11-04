@@ -13,10 +13,16 @@ from beework import (
     assistant_publish as _assistant_publish,  # noqa: F401  (registers the assistant.publish approval action)
 )
 from beework import (
+    gateway_sync as _gateway_sync,  # noqa: F401  (registers the gateway.* jobs)
+)
+from beework import (
     memory_jobs as _memory_jobs,  # noqa: F401  (registers memory.* jobs and the conversation-ended hook)
 )
 from beework import (
     notifications as _notifications,  # noqa: F401  (registers the approval notifier)
+)
+from beework import (
+    tenant_lifecycle as _tenant_lifecycle,  # noqa: F401  (registers tenants.auto_lifecycle and the gateway access hooks)
 )
 from beework import (
     test_cases as _test_cases,  # noqa: F401  (registers the testcases.run job)

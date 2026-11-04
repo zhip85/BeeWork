@@ -18,6 +18,8 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
   const [seatLimit, setSeatLimit] = useState(10)
   const [plan, setPlan] = useState('standard')
   const [region, setRegion] = useState('ap_singapore')
+  const [provisioning, setProvisioning] = useState<'formal' | 'trial'>('formal')
+  const [trialDays, setTrialDays] = useState(14)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [operations, setOperations] = useState<PlatformOperation[]>([])
@@ -66,6 +68,8 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
             seat_limit: seatLimit,
             plan,
             region,
+            provisioning,
+            trial_days: provisioning === 'trial' ? trialDays : undefined,
           }),
         },
       )
@@ -78,6 +82,8 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
       setSeatLimit(10)
       setPlan('standard')
       setRegion('ap_singapore')
+      setProvisioning('formal')
+      setTrialDays(14)
       setNotice(`已创建 ${created.name}。首位企业管理员为 ${created.admin_email}；平台账号没有加入该企业。`)
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '创建企业失败')
@@ -169,6 +175,8 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
           <label>初始席位上限<input min={1} max={100000} onChange={(event) => setSeatLimit(Number(event.target.value))} required type="number" value={seatLimit} /><small>当前由平台按租户配置；后续套餐权益将接管此上限。</small></label>
           <label>套餐<select onChange={(event) => setPlan(event.target.value)} value={plan}><option value="standard">标准版</option><option value="professional">专业版</option><option value="enterprise">企业版</option></select></label>
           <label>数据区域<select onChange={(event) => setRegion(event.target.value)} value={region}><option value="us_east">US-East</option><option value="eu_west">EU-West</option><option value="ap_singapore">AP-Singapore</option><option value="cn_shanghai">CN-Shanghai</option></select><small>模型目录仅显示本区域可用模型。</small></label>
+          <label>开通方式<select onChange={(event) => setProvisioning(event.target.value as 'formal' | 'trial')} value={provisioning}><option value="formal">正式</option><option value="trial">试用</option></select><small>试用到期后自动停用。</small></label>
+          {provisioning === 'trial' && <label>试用天数<input max={90} min={1} onChange={(event) => setTrialDays(Number(event.target.value))} type="number" value={trialDays} /></label>}
           <button className="primary-button tenant-provision-submit" disabled={submitting} type="submit"><Plus size={16} />{submitting ? '正在创建…' : '创建企业并开通管理员'}</button>
         </form>
       </div>
@@ -220,7 +228,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
                   <td><span className="platform-admin-cell"><strong>{enumLabel('plan', tenant.plan)}</strong><small>{enumLabel('region', tenant.region)}</small></span></td>
                   <td>{tenant.seat_limit}</td>
                   <td>{tenant.member_count}</td>
-                  <td><span className={`member-status ${['trial', 'active', 'grace'].includes(tenant.status) ? 'active' : 'inactive'}`}><i />{enumLabel('tenantStatus', tenant.status)}</span></td>
+                  <td><span className={`member-status ${['trial', 'active', 'grace'].includes(tenant.status) ? 'active' : 'inactive'}`}><i />{enumLabel('tenantStatus', tenant.status)}</span>{tenant.status === 'trial' && tenant.trial_ends_at && <small className="platform-tenant-slug">试用至 {new Date(tenant.trial_ends_at).toLocaleDateString()}</small>}{tenant.status_note && <small className="tenant-status-note">{tenant.status_note}</small>}</td>
                   <td>{tenant.available_actions.length ? <button className="tenant-status-action" onClick={() => openLifecycle(tenant)} type="button">生命周期操作</button> : <span className="role-text">—</span>}</td>
                 </tr>
               ))}</tbody>

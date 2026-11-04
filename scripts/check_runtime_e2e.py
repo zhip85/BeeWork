@@ -34,6 +34,17 @@ def session(email: str, password: str) -> httpx.Client:
     return client
 
 
+def wait_for(label: str, read, done, seconds: int = 90) -> object:
+    """Gateway syncs run in the Worker (T-005): wait for them instead of assuming they finished."""
+    deadline = time.time() + seconds
+    value = read()
+    while not done(value) and time.time() < deadline:
+        time.sleep(1.5)
+        value = read()
+    check(label, done(value), value if not isinstance(value, dict) else {k: value.get(k) for k in ("gateway_sync_status", "gateway_error")})
+    return value
+
+
 def check(label: str, condition: bool, detail: object = "") -> None:
     print(f"[{'OK' if condition else 'FAIL'}] {label}{f' — {detail}' if detail else ''}")
     if not condition:
@@ -114,7 +125,7 @@ def main() -> None:
             "display_name": f"Runtime E2E {uuid.uuid4().hex[:6]}", "provider": "openai", "model_type": "chat",
             "availability": "all_plans", "input_price_per_million": "0", "output_price_per_million": "0",
             "input_points_per_thousand": "0", "output_points_per_thousand": "0", "status": "healthy",
-            "provider_model_id": "gpt-4o-mini", "endpoint_url": "https://api.openai.com/v1",
+            "provider_model_id": "gpt-4o-mini", "endpoint_url": os.environ.get("E2E_ENDPOINT_URL", "https://api.openai.com/v1"),
             "api_key": "sk-dummy-not-a-real-key", "region": region,
         },
     )
@@ -132,7 +143,17 @@ def main() -> None:
                 "default_model_ids": {**environment["default_model_ids"], "chat": model["id"]},
             },
         )
-        check("tenant enables model + environment synced", saved.status_code == 200 and saved.json()["gateway_sync_status"] == "synced", saved.text[:200])
+        check("tenant enables model", saved.status_code == 200, saved.text[:200])
+        wait_for(
+            "catalog model synced by the Worker",
+            lambda: next(m for m in platform.get("/api/v1/platform/models").json()["models"] if m["id"] == model["id"]),
+            lambda m: m["gateway_sync_status"] == "synced",
+        )
+        wait_for(
+            "environment synced by the Worker",
+            lambda: tenant_admin.get("/api/v1/tenant/model-environments/production", headers=headers).json(),
+            lambda e: e["gateway_sync_status"] == "synced",
+        )
 
         # Swap the deployment for one that answers from mock_response (same alias, so the team key still works).
         gateway = httpx.Client(base_url=LITELLM, headers={"Authorization": f"Bearer {LITELLM_KEY}"}, timeout=30)

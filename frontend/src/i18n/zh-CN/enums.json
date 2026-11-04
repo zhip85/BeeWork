@@ -56,7 +56,8 @@
   "gatewaySync": {
     "not_configured": "网关未配置",
     "synced": "已同步",
-    "failed": "同步失败"
+    "failed": "同步失败",
+    "pending": "同步中"
   },
   "role": {
     "tenant_admin": "企业管理员",

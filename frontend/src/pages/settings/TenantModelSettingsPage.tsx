@@ -7,8 +7,9 @@ import type { ModelTestResult, TenantModelEnvironment } from '../../types'
 import { enumLabel } from '../../i18n'
 import { SettingsTabs } from './SettingsTabs'
 
-export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: string; canEdit: boolean }) {
-  const [environment, setEnvironment] = useState<TenantModelEnvironment['environment']>('production')
+export function TenantModelSettingsPage({ tenantId, canEdit, defaultEnvironment = 'production' }: { tenantId: string; canEdit: boolean; defaultEnvironment?: TenantModelEnvironment['environment'] }) {
+  // Opens on the environment selected in the top bar (GLB-021); the tabs below can still look at another one.
+  const [environment, setEnvironment] = useState<TenantModelEnvironment['environment']>(defaultEnvironment)
   const [config, setConfig] = useState<TenantModelEnvironment | null>(null)
   const [enabledModelIds, setEnabledModelIds] = useState<string[]>([])
   const [defaultModelIds, setDefaultModelIds] = useState<TenantModelEnvironment['default_model_ids']>({
@@ -46,6 +47,21 @@ export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: strin
     }
   }, [environment, tenantId])
 
+  // The gateway sync runs in the Worker (T-005): while it is pending, ask again until it settles.
+  useEffect(() => {
+    if (config?.gateway_sync_status !== 'pending') return
+    const timer = window.setInterval(() => {
+      apiRequest<TenantModelEnvironment>(`/api/v1/tenant/model-environments/${environment}`, {}, tenantId)
+        .then((result) => {
+          setConfig((current) => current && { ...current, gateway_sync_status: result.gateway_sync_status, gateway_error: result.gateway_error, version: result.version })
+          if (result.gateway_sync_status === 'synced') setNotice('已同步到 AI 网关。')
+          else if (result.gateway_sync_status === 'failed') setNotice(`同步未完成：${result.gateway_error ?? 'AI 网关未配置'}`)
+        })
+        .catch(() => undefined)
+    }, 2000)
+    return () => window.clearInterval(timer)
+  }, [config?.gateway_sync_status, environment, tenantId])
+
   function selectDefault(type: 'chat' | 'embedding' | 'rerank', modelId: string) {
     setDefaultModelIds((current) => ({ ...current, [type]: modelId || null }))
     if (modelId) setEnabledModelIds((current) => current.includes(modelId) ? current : [...current, modelId])
@@ -73,7 +89,7 @@ export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: strin
       )
       setConfig(saved)
       setEnabledModelIds(saved.enabled_model_ids)
-      setNotice('模型环境配置已保存。')
+      setNotice(saved.gateway_sync_status === 'pending' ? '模型环境配置已保存，正在同步到 AI 网关…' : '模型环境配置已保存。')
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '保存模型配置失败')
     } finally {
@@ -102,7 +118,7 @@ export function TenantModelSettingsPage({ tenantId, canEdit }: { tenantId: strin
     try {
       const result = await apiRequest<TenantModelEnvironment>(`/api/v1/tenant/model-environments/${environment}/sync`, { method: 'POST' }, tenantId)
       setConfig(result)
-      setNotice(result.gateway_sync_status === 'synced' ? '已同步到 AI 网关。' : `同步未完成：${result.gateway_error ?? 'AI 网关未配置'}`)
+      setNotice(result.gateway_sync_status === 'pending' ? '已提交同步，正在同步到 AI 网关…' : result.gateway_sync_status === 'synced' ? '已同步到 AI 网关。' : `同步未完成：${result.gateway_error ?? 'AI 网关未配置'}`)
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '同步失败')
     } finally {

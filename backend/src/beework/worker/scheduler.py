@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from beework.audit_maintenance import prune_expired_audit_events
 from beework.conversations import end_inactive_conversations, purge_expired_conversations
+from beework.login_security import release_expired_locks
 from beework.worker.queue import enqueue, job_handler
 
 
@@ -22,12 +23,21 @@ def conversations_retention(db: Session, _payload: dict) -> None:
     purge_expired_conversations(db)
 
 
+@job_handler("auth.release_locks")
+def auth_release_locks(db: Session, _payload: dict) -> None:
+    release_expired_locks(db)
+
+
 def enqueue_scheduled_jobs(db: Session, *, now: datetime | None = None) -> None:
     current_time = now or datetime.now(UTC)
     window = current_time.date().isoformat()
     enqueue(db, "audit.retention", {}, idempotency_key=f"audit.retention:{window}")
     enqueue(db, "conversations.retention", {}, idempotency_key=f"conversations.retention:{window}")
     enqueue(db, "memory.retention", {}, idempotency_key=f"memory.retention:{window}")
+    hour = f"{window}T{current_time.hour:02d}"
+    enqueue(db, "tenants.auto_lifecycle", {}, idempotency_key=f"tenants.auto_lifecycle:{hour}")
+    enqueue(db, "gateway.reconcile_access", {}, idempotency_key=f"gateway.reconcile_access:{hour}")
     five_minutes = f"{window}T{current_time.hour:02d}:{current_time.minute // 5 * 5:02d}"
     enqueue(db, "conversations.end_inactive", {}, idempotency_key=f"conversations.end_inactive:{five_minutes}")
     enqueue(db, "approvals.sweep", {}, idempotency_key=f"approvals.sweep:{five_minutes}")
+    enqueue(db, "auth.release_locks", {}, idempotency_key=f"auth.release_locks:{five_minutes}")
