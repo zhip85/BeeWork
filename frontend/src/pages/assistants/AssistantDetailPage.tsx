@@ -127,7 +127,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
       <header className="detail-header">
         <span className="assistant-icon"><Bot size={22} /></span>
         <div>
-          <h1>{assistant.name}<span className={`assistant-status ${assistant.status}`}>{ta(`status.${assistant.status}`)}</span></h1>
+          <h1>{assistant.name}<span className={`assistant-status ${assistant.status}`}>{ta(`status.${assistant.status}`)}</span>{assistant.pending_approval_id && <Link className="assistant-status in_progress" to={`/approvals?id=${assistant.pending_approval_id}`}>{ta('status.pendingApproval')}</Link>}</h1>
           <p>{t('subtitle', { org: assistant.organization_name, version: assistant.draft_version })}</p>
         </div>
         <div className="detail-actions">
@@ -273,6 +273,11 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
           onPublished={(version) => {
             setPublishing(false)
             setNotice(t('published', { version }))
+            refresh()
+          }}
+          onSubmitted={() => {
+            setPublishing(false)
+            setNotice(t('submitted'))
             refresh()
           }}
           tenantId={tenantId}

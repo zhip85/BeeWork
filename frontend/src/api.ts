@@ -1,4 +1,17 @@
 import i18n from './i18n'
+
+/** An API failure; ``code`` is the server's machine-readable error code (e.g. ``approval.pending_exists``). */
+export class ApiRequestError extends Error {
+  code: string
+  status: number
+
+  constructor(message: string, code: string, status: number) {
+    super(message)
+    this.code = code
+    this.status = status
+  }
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -28,7 +41,7 @@ export async function apiRequest<T>(
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
     const message = typeof payload.detail === 'string' ? payload.detail : i18n.t('requestFailed')
-    throw new Error(message)
+    throw new ApiRequestError(message, typeof payload.code === 'string' ? payload.code : 'error', response.status)
   }
   return payload as T
 }

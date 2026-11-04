@@ -17,6 +17,7 @@ type Version = {
   change_note: string
   published_by: string | null
   published_at: string
+  approval_id: string | null
   is_live: boolean
 }
 type VersionDetail = Version & { snapshot: Record<string, unknown>; change_diff: VersionChange[] }
@@ -88,10 +89,10 @@ export function VersionsPage({ tenant }: { tenant: TenantMembership }) {
         }, tenantId)
         setNotice(t('confirm.restored'))
       } else {
-        const created = await apiRequest<Version>(`/api/v1/assistants/${assistantId}/versions/${action.version.id}/rollback`, {
+        const created = await apiRequest<Version & { pending_approval?: boolean }>(`/api/v1/assistants/${assistantId}/versions/${action.version.id}/rollback`, {
           method: 'POST', body: JSON.stringify({}),
         }, tenantId)
-        setNotice(t('confirm.rolledBack', { version: created.version }))
+        setNotice(created.pending_approval ? t('confirm.rollbackSubmitted') : t('confirm.rolledBack', { version: created.version }))
       }
       setError('')
       refresh()
@@ -157,7 +158,7 @@ export function VersionsPage({ tenant }: { tenant: TenantMembership }) {
         <div className="modal-backdrop" onClick={() => setViewing(null)} role="presentation">
           <aside aria-modal="true" className="conversation-drawer" onClick={(event) => event.stopPropagation()} role="dialog">
             <header><h2>{t('view.title', { version: viewing.version })}</h2><button aria-label={t('actions.close')} className="modal-close" onClick={() => setViewing(null)} type="button"><X size={18} /></button></header>
-            <p className="wizard-muted">{t('view.readOnly')}</p>
+            <p className="wizard-muted">{t('view.readOnly')}{viewing.approval_id && <> · <Link to={`/approvals?id=${viewing.approval_id}`}>{t('view.approval')}</Link></>}</p>
             <h3>{t('view.changes')}</h3>
             {viewing.change_diff.length === 0 ? <p className="wizard-muted">{t('view.noChanges')}</p> : <ChangeList changes={viewing.change_diff} />}
             <h3>{t('view.snapshot')}</h3>

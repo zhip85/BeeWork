@@ -10,6 +10,9 @@ from beework import (
     approvals as _approvals,  # noqa: F401  (registers approvals.apply / approvals.sweep)
 )
 from beework import (
+    assistant_publish as _assistant_publish,  # noqa: F401  (registers the assistant.publish approval action)
+)
+from beework import (
     memory_jobs as _memory_jobs,  # noqa: F401  (registers memory.* jobs and the conversation-ended hook)
 )
 from beework import (

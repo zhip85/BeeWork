@@ -27,7 +27,11 @@
     "title": "Configuration check",
     "allClear": "Configuration check passed",
     "fix": "Fix",
-    "severity": { "blocker": "Blocking", "high": "High impact", "info": "Notice" }
+    "severity": {
+      "blocker": "Blocking",
+      "high": "High impact",
+      "info": "Notice"
+    }
   },
   "path": {
     "title": "Setup path",
@@ -54,7 +58,11 @@
     "driverDefault": "Direct conversation",
     "language": "Default language",
     "visibility": "Visibility",
-    "visibilityValue": { "own_org": "Own organization", "specified": "Specified organizations", "all": "All organizations" },
+    "visibilityValue": {
+      "own_org": "Own organization",
+      "specified": "Specified organizations",
+      "all": "All organizations"
+    },
     "prompt": "System instructions",
     "none": "Not set",
     "viewPrompt": "View full prompt",
@@ -67,7 +75,20 @@
     "soonHint": "Mounting knowledge bases and other capabilities opens as those modules go live",
     "empty": "No capabilities mounted yet",
     "draftNote": "Mount changes are saved to the draft and take effect after you publish an update.",
-    "kinds": { "kb": "Knowledge bases", "agent": "Agents", "mcp": "MCP", "skill": "Skills", "chatflow": "Chatflows", "flow": "Workflows", "api": "API plugins" },
-    "state": { "available": "Available", "disabled": "Disabled", "deleted": "Deleted / invalid" }
-  }
+    "kinds": {
+      "kb": "Knowledge bases",
+      "agent": "Agents",
+      "mcp": "MCP",
+      "skill": "Skills",
+      "chatflow": "Chatflows",
+      "flow": "Workflows",
+      "api": "API plugins"
+    },
+    "state": {
+      "available": "Available",
+      "disabled": "Disabled",
+      "deleted": "Deleted / invalid"
+    }
+  },
+  "submitted": "Submitted to the approval center"
 }

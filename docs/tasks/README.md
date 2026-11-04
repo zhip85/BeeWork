@@ -30,7 +30,7 @@
 | [T-021](./T-021-assistant-detail.md) | 助理详情、草稿编辑与配置检查 | 3 | T-020 | — | 已完成 | Claude Sonnet 5.5 | “版本”“会话记录”页签链接到已有页面，编排/渠道/依赖/测试用例为“即将开放”占位 |
 | [T-022](./T-022-approvals.md) | 审批策略、审批引擎与审批中心 | 3 | T-001 | — | 已完成 | Claude Sonnet 5.5 | 引擎已用测试动作验证，尚无真实来源操作（T-024 接入） |
 | [T-023](./T-023-notifications.md) | 站内通知中心 | 3 | T-001 | — | 已完成 | Claude Sonnet 5.5 | 已接入审批、成员加入、租户状态变更 |
-| [T-024](./T-024-assistant-versions.md) | 助理发布、不可变版本、对比与回滚 | 3 | T-021、T-022 | — | 待开发 | | |
+| [T-024](./T-024-assistant-versions.md) | 助理发布、不可变版本、对比与回滚 | 3 | T-021、T-022 | — | 已完成 | Claude Sonnet 5.5 | 发布/回滚已接审批；“发布前自动运行测试用例”待 T-027 |
 | [T-025](./T-025-langgraph-runtime.md) | LangGraph 运行时 v1（经 LiteLLM，Langfuse 追踪） | 3 | T-002、T-020 | 真实调用需供应商 Key（Langfuse 已就绪） | 已完成 | Claude Sonnet 5.5 | 核心任务；只能用 Langfuse SDK ≥3；含检索桩（闭环切片第 3 步） |
 | [T-026](./T-026-conversations.md) | 会话与消息、保留期与脱敏 | 3 | T-025 | — | 已完成 | Claude Sonnet 5.5 | |
 | [T-027](./T-027-test-console.md) | 助理测试控制台与测试用例 | 3 | T-025、T-021 | 供应商 Key | 待开发 | | |

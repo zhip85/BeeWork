@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import sessionmaker
 
+from beework.approvals import ensure_policies
 from beework.db import get_db
 from beework.main import app
 from beework.models import (
@@ -77,12 +78,13 @@ class VersionTests(unittest.TestCase):
             db.add_all([root, other_root])
             db.flush()
             users = {}
-            for email in ("admin@example.com", "viewer@example.com", "other@example.com"):
+            for email in ("admin@example.com", "admin2@example.com", "viewer@example.com", "other@example.com"):
                 users[email] = User(email=email, display_name=email.split("@")[0], password_hash=hash_password(PASSWORD))
                 db.add(users[email])
             db.flush()
             db.add_all([
                 Membership(tenant_id=tenant.id, user_id=users["admin@example.com"].id, organization_id=root.id, role="tenant_admin"),
+                Membership(tenant_id=tenant.id, user_id=users["admin2@example.com"].id, organization_id=root.id, role="tenant_admin"),
                 Membership(tenant_id=tenant.id, user_id=users["viewer@example.com"].id, organization_id=root.id, role="viewer"),
                 Membership(tenant_id=other.id, user_id=users["other@example.com"].id, organization_id=other_root.id, role="tenant_admin"),
             ])
@@ -99,6 +101,8 @@ class VersionTests(unittest.TestCase):
                                         draft_config={"prompt": "p", "model_id": str(chat.id)})
             db.add(other_assistant)
             db.flush()
+            # Most tests exercise publishing itself; the approval flow tests switch the policy on.
+            ensure_policies(db, tenant.id)["publish"].enabled = False
             self.ids = {"tenant": tenant.id, "other": other.id, "chat": chat.id, "environment": environment.id,
                         "other_assistant": other_assistant.id}
         self.admin = self.login("admin@example.com")
@@ -383,6 +387,175 @@ class VersionTests(unittest.TestCase):
         self.client.post(f"/api/v1/assistants/{self.aid}/disable", headers=self.admin)
         disabled = self.client.post(f"/api/v1/assistants/{self.aid}/versions/{first['id']}/rollback", json={}, headers=self.admin)
         self.assertEqual((disabled.status_code, disabled.json()["code"]), (409, "assistant.invalid_transition"))
+
+    # -- publishing through the approval engine (T-024) -----------------------------------
+
+    def require_approval(self, **fields) -> None:
+        with self.session_factory.begin() as db:
+            policy = ensure_policies(db, self.ids["tenant"])["publish"]
+            policy.enabled = True
+            for key, value in fields.items():
+                setattr(policy, key, value)
+
+    def decide(self, approval_id: str, who: str = "admin2@example.com", action: str = "approve", comment: str = ""):
+        headers = self.login(who)
+        response = self.client.post(f"/api/v1/approvals/{approval_id}/{action}", json={"comment": comment}, headers=headers)
+        self.admin = self.login("admin@example.com")
+        return response
+
+    def drain(self) -> int:
+        from beework.worker.runner import run_once
+
+        return run_once("test-worker", self.session_factory, schedule=False)
+
+    def user_id(self, email: str) -> UUID:
+        with self.session_factory() as db:
+            return db.scalar(select(User.id).where(User.email == email))
+
+    def test_publish_waits_for_approval_and_goes_live_only_after_it(self) -> None:
+        self.require_approval()
+        preview = self.client.get(f"/api/v1/assistants/{self.aid}/publish-preview", headers=self.admin).json()
+        self.assertEqual(preview["approval"], {"required": True, "levels": 1, "approver_role": "tenant_admin", "pending_approval_id": None})
+        response = self.publish("first release")
+        self.assertEqual(response.status_code, 202, response.text)
+        pending = response.json()
+        self.assertEqual((pending["pending_approval"], pending["next_version"]), (True, "1.0"))
+        shown = self.refresh()
+        self.assertEqual((shown["status"], shown["live_version_id"], shown["pending_approval_id"]), ("draft", None, pending["approval_id"]))
+        self.assertEqual(self.client.get(f"/api/v1/assistants/{self.aid}/versions", headers=self.admin).json()["items"], [])
+        approval = self.client.get(f"/api/v1/approvals/{pending['approval_id']}", headers=self.admin).json()
+        self.assertEqual((approval["title"], approval["type"], approval["description"]), ("发布 Helper v1.0", "publish", "first release"))
+        self.assertEqual({d["section"] for d in approval["change_diff"]} >= {"prompt", "model"}, True)
+
+        self.assertEqual(self.decide(pending["approval_id"]).status_code, 200)
+        self.assertEqual(self.refresh()["live_version_id"], None)  # approved, applied by the worker next
+        self.assertEqual(self.drain(), 1)
+        after = self.refresh()
+        self.assertEqual((after["status"], after["pending_approval_id"]), ("published", None))
+        version = self.client.get(f"/api/v1/assistants/{self.aid}/versions/{after['live_version_id']}", headers=self.admin).json()
+        self.assertEqual((version["version"], version["kind"], version["approval_id"], version["published_by"]), ("1.0", "publish", pending["approval_id"], "admin"))
+        with self.session_factory() as db:
+            from beework.models.notifications import InAppNotification
+
+            note = db.scalar(select(InAppNotification).where(InAppNotification.type == "assistant.published"))
+            self.assertEqual((note.recipient_id, note.link), (self.user_id("admin@example.com"), f"/assistants/{self.aid}/versions"))
+            self.assertIsNotNone(db.scalar(select(AuditEvent).where(AuditEvent.action == "approval.applied")))
+
+    def test_what_goes_live_is_the_snapshot_that_was_reviewed(self) -> None:
+        self.require_approval()
+        pending = self.publish().json()
+        self.edit_draft(prompt="Changed after submitting for approval.")
+        self.decide(pending["approval_id"])
+        self.drain()
+        version = self.client.get(f"/api/v1/assistants/{self.aid}/versions/{self.refresh()['live_version_id']}", headers=self.admin).json()
+        self.assertEqual(version["snapshot"]["config"]["prompt"], "You are helpful.")
+        self.assertEqual(self.refresh()["config"]["prompt"], "Changed after submitting for approval.")  # the draft keeps the edit
+
+    def test_rejection_publishes_nothing_and_keeps_the_draft(self) -> None:
+        self.require_approval()
+        pending = self.publish().json()
+        self.assertEqual(self.decide(pending["approval_id"], action="reject", comment="not ready").status_code, 200)
+        self.assertEqual(self.drain(), 0)
+        after = self.refresh()
+        self.assertEqual((after["status"], after["live_version_id"], after["pending_approval_id"]), ("draft", None, None))
+        self.assertEqual(self.publish().status_code, 202)  # it can be submitted again
+
+    def test_second_submission_needs_replace_and_delete_is_blocked_while_pending(self) -> None:
+        self.require_approval()
+        first = self.publish().json()
+        again = self.publish()
+        self.assertEqual((again.status_code, again.json()["code"]), (409, "approval.pending_exists"))
+        self.assertEqual(self.client.delete(f"/api/v1/assistants/{self.aid}", headers=self.admin).status_code, 409)
+        self.edit_draft(prompt="Second attempt.")
+        replaced = self.client.post(f"/api/v1/assistants/{self.aid}/publish", json={"replace_pending": True}, headers=self.admin)
+        self.assertEqual(replaced.status_code, 202, replaced.text)
+        self.assertNotEqual(replaced.json()["approval_id"], first["approval_id"])
+        old = self.client.get(f"/api/v1/approvals/{first['approval_id']}", headers=self.admin).json()
+        self.assertEqual(old["status"], "withdrawn")
+
+    def test_rollback_goes_through_the_same_approval(self) -> None:
+        self.assertEqual(self.publish("one").status_code, 201)  # policy off: direct
+        first = self.client.get(f"/api/v1/assistants/{self.aid}/versions", headers=self.admin).json()["items"][0]
+        self.edit_draft(prompt="Version two.")
+        self.assertEqual(self.publish("two").status_code, 201)
+        self.require_approval()
+        response = self.client.post(f"/api/v1/assistants/{self.aid}/versions/{first['id']}/rollback", json={}, headers=self.admin)
+        self.assertEqual(response.status_code, 202, response.text)
+        approval_id = response.json()["approval_id"]
+        approval = self.client.get(f"/api/v1/approvals/{approval_id}", headers=self.admin).json()
+        self.assertEqual(approval["title"], "回滚 Helper 到 v1.0")
+        self.assertEqual(self.refresh()["config"]["prompt"], "Version two.")
+        self.decide(approval_id)
+        self.drain()
+        versions = self.client.get(f"/api/v1/assistants/{self.aid}/versions", headers=self.admin).json()["items"]
+        self.assertEqual([(v["version"], v["kind"], v["is_live"]) for v in versions][0], ("1.2", "rollback", True))
+        self.assertEqual(versions[0]["approval_id"], approval_id)
+
+    def test_apply_failure_is_visible_and_retry_publishes(self) -> None:
+        self.require_approval()
+        pending = self.publish().json()
+        self.decide(pending["approval_id"])
+        with self.session_factory.begin() as db:  # the model is switched off between approval and apply
+            db.query(TenantModelSelection).delete()
+        self.drain()
+        approval = self.client.get(f"/api/v1/approvals/{pending['approval_id']}", headers=self.admin).json()
+        self.assertEqual((approval["status"], approval["apply_status"], approval["apply_error"]), ("approved", "failed", "所选模型未在当前环境启用"))
+        self.assertEqual(self.refresh()["live_version_id"], None)
+        with self.session_factory.begin() as db:
+            db.add(TenantModelSelection(environment_id=self.ids["environment"], model_id=self.ids["chat"], model_type="chat", is_default=True))
+        retried = self.client.post(f"/api/v1/approvals/{pending['approval_id']}/retry", headers=self.admin)
+        self.assertEqual(retried.status_code, 200, retried.text)
+        self.drain()
+        self.assertEqual(self.refresh()["status"], "published")
+
+    def test_apply_is_refused_for_a_deleted_or_disabled_assistant(self) -> None:
+        self.require_approval()
+        self.assertEqual(self.publish("one").status_code, 202)
+        approval_id = self.refresh()["pending_approval_id"]
+        self.decide(approval_id)
+        with self.session_factory.begin() as db:
+            db.get(Assistant, UUID(self.aid)).status = "disabled"
+        self.drain()
+        failed = self.client.get(f"/api/v1/approvals/{approval_id}", headers=self.admin).json()
+        self.assertEqual((failed["apply_status"], failed["apply_error"]), ("failed", "助理已停用，请启用后重试"))
+
+    def test_a_lone_admin_cannot_submit_and_the_policy_can_be_turned_off(self) -> None:
+        self.require_approval()
+        with self.session_factory.begin() as db:
+            db.query(Membership).filter(Membership.user_id == self.user_id("admin2@example.com")).delete()
+        response = self.publish()
+        self.assertEqual((response.status_code, response.json()["code"]), (409, "approval.no_approver"))
+        with self.session_factory.begin() as db:
+            ensure_policies(db, self.ids["tenant"])["publish"].enabled = False
+        self.assertEqual(self.publish().status_code, 201)
+
+    def test_publish_warnings_reach_the_approval_checks(self) -> None:
+        self.require_approval()
+        pending = self.publish().json()
+        approval = self.client.get(f"/api/v1/approvals/{pending['approval_id']}", headers=self.admin).json()
+        self.assertEqual([c["label"] for c in approval["checks"]], ["未设置开场白"])
+        self.assertEqual(approval["checks"][0]["level"], "warn")
+
+    def test_a_stale_pending_request_cannot_overwrite_a_newer_direct_publish(self) -> None:
+        self.require_approval()
+        old = self.publish("old").json()  # pending, frozen with the original prompt
+        with self.session_factory.begin() as db:
+            ensure_policies(db, self.ids["tenant"])["publish"].enabled = False
+        self.edit_draft(prompt="Newer prompt published directly.")
+        direct = self.publish("direct")
+        self.assertEqual(direct.status_code, 201, direct.text)
+        # The superseded request was withdrawn, so approving it is no longer possible.
+        self.assertEqual(self.decide(old["approval_id"]).status_code, 409)
+        self.assertEqual(self.drain(), 0)
+        live = self.client.get(f"/api/v1/assistants/{self.aid}/versions/{self.refresh()['live_version_id']}", headers=self.admin).json()
+        self.assertEqual(live["snapshot"]["config"]["prompt"], "Newer prompt published directly.")
+        approval = self.client.get(f"/api/v1/approvals/{old['approval_id']}", headers=self.admin).json()
+        self.assertEqual(approval["status"], "withdrawn")
+        with self.session_factory() as db:
+            from beework.models.notifications import InAppNotification
+
+            types = set(db.scalars(select(InAppNotification.type).where(InAppNotification.recipient_id == self.user_id("admin@example.com"))))
+        self.assertIn("approval.withdrawn", types)
 
     # -- configuration check and mounts (T-021) -----------------------------------------
 

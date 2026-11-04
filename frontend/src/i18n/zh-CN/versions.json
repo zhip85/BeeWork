@@ -16,7 +16,20 @@
     "cancel": "取消",
     "done": "已发布 v{{version}}",
     "approvalNote": "当前租户未配置发布审批，提交后立即生效。",
-    "warnings": "高影响与提示（不阻止发布）"
+    "warnings": "高影响与提示（不阻止发布）",
+    "submitForApproval": "提交审批 v{{version}}",
+    "submitted": "已提交至审批中心",
+    "pendingExists": "该助理已有待审批的发布申请。",
+    "viewApproval": "查看申请",
+    "replaceBody": "已有待审批的申请，是否撤回并重新提交？",
+    "replaceConfirm": "撤回并重新提交",
+    "approvalRequired": "发布需要 {{levels}} 级审批（{{role}}），审批通过后才会生效。",
+    "roles": {
+      "tenant_admin": "租户管理员",
+      "security_officer": "安全负责人",
+      "knowledge_owner": "知识负责人",
+      "assistant_owner": "助理负责人"
+    }
   },
   "page": {
     "title": "版本历史",
@@ -46,14 +59,16 @@
     "rollbackTitle": "回滚到 v{{version}}",
     "rollbackBody": "以 v{{version}} 的快照生成新版本并立即生效？草稿不受影响。",
     "restored": "已恢复到草稿",
-    "rolledBack": "已回滚，新版本 v{{version}} 已生效"
+    "rolledBack": "已回滚，新版本 v{{version}} 已生效",
+    "rollbackSubmitted": "回滚已提交至审批中心，审批通过后生效"
   },
   "view": {
     "title": "版本快照 v{{version}}",
     "readOnly": "只读",
     "changes": "相对上一线上版本的变更",
     "noChanges": "无变更",
-    "snapshot": "完整配置快照"
+    "snapshot": "完整配置快照",
+    "approval": "查看审批记录"
   },
   "compare": {
     "title": "对比版本",

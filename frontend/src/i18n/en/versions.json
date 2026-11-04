@@ -16,7 +16,20 @@
     "cancel": "Cancel",
     "done": "Published v{{version}}",
     "approvalNote": "This workspace has no publish approval configured, so the release takes effect immediately.",
-    "warnings": "High-impact findings and notices (do not block publishing)"
+    "warnings": "High-impact findings and notices (do not block publishing)",
+    "submitForApproval": "Submit v{{version}} for approval",
+    "submitted": "Submitted to the approval center",
+    "pendingExists": "This assistant already has a pending publish request.",
+    "viewApproval": "View request",
+    "replaceBody": "There is already a pending request. Withdraw it and submit again?",
+    "replaceConfirm": "Withdraw and resubmit",
+    "approvalRequired": "Publishing needs {{levels}}-level approval ({{role}}) before it takes effect.",
+    "roles": {
+      "tenant_admin": "tenant admin",
+      "security_officer": "security officer",
+      "knowledge_owner": "knowledge owner",
+      "assistant_owner": "assistant owner"
+    }
   },
   "page": {
     "title": "Version history",
@@ -46,14 +59,16 @@
     "rollbackTitle": "Roll back to v{{version}}",
     "rollbackBody": "Create a new version from the v{{version}} snapshot and make it live now? Your draft is not affected.",
     "restored": "Restored to draft",
-    "rolledBack": "Rolled back; new version v{{version}} is live"
+    "rolledBack": "Rolled back; new version v{{version}} is live",
+    "rollbackSubmitted": "Rollback submitted to the approval center; it takes effect once approved"
   },
   "view": {
     "title": "Snapshot v{{version}}",
     "readOnly": "Read only",
     "changes": "Changes against the previous live version",
     "noChanges": "No changes",
-    "snapshot": "Full configuration snapshot"
+    "snapshot": "Full configuration snapshot",
+    "approval": "View approval record"
   },
   "compare": {
     "title": "Compare versions",

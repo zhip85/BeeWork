@@ -36,7 +36,8 @@
   "status": {
     "draft": "Draft",
     "published": "Published",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "pendingApproval": "In approval"
   },
   "category": {
     "customer_service": "Customer service",
