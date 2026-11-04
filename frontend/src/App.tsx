@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   ArrowRight,
-  Bell,
   BookOpen,
   Bot,
   Boxes,
@@ -28,6 +27,8 @@ import { LanguageSwitch } from './i18n/LanguageSwitch'
 import { SectionPlaceholder } from './components/SectionPlaceholder'
 import { AssistantsPage } from './pages/assistants/AssistantsPage'
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage'
+import { NotificationBell } from './components/NotificationBell'
+import { NotificationsPage } from './pages/notifications/NotificationsPage'
 import { AssistantDetailPage } from './pages/assistants/AssistantDetailPage'
 import { VersionsPage } from './pages/assistants/VersionsPage'
 import { ConversationsPage } from './pages/assistants/ConversationsPage'
@@ -55,7 +56,7 @@ const navigation = [
 ]
 
 function App() {
-  const { t } = useTranslation(['nav', 'common', 'settings'])
+  const { t } = useTranslation(['nav', 'common', 'settings', 'notifications'])
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>(
     'checking',
   )
@@ -93,6 +94,8 @@ function App() {
       ? t('nav:audit')
       : location.pathname === '/platform/tenants'
       ? t('nav:platformTenants')
+      : location.pathname === '/notifications'
+      ? t('notifications:title')
       : location.pathname === '/settings/approvals'
       ? t('settings:tabs.approvals')
       : location.pathname === '/settings/privacy'
@@ -320,9 +323,7 @@ function App() {
             <span className={`service-status ${apiStatus}`} title={`API ${apiStatus}`}>
               <i />{apiStatus === 'online' ? t('common:apiOnline') : apiStatus === 'offline' ? t('common:apiOffline') : t('common:apiChecking')}
             </span>
-            <button className="icon-button notification-button" type="button" aria-label={t('common:notifications')}>
-              <Bell size={18} /><i />
-            </button>
+            {activeTenant && <NotificationBell key={activeTenant.id} tenantId={activeTenant.id} />}
             <button className="help-button" type="button"><CircleHelp size={17} />{t('common:help')}</button>
           </div>
         </header>
@@ -340,6 +341,7 @@ function App() {
             ))}
             <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/audit" element={hasPermission('audit:view') && activeTenant ? <AuditLogPage key={activeTenant.id} tenantId={activeTenant.id} canExport={hasPermission('audit:export')} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/notifications" element={activeTenant ? <NotificationsPage key={activeTenant.id} tenantId={activeTenant.id} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/approvals" element={canSeeApprovals && activeTenant ? <ApprovalsPage key={activeTenant.id} onChanged={() => setApprovalsTick((value) => value + 1)} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/approvals" element={hasPermission('settings:view') && activeTenant ? <ApprovalPoliciesPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={isTenantAdmin && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/privacy" element={hasPermission('settings:view') && activeTenant ? <DataPrivacyPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />

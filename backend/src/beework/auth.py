@@ -67,11 +67,8 @@ def require_csrf(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="请求来源不合法")
 
 
-def get_tenant_membership(
-    request: Request,
-    user: User = Depends(get_current_user),
-    tenant_id_header: str | None = Header(default=None, alias="X-Tenant-ID"),
-    db: Session = Depends(get_db),
+def _resolve_tenant_membership(
+    request: Request, user: User, tenant_id_header: str | None, db: Session, *, writable_when_read_only: bool
 ) -> Membership:
     query = select(Membership).where(
         Membership.user_id == user.id,
@@ -93,9 +90,32 @@ def get_tenant_membership(
     access_mode = tenant_access_mode(tenant.status, membership.role) if tenant else None
     if access_mode is None:
         raise HTTPException(status_code=403, detail="此企业工作区已停用")
-    if access_mode == "read_only" and request.method not in READ_METHODS:
+    if access_mode == "read_only" and request.method not in READ_METHODS and not writable_when_read_only:
         raise HTTPException(status_code=403, detail="企业工作区当前为只读状态，仅可查看与导出")
     return membership
+
+
+def get_tenant_membership(
+    request: Request,
+    user: User = Depends(get_current_user),
+    tenant_id_header: str | None = Header(default=None, alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+) -> Membership:
+    return _resolve_tenant_membership(request, user, tenant_id_header, db, writable_when_read_only=False)
+
+
+def get_tenant_membership_for_own_state(
+    request: Request,
+    user: User = Depends(get_current_user),
+    tenant_id_header: str | None = Header(default=None, alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+) -> Membership:
+    """Like ``get_tenant_membership`` but still writable in a read-only workspace.
+
+    Only for endpoints that change the caller's own per-user state (e.g. marking notifications read); the
+    status-change notice itself is delivered exactly when a workspace turns read-only or suspended.
+    """
+    return _resolve_tenant_membership(request, user, tenant_id_header, db, writable_when_read_only=True)
 
 
 def require_tenant_roles(*roles: str):

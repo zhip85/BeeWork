@@ -649,6 +649,7 @@ from beework.models import (  # noqa: E402,F401
     conversations,
     jobs,
     memory,
+    notifications,
     plans,
     runtime,
 )

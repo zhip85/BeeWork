@@ -1,0 +1,28 @@
+{
+  "title": "Notifications",
+  "subtitle": "Approval tasks, status changes and other in-app notices.",
+  "bell": "Notifications",
+  "bellUnread": "Notifications ({{count}} unread)",
+  "tabAll": "All",
+  "tabUnread": "Unread {{count}}",
+  "readAll": "Mark all as read",
+  "viewAll": "View all notifications",
+  "empty": "No notifications",
+  "emptyUnread": "No unread notifications",
+  "loading": "Loading…",
+  "loadFailed": "Could not load notifications",
+  "unreadOnly": "Unread only",
+  "prev": "Previous",
+  "next": "Next",
+  "range": "{{from}}–{{to}} of {{total}}",
+  "types": {
+    "approval.submitted": "Awaiting your approval: {{title}}",
+    "approval.reminder": "Approval pending for over 24 hours: {{title}}",
+    "approval.approved": "Approval granted: {{title}}",
+    "approval.rejected": "Approval rejected: {{title}}",
+    "approval.expired": "Approval expired: {{title}}",
+    "approval.apply_failed": "Approved, but applying the change failed: {{title}}",
+    "member.joined": "{{name}} accepted the invitation and joined",
+    "tenant.status_changed": "Workspace status changed: {{status}}"
+  }
+}

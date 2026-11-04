@@ -199,6 +199,12 @@
 - 接口与界面：审批策略（设置 → 审批策略）、审批中心（指标卡、筛选、审阅抽屉、通过/驳回/撤回/评论/重试）、侧栏待办角标、角色编辑器“审批负责人”。
 - 未完成：真实来源操作（T-024 起）；站内通知（T-023）；Webhook（T-087）。验证：ruff、`test-postgres.sh`（203 项）、前端检查通过；未目视检查页面。
 
+### 站内通知中心（T-023，已验收）
+
+- 表 `in_app_notifications`（迁移 `0023_notifications`）；服务 `notifications.notify`（同事务写入、站内链接白名单）；接口 `GET /notifications`、`/notifications/unread-count`、`POST /notifications/{id}/read`、`/notifications/read-all`。
+- 顶栏铃铛（未读红点、全部/未读面板、点击已读并跳转、60 秒轮询）与 `/notifications` 列表页。已接入：审批（提交/催办/通过/驳回/过期/生效失败）、成员接受邀请、租户状态变更。
+- 未完成：评测、预算告警等其他事件由各自任务接入；SSE 推送；保留期清理。验证：ruff、`test-postgres.sh`（210 项）、前端检查通过；未目视检查页面。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

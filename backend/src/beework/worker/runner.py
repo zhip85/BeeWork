@@ -12,6 +12,9 @@ from beework import (
 from beework import (
     memory_jobs as _memory_jobs,  # noqa: F401  (registers memory.* jobs and the conversation-ended hook)
 )
+from beework import (
+    notifications as _notifications,  # noqa: F401  (registers the approval notifier)
+)
 from beework.db import SessionLocal
 from beework.runtime import jobs as _runtime_jobs  # noqa: F401  (registers runtime.execute)
 from beework.worker.queue import claim_jobs, execute_job, reclaim_expired_jobs

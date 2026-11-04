@@ -10,6 +10,7 @@ import enCommon from './en/common.json'
 import enEnums from './en/enums.json'
 import enMembers from './en/members.json'
 import enNav from './en/nav.json'
+import enNotifications from './en/notifications.json'
 import enPlatform from './en/platform.json'
 import enVersions from './en/versions.json'
 import enSettings from './en/settings.json'
@@ -23,6 +24,7 @@ import zhCommon from './zh-CN/common.json'
 import zhEnums from './zh-CN/enums.json'
 import zhMembers from './zh-CN/members.json'
 import zhNav from './zh-CN/nav.json'
+import zhNotifications from './zh-CN/notifications.json'
 import zhPlatform from './zh-CN/platform.json'
 import zhVersions from './zh-CN/versions.json'
 import zhSettings from './zh-CN/settings.json'
@@ -50,14 +52,14 @@ void i18n.use(initReactI18next).init({
   lng: storedLocale(),
   fallbackLng: DEFAULT_LOCALE,
   defaultNS: 'common',
-  ns: ['common', 'approvals', 'assistants', 'detail', 'conversations', 'versions', 'nav', 'auth', 'members', 'platform', 'settings', 'audit', 'enums'],
+  ns: ['common', 'notifications', 'approvals', 'assistants', 'detail', 'conversations', 'versions', 'nav', 'auth', 'members', 'platform', 'settings', 'audit', 'enums'],
   resources: {
     'zh-CN': {
-      approvals: zhApprovals, assistants: zhAssistants, detail: zhDetail, common: zhCommon, conversations: zhConversations, nav: zhNav, auth: zhAuth, members: zhMembers,
+      notifications: zhNotifications, approvals: zhApprovals, assistants: zhAssistants, detail: zhDetail, common: zhCommon, conversations: zhConversations, nav: zhNav, auth: zhAuth, members: zhMembers,
       platform: zhPlatform, settings: zhSettings, versions: zhVersions, audit: zhAudit, enums: zhEnums,
     },
     en: {
-      approvals: enApprovals, assistants: enAssistants, detail: enDetail, common: enCommon, conversations: enConversations, nav: enNav, auth: enAuth, members: enMembers,
+      notifications: enNotifications, approvals: enApprovals, assistants: enAssistants, detail: enDetail, common: enCommon, conversations: enConversations, nav: enNav, auth: enAuth, members: enMembers,
       platform: enPlatform, settings: enSettings, versions: enVersions, audit: enAudit, enums: enEnums,
     },
   },

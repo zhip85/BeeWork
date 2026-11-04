@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { apiRequest } from '../../api'
 import { formatRelativeTime } from '../../i18n/format'
 import type { TenantMembership } from '../../types'
@@ -63,7 +64,9 @@ export function ApprovalsPage({ tenant, onChanged }: { tenant: TenantMembership;
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [params, setParams] = useSearchParams()
+  const openId = params.get('id')
+  const setOpenId = (id: string | null) => setParams(id ? { id } : {}, { replace: true })
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ scope, sort, limit: '100' })
