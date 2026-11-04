@@ -43,6 +43,7 @@ export function RoleManagementPanel({
       scope: 'tenant',
       scope_organization_id: '',
       scope_assistant_ids: [],
+      approver_tags: [],
       permissions: source
         ? Object.fromEntries(
             Object.entries(source.permissions).map(([module, actions]) => [module, [...actions]]),
@@ -69,6 +70,7 @@ export function RoleManagementPanel({
         scope: draft.scope,
         scope_organization_id: draft.scope === 'organization' ? draft.scope_organization_id : null,
         scope_assistant_ids: draft.scope === 'assistant' ? draft.scope_assistant_ids : [],
+        approver_tags: draft.approver_tags,
         permissions: draft.permissions,
         is_active: draft.is_active,
       }
@@ -148,6 +150,7 @@ export function RoleManagementPanel({
                         scope: role.scope,
                         scope_organization_id: role.scope_organization_id ?? '',
                         scope_assistant_ids: role.scope_assistant_ids ?? [],
+                        approver_tags: role.approver_tags ?? [],
                         permissions: Object.fromEntries(
                           Object.entries(role.permissions).map(([module, actions]) => [module, [...actions]]),
                         ),
@@ -196,6 +199,23 @@ export function RoleManagementPanel({
                 <option value="assistant">指定助理</option>
               </select>
             </label>
+            <fieldset className="role-assistant-picker">
+              <legend>审批负责人</legend>
+              {([['security_officer', '安全负责人'], ['knowledge_owner', '知识负责人']] as const).map(([tag, label]) => (
+                <label className="wizard-radio" key={tag}>
+                  <input
+                    checked={draft.approver_tags.includes(tag)}
+                    onChange={(event) => setDraft({
+                      ...draft,
+                      approver_tags: event.target.checked ? [...draft.approver_tags, tag] : draft.approver_tags.filter((item) => item !== tag),
+                    })}
+                    type="checkbox"
+                  />
+                  {label}
+                </label>
+              ))}
+              <small>勾选后，该角色的成员会成为对应审批策略的审批人，与模块权限相互独立。</small>
+            </fieldset>
             {draft.scope === 'assistant' && (
               <fieldset className="role-assistant-picker">
                 <legend>授权助理</legend>

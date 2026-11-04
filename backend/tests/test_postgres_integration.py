@@ -17,8 +17,10 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
 
 from beework.api.common import lock_tenant
+from beework.approvals import decide, ensure_policies, load_for_update, submit_change
 from beework.audit_maintenance import verify_audit_chain
 from beework.db import get_db
+from beework.errors import ApiError
 from beework.main import app
 from beework.models import (
     AuditChainCheckpoint,
@@ -33,6 +35,7 @@ from beework.models import (
     TenantRole,
     User,
 )
+from beework.models.approvals import ApprovalRequest
 from beework.models.assistants import Assistant, AssistantVersion
 from beework.models.jobs import Job
 from beework.security import hash_password
@@ -251,6 +254,79 @@ class PostgresIntegrationTests(unittest.TestCase):
             self.assertIn("immutable", str(caught.exception))
         with self.session_factory() as db:
             self.assertEqual(db.get(AssistantVersion, version_id).change_note, "")
+
+    def _approval_fixture(self, approvers: int = 4) -> tuple[UUID, UUID, list[UUID]]:
+        from beework.approvals import approval_action
+
+        try:
+            approval_action("pg.noop")(lambda _db, _context: None)
+        except RuntimeError:  # already registered by an earlier test in this process
+            pass
+        with self.session_factory.begin() as db:
+            requester = User(email="pg-requester@example.com", display_name="Req", password_hash="x")
+            admins = [User(email=f"pg-approver-{i}@example.com", display_name=f"A{i}", password_hash="x") for i in range(approvers)]
+            db.add_all([requester, *admins])
+            db.flush()
+            db.add(Membership(tenant_id=self.tenant_id, user_id=requester.id, organization_id=self.organization_id, role="builder"))
+            for admin in admins:
+                db.add(Membership(tenant_id=self.tenant_id, user_id=admin.id, organization_id=self.organization_id, role="tenant_admin"))
+            ensure_policies(db, self.tenant_id)
+            return requester.id, uuid4(), [admin.id for admin in admins]
+
+    def test_concurrent_approvals_decide_a_request_exactly_once(self) -> None:
+        requester_id, object_id, approver_ids = self._approval_fixture()
+        with self.session_factory.begin() as db:
+            result = submit_change(
+                db, tenant_id=self.tenant_id, event="publish", action="pg.noop", object_type="assistant",
+                object_id=object_id, title="t", requester_id=requester_id,
+            )
+            approval_id = result.approval.id
+        barrier = threading.Barrier(len(approver_ids))
+
+        def approve(user_id: UUID) -> str:
+            with self.session_factory() as db:
+                barrier.wait()
+                try:
+                    request = load_for_update(db, self.tenant_id, approval_id)
+                    decide(db, request, user_id, approve=True)
+                    db.commit()
+                    return "ok"
+                except ApiError as exc:
+                    db.rollback()
+                    return exc.code
+
+        with ThreadPoolExecutor(max_workers=len(approver_ids)) as pool:
+            outcomes = list(pool.map(approve, approver_ids))
+        self.assertEqual(sorted(outcomes), ["approval.not_pending"] * 3 + ["ok"])
+        with self.session_factory() as db:
+            self.assertEqual(db.get(ApprovalRequest, approval_id).status, "approved")
+            applies = list(db.scalars(select(Job).where(Job.kind == "approvals.apply")))
+            self.assertEqual(len(applies), 1)
+
+    def test_concurrent_submissions_leave_one_pending_request_per_object(self) -> None:
+        requester_id, object_id, _ = self._approval_fixture(2)
+        barrier = threading.Barrier(4)
+
+        def submit(_index: int) -> str:
+            with self.session_factory() as db:
+                barrier.wait()
+                try:
+                    submit_change(
+                        db, tenant_id=self.tenant_id, event="publish", action="pg.noop", object_type="assistant",
+                        object_id=object_id, title="t", requester_id=requester_id,
+                    )
+                    db.commit()
+                    return "ok"
+                except ApiError as exc:
+                    db.rollback()
+                    return exc.code
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            outcomes = list(pool.map(submit, range(4)))
+        self.assertEqual(sorted(outcomes), ["approval.pending_exists"] * 3 + ["ok"])
+        with self.session_factory() as db:
+            pending = list(db.scalars(select(ApprovalRequest).where(ApprovalRequest.status == "pending")))
+            self.assertEqual(len(pending), 1)
 
     def test_concurrent_workers_claim_each_job_once(self) -> None:
         with self.session_factory.begin() as db:

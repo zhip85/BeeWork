@@ -7,6 +7,9 @@ from collections.abc import Callable
 from sqlalchemy.orm import Session
 
 from beework import (
+    approvals as _approvals,  # noqa: F401  (registers approvals.apply / approvals.sweep)
+)
+from beework import (
     memory_jobs as _memory_jobs,  # noqa: F401  (registers memory.* jobs and the conversation-ended hook)
 )
 from beework.db import SessionLocal

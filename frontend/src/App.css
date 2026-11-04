@@ -3946,3 +3946,27 @@
 .mount-group li.mount-invalid { border-color: #e7b4b4; color: #9b2c2c; background: #fdf3f3; }
 .publish-warnings { padding: 8px 12px; border-radius: 8px; background: #fdf0dc; color: #7a4800; font-size: 13px; }
 .publish-warnings ul { margin: 4px 0 0; padding-left: 18px; }
+
+.nav-badge { margin-left: auto; min-width: 18px; padding: 0 6px; border-radius: 999px; background: #d9534f; color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
+.approval-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.approval-card { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; text-align: left; font: inherit; }
+button.approval-card { cursor: pointer; }
+.approval-card.selected { border-color: #1f6a43; box-shadow: 0 0 0 1px #1f6a43 inset; }
+.approval-card small { color: #7d8983; }
+.approval-card strong { font-size: 22px; }
+.approval-scope { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.approval-scope button { padding: 6px 12px; border: 0; background: #fff; cursor: pointer; font: inherit; font-size: 13px; }
+.approval-scope button.selected { background: #e2f4ea; color: #1f6a43; }
+.approval-status { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; background: #fdf0dc; color: #9a5b00; white-space: nowrap; }
+.approval-status.approved { background: #e2f4ea; color: #1f6a43; }
+.approval-status.rejected, .approval-status.failed { background: #fbe4e4; color: #9b2c2c; }
+.approval-status.withdrawn, .approval-status.expired { background: #f1f4f1; color: #5d6c65; }
+.check-chip { display: inline-block; margin: 0 4px 2px 0; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; background: #e2f4ea; color: #1f6a43; }
+.check-chip.warn { background: #fdf0dc; color: #9a5b00; }
+.review-drawer { max-width: 640px; max-height: 90vh; overflow-y: auto; }
+.review-drawer h3 { margin: 14px 0 6px; font-size: 13px; }
+.approval-levels, .approval-comments { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.approval-levels li, .approval-comments li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+.approval-levels p, .approval-comments p { margin: 2px 0 0; }
+.secondary-button.danger { border-color: #e7b4b4; color: #9b2c2c; }
+tr.policy-off td { opacity: 0.55; }

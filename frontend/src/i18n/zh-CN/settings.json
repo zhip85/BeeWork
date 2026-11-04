@@ -1,7 +1,8 @@
 {
   "tabs": {
     "models": "模型与环境",
-    "privacy": "数据与隐私"
+    "privacy": "数据与隐私",
+    "approvals": "审批策略"
   },
   "privacy": {
     "title": "数据与隐私",

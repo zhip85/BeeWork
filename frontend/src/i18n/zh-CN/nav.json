@@ -21,5 +21,7 @@
   "planTitle": "让 AI 团队持续进化",
   "planBody": "探索你的企业能力图谱",
   "viewCapabilities": "查看能力目录",
-  "readonlyBanner": "企业工作区当前为「{{status}}」状态：仅可查看与导出，所有修改操作已暂停。如需恢复请联系平台。"
+  "readonlyBanner": "企业工作区当前为「{{status}}」状态：仅可查看与导出，所有修改操作已暂停。如需恢复请联系平台。",
+  "approvals": "审批中心",
+  "pendingApprovals": "{{count}} 条待审批"
 }

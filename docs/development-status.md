@@ -191,6 +191,14 @@
 - 挂载解析走 `capabilities.MOUNT_RESOLVERS` 注册表，目前无已注册类型，挂载写入仍不可用。
 - 验证：ruff、`test-postgres.sh`（177 项）、前端 tsc/lint/i18n:check/build 通过；未目视检查页面。
 
+### 审批引擎与审批中心（T-022，已验收）
+
+- 表 `approval_policies`（每租户 7 个事件，懒创建默认值）、`approval_requests`（含部分唯一索引：同对象同类型仅一个待审批单）、`approval_comments`；`tenant_roles.approver_tags`（安全负责人 / 知识负责人标记）。迁移 `0022_approvals`。
+- 引擎 `beework/approvals.py`：`submit_change`、`decide`、`withdraw`、`retry_apply`、动作注册表、`approvals.apply` 与 `approvals.sweep`（7 天过期、24 小时催办）作业、通知钩子。
+- 审批权限独立于模块权限（PER-001）：审批人无需 `approvals:view` 即可审批；可见范围按申请人 / 审批人 / 管理员 / 审计员限定。
+- 接口与界面：审批策略（设置 → 审批策略）、审批中心（指标卡、筛选、审阅抽屉、通过/驳回/撤回/评论/重试）、侧栏待办角标、角色编辑器“审批负责人”。
+- 未完成：真实来源操作（T-024 起）；站内通知（T-023）；Webhook（T-087）。验证：ruff、`test-postgres.sh`（203 项）、前端检查通过；未目视检查页面。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。
