@@ -384,6 +384,85 @@ class VersionTests(unittest.TestCase):
         disabled = self.client.post(f"/api/v1/assistants/{self.aid}/versions/{first['id']}/rollback", json={}, headers=self.admin)
         self.assertEqual((disabled.status_code, disabled.json()["code"]), (409, "assistant.invalid_transition"))
 
+    # -- configuration check and mounts (T-021) -----------------------------------------
+
+    def checks(self, headers: dict | None = None, assistant_id: str | None = None):
+        return self.client.get(f"/api/v1/assistants/{assistant_id or self.aid}/checks", headers=headers or self.admin)
+
+    def test_checks_pass_for_a_complete_draft_and_report_info_only(self) -> None:
+        body = self.checks().json()
+        self.assertEqual((body["blockers"], body["high_impact"]), (0, 0))
+        self.assertEqual([issue["code"] for issue in body["issues"]], ["greeting_empty"])
+        self.assertEqual(body["issues"][0]["severity"], "info")
+
+    def test_checks_cover_model_prompt_and_environment_rules(self) -> None:
+        with self.session_factory.begin() as db:
+            assistant = db.get(Assistant, UUID(self.aid))
+            assistant.draft_config = {**assistant.draft_config, "prompt": "   ", "greeting": "hello"}
+        self.assertEqual({i["code"] for i in self.checks().json()["issues"]}, {"runtime.prompt_missing"})
+        with self.session_factory.begin() as db:
+            db.query(TenantModelSelection).delete()
+            db.get(TenantModelEnvironment, self.ids["environment"]).gateway_sync_status = "failed"
+        body = self.checks().json()
+        by_code = {i["code"]: i for i in body["issues"]}
+        self.assertEqual(set(by_code), {"runtime.prompt_missing", "runtime.model_unavailable", "runtime.gateway_not_ready"})
+        self.assertTrue(all(i["severity"] == "blocker" for i in body["issues"]))
+        self.assertEqual(body["blockers"], 3)
+        self.assertEqual(by_code["runtime.model_unavailable"]["message"], "所选模型未在当前环境启用")
+
+    def test_checks_report_missing_model_and_unnamed_draft(self) -> None:
+        draft = self.client.post("/api/v1/assistants", json={"draft": True}, headers=self.admin).json()
+        codes = {i["code"] for i in self.checks(assistant_id=draft["id"]).json()["issues"]}
+        self.assertTrue({"name_missing", "description_missing", "runtime.prompt_missing"} <= codes)
+
+    def test_stale_mounts_are_high_impact_and_listed_in_red(self) -> None:
+        ghost = "00000000-0000-4000-8000-0000000000aa"
+        with self.session_factory.begin() as db:
+            assistant = db.get(Assistant, UUID(self.aid))
+            assistant.draft_config = {**assistant.draft_config, "mounts": {"kb": [ghost]}}
+        body = self.checks().json()
+        stale = [i for i in body["issues"] if i["code"] == "mount.invalid"]
+        self.assertEqual((len(stale), stale[0]["severity"], stale[0]["target"]), (1, "high", "capabilities"))
+        self.assertEqual((body["blockers"], body["high_impact"]), (0, 1))
+        mounts = self.client.get(f"/api/v1/assistants/{self.aid}/mounts", headers=self.admin).json()
+        self.assertEqual(mounts["total"], 1)
+        self.assertEqual((mounts["groups"][0]["kind"], mounts["groups"][0]["items"][0]["state"]), ("kb", "deleted"))
+        # High-impact findings warn in the publish preview but do not block it.
+        preview = self.client.get(f"/api/v1/assistants/{self.aid}/publish-preview", headers=self.admin).json()
+        self.assertEqual(preview["blockers"], [])
+        self.assertIn("mount.invalid", [w["code"] for w in preview["warnings"]])
+        self.assertTrue(preview["can_publish"])
+
+    def test_registered_resolvers_report_disabled_and_available_mounts(self) -> None:
+        from beework.capabilities import MOUNT_RESOLVERS, MountItem
+
+        live, off = UUID("00000000-0000-4000-8000-000000000001"), UUID("00000000-0000-4000-8000-000000000002")
+        MOUNT_RESOLVERS["kb"] = lambda _db, _tenant, ids: {
+            live: MountItem(live, "kb", "FAQ", "available"),
+            off: MountItem(off, "kb", "Old", "disabled"),
+        }
+        self.addCleanup(MOUNT_RESOLVERS.pop, "kb", None)
+        with self.session_factory.begin() as db:
+            assistant = db.get(Assistant, UUID(self.aid))
+            assistant.draft_config = {**assistant.draft_config, "mounts": {"kb": [str(live), str(off)]}}
+        mounts = self.client.get(f"/api/v1/assistants/{self.aid}/mounts", headers=self.admin).json()
+        self.assertEqual([(i["name"], i["state"]) for i in mounts["groups"][0]["items"]], [("FAQ", "available"), ("Old", "disabled")])
+        self.assertEqual(mounts["mountable_kinds"], ["kb"])
+        issues = [i for i in self.checks().json()["issues"] if i["code"] == "mount.invalid"]
+        self.assertEqual([i["message"] for i in issues], ["挂载的能力“Old”已停用"])
+
+    def test_checks_and_mounts_respect_permissions_and_tenant_isolation(self) -> None:
+        viewer = self.login("viewer@example.com")
+        self.assertEqual(self.checks(viewer).status_code, 200)
+        other = self.login("other@example.com", self.ids["other"])
+        for path in ("checks", "mounts"):
+            response = self.client.get(f"/api/v1/assistants/{self.aid}/{path}", headers=other)
+            self.assertEqual(response.status_code, 404, path)
+        self.admin = self.login("admin@example.com")
+        self.assertEqual(self.checks(self.admin, str(self.ids["other_assistant"])).status_code, 404)
+        self.client.cookies.clear()
+        self.assertEqual(self.client.get(f"/api/v1/assistants/{self.aid}/checks").status_code, 401)
+
 
 if __name__ == "__main__":
     unittest.main()

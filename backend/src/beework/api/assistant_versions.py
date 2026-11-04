@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from beework.api.assistants import (
     MODEL_ENVIRONMENT,
-    UNNAMED,
     _actor_name,
     _audit,
     _enabled_chat_models,
@@ -18,6 +17,7 @@ from beework.api.assistants import (
     _visible_org_ids,
 )
 from beework.api.conventions import ApiError, check_row_version
+from beework.assistant_checks import check_assistant
 from beework.assistant_versions import (
     build_snapshot,
     diff_snapshots,
@@ -28,11 +28,12 @@ from beework.assistant_versions import (
 )
 from beework.auth import require_csrf
 from beework.db import get_db
-from beework.models import Membership, TenantModelEnvironment, utc_now
+from beework.models import Membership, utc_now
 from beework.models.assistants import Assistant, AssistantVersion
 from beework.rbac import require_tenant_permission
 from beework.runtime.dsl import dsl_from_draft
 from beework.runtime.errors import RuntimeFailure
+from beework.schemas.assistant_checks import CheckIssue
 from beework.schemas.assistants import AssistantResponse
 from beework.schemas.versions import (
     CompareResponse,
@@ -88,29 +89,29 @@ def draft_snapshot(db: Session, assistant: Assistant) -> dict[str, Any]:
     return build_snapshot(assistant, _visible_org_ids(db, assistant.id), dsl.model_dump(mode="json"))
 
 
-def publish_blockers(db: Session, assistant: Assistant, snapshot: dict[str, Any] | None, error: RuntimeFailure | None) -> list[PublishBlocker]:
-    """Minimal pre-publish checks (T-021 replaces them with the full configuration check)."""
-    blockers: list[PublishBlocker] = []
-    name = (snapshot or {}).get("name", assistant.name)
-    if not name or name.startswith(UNNAMED):
-        blockers.append(PublishBlocker(code="name_missing", message="请先为助理命名"))
-    if not (snapshot or {}).get("description", assistant.description):
-        blockers.append(PublishBlocker(code="description_missing", message="请填写使用场景 / 简介"))
-    if error is not None:
-        blockers.append(PublishBlocker(code=error.code, message=error.message))
-        return blockers
+def publish_issues(db: Session, assistant: Assistant, snapshot: dict[str, Any] | None, error: RuntimeFailure | None) -> list[CheckIssue]:
+    """The configuration check (T-021) applied to the draft, or to a frozen snapshot when rolling back."""
     models, _ = _enabled_chat_models(db, assistant.tenant_id)
-    if str((snapshot or {}).get("model_id")) not in {str(model.id) for model, _ in models}:
-        blockers.append(PublishBlocker(code="runtime.model_unavailable", message="所选模型未在当前环境启用"))
-    environment = db.scalar(
-        select(TenantModelEnvironment).where(
-            TenantModelEnvironment.tenant_id == assistant.tenant_id,
-            TenantModelEnvironment.environment == MODEL_ENVIRONMENT,
-        )
+    issues = check_assistant(
+        db,
+        assistant,
+        enabled_model_ids={str(model.id) for model, _ in models},
+        environment=MODEL_ENVIRONMENT,
+        config=(snapshot or {}).get("config"),
+        name=(snapshot or {}).get("name"),
+        description=(snapshot or {}).get("description"),
     )
-    if environment is None or environment.gateway_sync_status != "synced":
-        blockers.append(PublishBlocker(code="runtime.gateway_not_ready", message="该环境尚未同步到 AI 网关"))
-    return blockers
+    if error is not None and error.code not in {issue.code for issue in issues}:
+        issues.append(CheckIssue(code=error.code, severity="blocker", message=error.message, target="basic"))
+    return issues
+
+
+def publish_blockers(db: Session, assistant: Assistant, snapshot: dict[str, Any] | None, error: RuntimeFailure | None) -> list[PublishBlocker]:
+    return [
+        PublishBlocker(code=issue.code, message=issue.message)
+        for issue in publish_issues(db, assistant, snapshot, error)
+        if issue.severity == "blocker"
+    ]
 
 
 def _snapshot_blockers(db: Session, assistant: Assistant, snapshot: dict[str, Any]) -> list[PublishBlocker]:
@@ -125,13 +126,15 @@ def _preview(db: Session, assistant: Assistant) -> tuple[PublishPreview, dict[st
         error = exc
     live = live_version(db, assistant)
     diff = diff_snapshots(live.snapshot if live else None, snapshot) if snapshot else []
-    blockers = publish_blockers(db, assistant, snapshot, error)
+    issues = publish_issues(db, assistant, snapshot, error)
+    blockers = [PublishBlocker(code=i.code, message=i.message) for i in issues if i.severity == "blocker"]
     next_seq = (latest_version(db, assistant.id).version_seq if latest_version(db, assistant.id) else 0) + 1
     has_changes = live is None or bool(diff)
     return (
         PublishPreview(
             next_version=version_label(next_seq),
             blockers=blockers,
+            warnings=[i for i in issues if i.severity != "blocker"],
             has_changes=has_changes,
             diff=diff,
             can_publish=not blockers and has_changes and assistant.status != "disabled",

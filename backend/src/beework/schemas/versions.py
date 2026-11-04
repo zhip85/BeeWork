@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from beework.schemas.assistant_checks import CheckIssue
+
 
 class PublishRequest(BaseModel):
     change_note: str = Field(default="", max_length=500)
@@ -49,6 +51,8 @@ class PublishBlocker(BaseModel):
 class PublishPreview(BaseModel):
     next_version: str
     blockers: list[PublishBlocker]
+    # High-impact and informational findings from the configuration check; they do not block publishing.
+    warnings: list[CheckIssue] = []
     has_changes: bool
     diff: list[dict[str, Any]]
     can_publish: bool

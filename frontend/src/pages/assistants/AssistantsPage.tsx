@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bot, LayoutGrid, List, MoreHorizontal, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { formatRelativeTime } from '../../i18n/format'
@@ -163,7 +163,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
                 <span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span>
                 <RowMenu assistant={assistant} can={can} canRead={canRead} onPublish={() => setPublishing(assistant)} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} />
               </header>
-              <h3>{assistant.name}</h3>
+              <h3><Link className="assistant-name-link" to={`/assistants/${assistant.id}`}>{assistant.name}</Link></h3>
               <p className="assistant-description">{assistant.description}</p>
               <div className="assistant-tags"><span>{enumLabelCategory(t, assistant.category)}</span><span>{assistant.organization_name}</span></div>
               <footer>
@@ -185,7 +185,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
             <tbody>
               {items.map((assistant) => (
                 <tr key={assistant.id}>
-                  <td><strong>{assistant.name}</strong><small className="platform-tenant-slug">v{assistant.draft_version}</small></td>
+                  <td><strong><Link className="assistant-name-link" to={`/assistants/${assistant.id}`}>{assistant.name}</Link></strong><small className="platform-tenant-slug">v{assistant.draft_version}</small></td>
                   <td><span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span></td>
                   <td>{assistant.organization_name}</td>
                   <td>{formatRelativeTime(assistant.updated_at)}</td>
@@ -281,6 +281,7 @@ function RowMenu({
   const entries: { key: string; label: string; run: () => void; danger?: boolean }[] = []
   if (ownable && can('assistants:edit')) entries.push({ key: 'edit', label: t('menu.edit'), run: onEdit })
   if (ownable && can('assistants:publish') && assistant.status !== 'disabled') entries.push({ key: 'publish', label: t('menu.publish'), run: onPublish })
+  if (canRead('assistants:view')) entries.push({ key: 'detail', label: t('menu.detail'), run: () => navigate(`/assistants/${assistant.id}`) })
   if (canRead('assistants:view')) entries.push({ key: 'versions', label: t('menu.versions'), run: () => navigate(`/assistants/${assistant.id}/versions`) })
   if (canRead('conversations:view')) entries.push({ key: 'history', label: t('menu.history'), run: () => navigate(`/assistants/${assistant.id}/conversations`) })
   if (ownable && can('assistants:edit')) entries.push({ key: 'copy', label: t('menu.copy'), run: onCopy })

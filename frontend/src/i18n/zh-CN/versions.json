@@ -15,7 +15,8 @@
     "submitting": "发布中…",
     "cancel": "取消",
     "done": "已发布 v{{version}}",
-    "approvalNote": "当前租户未配置发布审批，提交后立即生效。"
+    "approvalNote": "当前租户未配置发布审批，提交后立即生效。",
+    "warnings": "高影响与提示（不阻止发布）"
   },
   "page": {
     "title": "版本历史",

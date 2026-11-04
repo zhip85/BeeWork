@@ -9,6 +9,7 @@ import type { Assistant } from './types'
 type Preview = {
   next_version: string
   blockers: { code: string; message: string }[]
+  warnings: { code: string; severity: 'high' | 'info'; message: string }[]
   has_changes: boolean
   diff: VersionChange[]
   can_publish: boolean
@@ -65,6 +66,7 @@ export function PublishDialog({
             {preview.blockers.length > 0
               ? <div className="publish-blockers" role="alert"><strong>{t('publish.blockers')}</strong><ul>{preview.blockers.map((b) => <li key={b.code}>{b.message}</li>)}</ul></div>
               : <p className="assistants-notice">{t('publish.noBlockers')}</p>}
+            {preview.warnings.length > 0 && <div className="publish-warnings"><strong>{t('publish.warnings')}</strong><ul>{preview.warnings.map((w) => <li key={w.code + w.message}>{w.message}</li>)}</ul></div>}
             {!preview.has_changes && <p className="wizard-muted">{t('publish.noChanges')}</p>}
             {preview.has_changes && assistant.live_version_id === null && <p className="wizard-muted">{t('publish.firstRelease')}</p>}
             {preview.diff.length > 0 && <><h3>{t('publish.changes')}</h3><ChangeList changes={preview.diff} /></>}
