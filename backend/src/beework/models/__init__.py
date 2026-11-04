@@ -78,6 +78,15 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "assistant.test_case_copied": "复制测试用例",
     "assistant.test_case_deleted": "删除测试用例",
     "assistant.test_run_started": "运行测试用例",
+    "api_key.created": "创建 API 密钥",
+    "api_key.revoked": "吊销 API 密钥",
+    "channel.created": "创建渠道",
+    "channel.updated": "更新渠道",
+    "channel.published": "发布渠道",
+    "channel.disabled": "停用渠道",
+    "channel.enabled": "启用渠道",
+    "channel.deleted": "删除渠道",
+    "channel.key_rotated": "重置渠道 SDK Key",
     "approval.policy_updated": "更新审批策略",
     "approval.submitted": "提交审批",
     "approval.approved": "通过审批",
@@ -530,8 +539,10 @@ class AuditEvent(Base):
     def set_audit_metadata(self, _key: str, action: str) -> str:
         if action.startswith(("membership.", "role.", "organization.")):
             self.category = "members_permissions"
-        elif action.startswith("assistant."):
+        elif action.startswith(("assistant.", "channel.")):
             self.category = "assistants"
+        elif action.startswith("api_key."):
+            self.category = "developer"
         else:
             self.category = "security"
         self.description = AUDIT_ACTION_DESCRIPTIONS.get(action, action)
@@ -676,6 +687,7 @@ def prevent_audit_event_mutation(session, _flush_context, _instances) -> None:
 from beework.models import (  # noqa: E402,F401
     approvals,
     assistants,
+    channels,
     conversations,
     jobs,
     memory,

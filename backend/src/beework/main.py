@@ -10,6 +10,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from beework.api import router as api_router
 from beework.api.conventions import ApiError, api_error_handler, validation_error_handler
+from beework.api.open_api import router as open_api_router
+from beework.api.widget import router as widget_router
 from beework.auth import get_current_user
 from beework.config import settings
 from beework.models import User, audit_source_ip
@@ -21,10 +23,24 @@ app = FastAPI(
     description="BeeWork enterprise AI platform development API",
 )
 app.include_router(api_router)
+app.include_router(open_api_router)  # /v1: the open API, authenticated by tenant API keys
+app.include_router(widget_router)  # /v1/widget: the website widget, authenticated by site key + Origin
 app.exception_handler(ApiError)(api_error_handler)
 app.exception_handler(StarletteHTTPException)(api_error_handler)
 app.exception_handler(RequestValidationError)(validation_error_handler)
 app.exception_handler(Exception)(api_error_handler)
+
+
+@app.middleware("http")
+async def widget_cors(request: Request, call_next):
+    """CORS for the widget: only once a handler has validated the caller's Origin against the channel's allow-list."""
+    response = await call_next(request)
+    origin = getattr(request.state, "cors_origin", None)
+    if origin and request.url.path.startswith("/v1/widget/"):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Expose-Headers"] = "Retry-After"
+        response.headers.append("Vary", "Origin")
+    return response
 
 
 @app.middleware("http")

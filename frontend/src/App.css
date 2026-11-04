@@ -4018,3 +4018,14 @@ tr.policy-off td { opacity: 0.55; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .tenant-status-note { display: block; max-width: 280px; margin-top: 4px; color: #9a5b00; font-size: 12px; }
+
+.key-reveal { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid #e0c36a; border-radius: 10px; background: #fff8e1; }
+.key-reveal code, .embed-code { padding: 8px 10px; border-radius: 8px; background: #fff; border: 1px solid var(--line); word-break: break-all; font-size: 13px; }
+.embed-code { width: 100%; font-family: ui-monospace, Menlo, monospace; resize: none; }
+.api-key-form { max-width: 520px; }
+.api-key-form fieldset { display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.channel-name { display: inline-flex; gap: 6px; align-items: center; }
+.channel-experience { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.color-row { display: flex; gap: 6px; align-items: center; }
+.detail-channels { display: grid; gap: 14px; }
+.channels-embedded .page-heading { margin-bottom: 8px; }

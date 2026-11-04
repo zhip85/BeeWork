@@ -9,6 +9,8 @@ export default defineConfig({
     proxy: {
       '/api': process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
       '/health': process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
+      // The open API (/v1) and the website widget script/endpoints, so the docs and embed code work in dev.
+      '/v1': process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
     },
   },
 })

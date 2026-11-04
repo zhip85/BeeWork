@@ -13,6 +13,9 @@ from beework import (
     assistant_publish as _assistant_publish,  # noqa: F401  (registers the assistant.publish approval action)
 )
 from beework import (
+    channel_publish as _channel_publish,  # noqa: F401  (registers the channel.publish approval action)
+)
+from beework import (
     gateway_sync as _gateway_sync,  # noqa: F401  (registers the gateway.* jobs)
 )
 from beework import (

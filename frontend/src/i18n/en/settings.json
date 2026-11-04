@@ -2,7 +2,8 @@
   "tabs": {
     "models": "Models & environments",
     "privacy": "Data & privacy",
-    "approvals": "Approval policies"
+    "approvals": "Approval policies",
+    "api": "API keys"
   },
   "privacy": {
     "title": "Data & privacy",

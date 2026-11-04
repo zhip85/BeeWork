@@ -38,11 +38,33 @@ def error_response(
     )
 
 
+OPEN_API_PREFIX = "/v1/"
+_OPEN_API_CODES = {400: "invalid_request", 401: "unauthorized", 403: "forbidden", 404: "not_found", 405: "method_not_allowed", 429: "rate_limited"}
+
+
+def _is_open_api(request: Request) -> bool:
+    return request.url.path.startswith(OPEN_API_PREFIX)
+
+
+def open_api_error(
+    status_code: int, code: str, message: str, headers: dict[str, str] | None = None
+) -> JSONResponse:
+    """The open API's error envelope (NFR-017): ``{"error": {"code": ..., "message": ...}}``."""
+    return JSONResponse(status_code=status_code, content={"error": {"code": code, "message": message}}, headers=headers)
+
+
 async def api_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    open_api = _is_open_api(request)
     if isinstance(exc, ApiError):
+        if open_api:
+            return open_api_error(exc.status_code, exc.code, exc.detail, exc.headers)
         return error_response(exc.status_code, exc.code, exc.detail, exc.headers)
     if isinstance(exc, HTTPException):
+        if open_api:
+            return open_api_error(exc.status_code, _OPEN_API_CODES.get(exc.status_code, "error"), str(exc.detail), exc.headers)
         return error_response(exc.status_code, "error", str(exc.detail), exc.headers)
+    if open_api:
+        return open_api_error(500, "internal_error", "内部服务器错误")
     return error_response(500, "error.internal", "内部服务器错误")
 
 
@@ -53,6 +75,8 @@ async def validation_error_handler(request: Request, exc: Exception) -> JSONResp
     field = ".".join(str(part) for part in first.get("loc", ()) if part not in ("body", "query", "path"))
     message = str(first.get("msg", "请求参数不正确")).removeprefix("Value error, ")
     detail = f"{field}：{message}" if field else message
+    if _is_open_api(request):
+        return open_api_error(422, "invalid_request", detail)
     return JSONResponse(
         status_code=422,
         content={"detail": detail, "code": "validation.invalid", "errors": jsonable_encoder(errors)},

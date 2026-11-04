@@ -2,7 +2,8 @@
   "tabs": {
     "models": "模型与环境",
     "privacy": "数据与隐私",
-    "approvals": "审批策略"
+    "approvals": "审批策略",
+    "api": "API 密钥"
   },
   "privacy": {
     "title": "数据与隐私",

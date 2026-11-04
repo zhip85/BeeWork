@@ -308,6 +308,8 @@ def main() -> None:
                 json={"items": [{**{k: publish_policy_restore[k] for k in ("event", "approver_role", "levels", "enabled")}}]},
             )
         if assistant_id:
+            # Only drafts and disabled assistants can be deleted (AST-010), so a published one is disabled first.
+            tenant_admin.post(f"/api/v1/assistants/{assistant_id}/disable", headers=headers)
             tenant_admin.delete(f"/api/v1/assistants/{assistant_id}", headers=headers)
             _remove_test_data(assistant_id)
         current = tenant_admin.get("/api/v1/tenant/model-environments/production", headers=headers).json()

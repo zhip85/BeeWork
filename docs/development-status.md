@@ -224,6 +224,12 @@
 - T-005：每小时自动流转（试用到期→停用、宽限 7 天→只读、待删除 30 天→已删除，标注“数据尚未清除”）；平台可创建试用租户；网关同步改为 Worker 作业并立即返回 `pending`；只读/停用租户的虚拟 Key 在 LiteLLM 中被拦截、恢复后解除。迁移 `0026`。
 - 验证：ruff、`test-postgres.sh`（291 项）、前端检查；**网关与运行时 e2e 已在真实栈上通过**（含停用租户 Key 被拒绝）。未目视检查页面。
 
+### 租户 API 密钥、开放对话 API 与网站渠道（T-028 / T-040，已验收）
+
+- T-028：设置 → API 密钥（明文只显示一次、只存哈希与掩码、吊销立即生效、成员暂停/移除时吊销其密钥）；开放 API `/v1`（`POST /v1/assistants/{id}/chat`、`GET /v1/conversations/{id}/messages`，生产跑线上版本、开发/预发跑草稿，SSE，统一错误信封，独立 OpenAPI 文档 `/v1/docs`）；按租户 QPS 的 Valkey 令牌桶（429 + Retry-After）。迁移 `0027`。
+- T-040：网站渠道（草稿 → 发布快照，受“接入新的外部渠道”审批策略约束；域名白名单 + site_key + 访客令牌；`/v1/widget/*` 与 `widget.js`）；渠道页、助理详情“渠道”页签（含开放 API 接入说明）。
+- 验证：ruff、`test-postgres.sh`（337 项）、前端检查；真实栈上 `check_open_api_e2e.py` 全部通过，真实 `widget.js` 经 jsdom 完成一次对话。**只用 LiteLLM `mock_response` 验证，没有真实供应商 Key；未在真实浏览器里验证挂件。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

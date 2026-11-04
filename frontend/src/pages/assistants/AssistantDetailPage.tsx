@@ -6,6 +6,8 @@ import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
 import { AssistantWizard } from './AssistantWizard'
+import { ChannelsPage } from '../channels/ChannelsPage'
+import { OpenApiCard } from '../channels/OpenApiCard'
 import { PublishDialog } from './PublishDialog'
 import { TestCasesTab } from './TestCasesTab'
 import { TestConsole } from './TestConsole'
@@ -184,7 +186,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
               <li><span>{t('path.driver')}</span><small>{t('path.driverHint')}</small><em>{t('soon')}</em></li>
               <li><span>{t('path.capabilities')}</span><small>{t('path.capabilitiesHint', { count: mounts?.total ?? 0 })}</small><button className="text-button" onClick={() => setTab('capabilities')} type="button">{t('tabs.capabilities')}</button></li>
               <li><span>{t('path.oc')}</span><small>{t('path.ocHint')}</small><em>{t('soon')}</em></li>
-              <li><span>{t('path.channels')}</span><small>{t('path.channelsHint')}</small><em>{t('soon')}</em></li>
+              <li><span>{t('path.channels')}</span><small>{t('path.channelsHint')}</small><button className="text-button" onClick={() => setTab('channels')} type="button">{t('tabs.channels')}</button></li>
               <li><span>{t('path.tests')}</span><small>{t('path.testsHint')}</small><button className="text-button" onClick={() => setTab('tests')} type="button">{t('tabs.tests')}</button></li>
               <li><span>{t('path.publish')}</span><small>{t('path.publishHint')}</small><Link className="text-button" to={`/assistants/${assistant.id}/versions`}>{t('tabs.versions')}</Link></li>
             </ol>
@@ -241,7 +243,13 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
         <div className="detail-card"><p>{t('conversationsHint')}</p><Link className="primary-button" to={`/assistants/${assistant.id}/conversations`}>{t('tabs.conversations')}</Link></div>
       )}
       {tab === 'tests' && <TestCasesTab assistant={assistant} tenant={tenant} versions={versionOptions} />}
-      {(tab === 'orchestration' || tab === 'channels' || tab === 'dependencies') && (
+      {tab === 'channels' && (
+        <div className="detail-channels">
+          <ChannelsPage assistantId={assistant.id} embedded tenant={tenant} />
+          <OpenApiCard assistantId={assistant.id} />
+        </div>
+      )}
+      {(tab === 'orchestration' || tab === 'dependencies') && (
         <div className="detail-card"><p className="assistants-empty-filtered">{t('soonTab', { name: t(`tabs.${tab}`) })}</p></div>
       )}
 

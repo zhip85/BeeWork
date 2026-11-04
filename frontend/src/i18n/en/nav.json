@@ -23,5 +23,6 @@
   "viewCapabilities": "View capabilities",
   "readonlyBanner": "This workspace is currently \"{{status}}\": view and export only; all changes are paused. Contact the platform to restore access.",
   "approvals": "Approvals",
-  "pendingApprovals": "{{count}} awaiting your approval"
+  "pendingApprovals": "{{count}} awaiting your approval",
+  "channels": "Channels"
 }
