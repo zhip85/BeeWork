@@ -3,6 +3,7 @@
     "models": "模型与环境",
     "privacy": "数据与隐私",
     "approvals": "审批策略",
+    "usage": "订阅与用量",
     "api": "API 密钥"
   },
   "privacy": {
@@ -25,5 +26,63 @@
     "saved": "已保存",
     "readOnly": "你没有修改这些设置的权限。",
     "conflict": "设置已被他人修改，已为你刷新。"
+  },
+  "usage": {
+    "title": "订阅与用量",
+    "subtitle": "当前套餐、本月点数用量、月度预算与告警。点数来自 AI 网关的调用记录，约每 5 分钟汇总一次。",
+    "loading": "正在加载…",
+    "loadFailed": "无法加载用量",
+    "currentPlan": "当前套餐",
+    "cycle": {
+      "monthly": "月付",
+      "yearly": "年付"
+    },
+    "renews": "{{date}} 续费",
+    "noRenewal": "未设置续费日期",
+    "seatsCount": "{{count}} 个席位",
+    "environmentsCount": "{{count}} 个环境",
+    "changePlanNote": "套餐变更请联系平台。",
+    "pointsUsed": "本月已用点数",
+    "unlimited": "套餐内不限",
+    "seats": "席位",
+    "projected": "预计月末用量",
+    "projectedHint": "按本月已过天数线性外推",
+    "syncedAt": "用量最近汇总于 {{time}}",
+    "neverSynced": "用量尚未汇总（Worker 每 5 分钟拉取一次）",
+    "syncError": "最近一次汇总失败，数据可能滞后",
+    "trend": "月度点数消耗",
+    "trendHint": "最近 6 个月；水平线为月度预算，超出预算的月份以醒目颜色标出。",
+    "budgetLine": "预算 {{value}}",
+    "byAssistant": "本月按助理拆分",
+    "byAssistantEmpty": "本月还没有用量。",
+    "other": "其他",
+    "unattributed": "未归属助理",
+    "exported": "已导出用量报表",
+    "exportFailed": "导出用量报表失败",
+    "export": {
+      "title": "导出用量报表",
+      "hint": "按日 × 助理 × 模型 × 环境导出 CSV，范围不超过 366 天。",
+      "from": "开始日期",
+      "to": "结束日期",
+      "action": "导出 CSV",
+      "exporting": "正在导出"
+    },
+    "budget": {
+      "title": "预算与告警",
+      "used": "本月已使用预算的 {{percent}}%。",
+      "paused": "本月预算已用尽：开发与预发环境已暂停，生产环境不受影响。",
+      "monthly": "月度预算（点数）",
+      "thresholds": "告警阈值",
+      "thresholdsHint": "用量每达到一个比例，每月只通知一次企业管理员（站内通知）。",
+      "recipients": "告警接收人（邮箱，逗号分隔）",
+      "recipientsHint": "邮件发送尚未接入，目前仅发送站内通知；此处先保存接收人。",
+      "pause": "达到 100% 时暂停非生产流量",
+      "pauseHint": "生产环境助手不受影响，开发与预发环境将暂停；月初或调高预算后自动恢复。",
+      "save": "保存",
+      "saving": "保存中…",
+      "saved": "预算已保存",
+      "saveFailed": "保存预算失败",
+      "readOnly": "你没有修改预算的权限。"
+    }
   }
 }

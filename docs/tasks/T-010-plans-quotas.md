@@ -55,3 +55,27 @@
 - `environments_for_plan` 与 `tenant_models.py` 的模型可用性仍读 `tenants.plan`；T-010 剩余部分需改为读订阅，并在“应用订阅变更”时同步这两个字段或删除它们。
 - 租户创建后若有人直接改 `tenants.plan`/`seat_limit`，订阅快照不会跟着变（目前没有修改入口，只有创建）。
 - 跨租户“404”不适用：租户接口按 `X-Tenant-ID` 校验成员身份，非成员为 403（沿用现有约定）。
+
+### T-010 剩余部分完成记录
+
+**改动文件**：后端新增 `api/platform_plans.py`、`tests/test_plans.py`（7 项）；修改 `entitlements.py`（`environments_for`、`validate_plan_definition`、`publish_plan_version`、`change_subscription`、`plan_in_use`、点数/会话数计数器）、`schemas/plans.py`，以及把 `environments_for_plan(tenant.plan)` 改为订阅驱动的 `channel_chat.py`、`api/conventions.py`、`api/common.py`、`api/api_keys.py`、`api/channels.py`、`api/tenant_models.py`。前端新增 `pages/platform/PlatformPlansPage.tsx`（平台“套餐与权益”页）、`pages/settings/UsagePage.tsx`（租户“订阅与用量”页，与 T-011 合并），修改 `PlatformConsole.tsx`、`SettingsTabs.tsx`、`App.tsx`、`i18n/*`。
+
+**接口**
+- `GET /platform/plans`（三个套餐、各版本、使用租户数、卡片上最多 3 个租户）。
+- `POST /platform/plans/{code}/versions`：只传要改的字段，其余沿用上一版；校验权益/配额键与取值（环境、审批层级、非负整数或 null、超额策略）；以行锁串行化并发发布；写平台审计 `plan.version_published`。版本不可变。
+- `DELETE /platform/plans/{code}`：有租户在用（`tenants.plan` 或任一订阅历史指向它）返回 409 `plan.in_use`（RUL-013）。
+- `GET/POST /platform/tenants/{id}/subscription`：应用套餐版本（缺省最新版；缺省席位用套餐的席位配额）为新的当前订阅，旧订阅保留为历史，同步 `tenants.plan` / `seat_limit`，租户与平台两条审计链都写 `tenant.subscription_changed`。
+- 环境可用性现在读订阅的 `environments` 权益，而不是 `tenants.plan`；`/tenant/subscription` 的点数、会话数用量来自 T-011。
+
+**验证**：见 T-011 与 `docs/development-status.md`。测试覆盖：平台权限、版本发布不影响已有快照直到应用变更、非法定义 422、删除限制（含历史订阅）、应用套餐后环境/席位/审计联动、降级后对象保留但不可新增、404/CSRF/校验。**平台页与订阅页未做浏览器目视验收。**
+
+**遗留问题**
+- 降级后，租户在被取消的环境（开发/预发）里已启用的模型与网关团队不会被自动清理；环境入口随订阅立即消失。
+- `tenant_models.py` 的模型可用性仍读 `tenants.plan`（应用订阅时同步，没有别的修改入口，因此一致）。
+- 套餐只有三个固定编码，平台页不能新建套餐；删除接口主要保证规则存在。
+- 企业版默认席位 200 vs 500 的 PRD 矛盾与各配额超额策略（目前全 hard）仍待产品确认。
+
+
+
+**审查修正（T-010）**
+- 修复重复应用同一套餐会重置席位：把租户的当前套餐升到新版本、且没填席位时，此前会退回套餐默认席位，可能低于已协商的席位数。现在同一套餐再次应用时沿用租户当前席位；换到别的套餐仍使用该套餐的席位配额。已有测试覆盖。

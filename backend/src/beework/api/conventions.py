@@ -268,13 +268,14 @@ def current_environment(
     A value that is not an environment is a 422; one the tenant's plan does not offer is a 403, so workspaces
     on plans with only production can never read or write development / staging data.
     """
+    from beework.entitlements import environments_for
     from beework.models import Tenant
-    from beework.tenant_access import ENVIRONMENTS, environments_for_plan
+    from beework.tenant_access import ENVIRONMENTS
 
     requested = (request.headers.get("X-Environment") or DEFAULT_ENVIRONMENT).strip().lower()
     if requested not in ENVIRONMENTS:
         raise ApiError(422, "environment.invalid", "环境必须是开发、预发或生产")
     tenant = db.get(Tenant, membership.tenant_id)
-    if tenant is None or requested not in environments_for_plan(tenant.plan):
+    if tenant is None or requested not in environments_for(db, tenant.id):
         raise ApiError(403, "environment.unavailable", "当前套餐仅提供生产环境，开发与预发环境需企业版")
     return requested

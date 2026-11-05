@@ -4029,3 +4029,38 @@ tr.policy-off td { opacity: 0.55; }
 .color-row { display: flex; gap: 6px; align-items: center; }
 .detail-channels { display: grid; gap: 14px; }
 .channels-embedded .page-heading { margin-bottom: 8px; }
+
+/* Subscription & usage (T-011) */
+.usage-page { display: grid; gap: 14px; align-content: start; }
+.usage-plan { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
+.usage-plan-name { display: block; font-size: 18px; margin: 4px 0; }
+.usage-plan-note, .usage-hint, .usage-sync { color: var(--muted, #667085); font-size: 13px; margin: 0; }
+.usage-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.usage-tile strong { font-size: 24px; }
+.usage-tile strong span { font-size: 14px; font-weight: 400; color: var(--muted, #667085); }
+.usage-meter { height: 8px; border-radius: 4px; background: #eef0f4; overflow: hidden; }
+.usage-meter i { display: block; height: 100%; background: var(--brand, #f59e0b); border-radius: 4px; }
+.usage-meter.warn i { background: #d97706; }
+.usage-chart { position: relative; display: flex; align-items: flex-end; gap: 12px; height: 200px; padding: 22px 8px 0; border-bottom: 1px solid var(--line); }
+.usage-bar-col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; position: relative; }
+.usage-bar { display: block; width: 100%; max-width: 56px; background: var(--brand, #f59e0b); border-radius: 4px 4px 0 0; }
+.usage-bar.over { background: #dc2626; }
+.usage-bar-value { font-size: 12px; }
+.usage-bar-col small { position: absolute; bottom: -22px; font-size: 12px; }
+.usage-budget-line { position: absolute; left: 0; right: 0; border-top: 2px dashed #6b7280; pointer-events: none; }
+.usage-budget-line span { position: absolute; right: 0; top: -18px; font-size: 12px; background: #fff; padding: 0 4px; }
+.usage-chart + * { margin-top: 24px; }
+.usage-row { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr minmax(100px, auto); gap: 12px; align-items: center; }
+.usage-budget, .usage-export { max-width: 640px; }
+.usage-export-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+
+/* Platform plans (T-010) */
+.plans-page { display: grid; gap: 14px; align-content: start; }
+.plans-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.plans-card { text-align: left; cursor: pointer; align-content: start; font: inherit; }
+.plans-card.selected { border-color: var(--brand, #f59e0b); box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25); }
+.plans-price { font-size: 20px; font-weight: 600; }
+.plans-detail table input[type='number'], .plans-detail table select, .plans-detail table input:not([type]) { max-width: 220px; }
+.plans-actions { display: flex; gap: 12px; align-items: center; }
+.plans-versions { margin: 0; padding-left: 18px; }
+.plans-apply { max-width: 520px; }

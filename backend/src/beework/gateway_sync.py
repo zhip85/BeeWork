@@ -28,6 +28,7 @@ from beework.models import (
     TenantModelSelection,
 )
 from beework.tenant_lifecycle import NON_SERVING_STATUSES
+from beework.usage import usage_paused
 from beework.worker.queue import enqueue, job_handler
 
 logger = logging.getLogger(__name__)
@@ -135,7 +136,8 @@ def sync_tenant_environment(db: Session, tenant: Tenant, config: TenantModelEnvi
                 new_key = client.generate_key(team_id=config.gateway_team_id, alias=alias)
                 config.gateway_key_encrypted = encrypt_model_api_key(new_key)
                 config.gateway_key_blocked = False
-                if tenant.status in NON_SERVING_STATUSES:  # a key minted for a suspended workspace starts blocked
+                if should_block(tenant, config.environment, usage_is_paused=usage_paused(db, tenant.id)):
+                    # a key minted for a suspended or budget-paused workspace starts blocked
                     client.block_key(new_key)
                     config.gateway_key_blocked = True
     except GatewayError as exc:
@@ -146,6 +148,12 @@ def sync_tenant_environment(db: Session, tenant: Tenant, config: TenantModelEnvi
         config.gateway_error = None
         config.gateway_synced_at = datetime.now(UTC)
     db.commit()
+
+
+def should_block(tenant: Tenant, environment: str, *, usage_is_paused: bool) -> bool:
+    """A gateway key is blocked while the workspace is not serving, or while the budget pause (RUL-022) covers a
+    non-production environment."""
+    return tenant.status in NON_SERVING_STATUSES or (usage_is_paused and environment != "production")
 
 
 def environment_ready(config: TenantModelEnvironment | None) -> bool:
@@ -200,12 +208,13 @@ def sync_environment_job(db: Session, payload: dict[str, Any]) -> None:
 
 
 def apply_tenant_access(db: Session, tenant: Tenant) -> None:
-    """Block the tenant's gateway keys while its status forbids model use, unblock them when it serves again.
+    """Block the tenant's gateway keys while its status forbids model use (or, for non-production environments, while
+    the budget pause applies), unblock them when that no longer holds.
 
     Raises ``GatewayError`` when the gateway cannot be reached so the job is retried: a suspended workspace
     must not keep a working key.
     """
-    blocked = tenant.status in NON_SERVING_STATUSES
+    paused = usage_paused(db, tenant.id)
     configs = list(
         db.scalars(
             select(TenantModelEnvironment).where(
@@ -214,7 +223,10 @@ def apply_tenant_access(db: Session, tenant: Tenant) -> None:
             )
         )
     )
-    pending = [config for config in configs if config.gateway_key_blocked != blocked]
+    pending = [
+        config for config in configs
+        if config.gateway_key_blocked != should_block(tenant, config.environment, usage_is_paused=paused)
+    ]
     if not pending:
         return
     if not gateway_configured():
@@ -222,6 +234,7 @@ def apply_tenant_access(db: Session, tenant: Tenant) -> None:
     with LiteLLMClient() as client:
         for config in pending:
             key = decrypt_model_api_key(config.gateway_key_encrypted)
+            blocked = should_block(tenant, config.environment, usage_is_paused=paused)
             client.block_key(key) if blocked else client.unblock_key(key)
             config.gateway_key_blocked = blocked
             db.commit()  # one key at a time: a failure later keeps the keys already handled
@@ -242,7 +255,9 @@ def reconcile_tenant_access(db: Session) -> int:
     )
     seen: set[UUID] = set()
     for tenant, config in rows:
-        if tenant.id not in seen and config.gateway_key_blocked != (tenant.status in NON_SERVING_STATUSES):
+        if tenant.id not in seen and config.gateway_key_blocked != should_block(
+            tenant, config.environment, usage_is_paused=usage_paused(db, tenant.id)
+        ):
             seen.add(tenant.id)
             enqueue(
                 db, "gateway.sync_tenant_access", {"tenant_id": str(tenant.id)}, tenant_id=tenant.id,

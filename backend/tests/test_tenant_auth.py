@@ -611,7 +611,9 @@ class TenantAuthTests(unittest.TestCase):
         )
         self.assertEqual(standard_staging.status_code, 403, standard_staging.text)
         with self.session_factory.begin() as db:
-            db.get(Tenant, UUID(self.tenant_id)).plan = "enterprise"
+            from beework.entitlements import change_subscription
+
+            change_subscription(db, db.get(Tenant, UUID(self.tenant_id)), "enterprise")
         enterprise_staging = self.client.get(
             "/api/v1/tenant/model-environments/staging",
             headers=headers,

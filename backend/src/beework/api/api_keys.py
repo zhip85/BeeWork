@@ -9,11 +9,11 @@ from beework.api.conventions import ApiError
 from beework.api_keys import generate_key
 from beework.auth import require_csrf
 from beework.db import get_db
+from beework.entitlements import environments_for
 from beework.models import AuditEvent, Membership, Tenant, utc_now
 from beework.models.channels import TenantApiKey
 from beework.rbac import require_tenant_permission
 from beework.schemas.open_api import ApiKeyCreate, ApiKeyCreated, ApiKeyList, ApiKeyResponse
-from beework.tenant_access import environments_for_plan
 
 router = APIRouter()
 
@@ -53,7 +53,7 @@ def create_api_key(
     db: Session = Depends(get_db),
 ) -> ApiKeyCreated:
     tenant = db.get(Tenant, membership.tenant_id)
-    if tenant is None or payload.environment not in environments_for_plan(tenant.plan):
+    if tenant is None or payload.environment not in environments_for(db, tenant.id):
         raise ApiError(403, "environment.unavailable", "当前套餐仅提供生产环境，开发与预发环境需企业版")
     if payload.expires_at is not None:
         expires = payload.expires_at if payload.expires_at.tzinfo else payload.expires_at.replace(tzinfo=utc_now().tzinfo)

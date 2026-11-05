@@ -22,6 +22,7 @@ from beework.channel_publish import (
 )
 from beework.config import settings
 from beework.db import get_db
+from beework.entitlements import environments_for
 from beework.models import AuditEvent, Membership, Tenant, utc_now
 from beework.models.channels import ChannelInstance
 from beework.rbac import require_tenant_permission
@@ -33,7 +34,6 @@ from beework.schemas.channels import (
     PendingChannelApproval,
     PublishChannelRequest,
 )
-from beework.tenant_access import environments_for_plan
 
 router = APIRouter()
 
@@ -86,7 +86,7 @@ def _audit(db: Session, membership: Membership, action: str, channel: ChannelIns
 def _validate(db: Session, membership: Membership, payload: ChannelWrite, *, exclude: UUID | None = None) -> None:
     load_assistant(db, membership, payload.assistant_id)  # 404 for other tenants' / invisible assistants
     tenant = db.get(Tenant, membership.tenant_id)
-    if tenant is None or payload.environment not in environments_for_plan(tenant.plan):
+    if tenant is None or payload.environment not in environments_for(db, tenant.id):
         raise ApiError(403, "environment.unavailable", "当前套餐仅提供生产环境，开发与预发环境需企业版")
     statement = select(ChannelInstance.id).where(
         ChannelInstance.tenant_id == membership.tenant_id, func.lower(ChannelInstance.name) == payload.name.lower()

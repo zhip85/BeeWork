@@ -15,7 +15,7 @@ from beework.assistant_versions import live_version
 from beework.auth import require_csrf
 from beework.conversations import append_message, console_end_user, start_conversation
 from beework.db import get_db
-from beework.entitlements import check_quota, get_usage_counter
+from beework.entitlements import check_quota, enforce_quota, get_usage_counter
 from beework.gateway_sync import environment_ready
 from beework.models import AuditEvent, Membership, Tenant, TenantModelEnvironment, User
 from beework.models.assistants import Assistant, AssistantVersion
@@ -27,6 +27,7 @@ from beework.runtime.errors import RuntimeFailure
 from beework.runtime.executor import SERVING_TENANT_STATUSES
 from beework.schemas.runs import CreateRunRequest, CreateRunResponse, RunResponse
 from beework.tenant_access import tenant_access_mode
+from beework.usage import ensure_environment_active
 from beework.worker.events import publish_run_event
 from beework.worker.queue import enqueue
 
@@ -116,6 +117,8 @@ def create_debug_run(
     models, _ = _enabled_chat_models(db, membership.tenant_id)
     if str(model_id) not in {str(model.id) for model, _ in models}:
         raise ApiError(409, "runtime.model_unavailable", "助理所选模型未在当前环境启用")
+    enforce_quota(db, membership.tenant_id, "monthly_points", 1, "本月模型点数已用完，请联系平台升级或等待下月重置")
+    ensure_environment_active(db, membership.tenant_id, MODEL_ENVIRONMENT)
     if len(payload.message.strip()) > dsl.limits.max_input_chars:
         raise ApiError(422, "runtime.input_rejected", f"消息长度不能超过 {dsl.limits.max_input_chars} 个字符")
 

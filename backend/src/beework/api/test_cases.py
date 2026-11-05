@@ -9,6 +9,7 @@ from beework.api.conventions import ApiError, check_row_version
 from beework.api.runs import _admit
 from beework.auth import require_csrf
 from beework.db import get_db
+from beework.entitlements import enforce_quota
 from beework.models import Membership, utc_now
 from beework.models.assistants import Assistant, AssistantVersion
 from beework.models.testcases import AssistantTestCase, AssistantTestRun
@@ -246,6 +247,7 @@ def start_test_run(
         _, _, label = resolve_target(db, assistant, target)
     except RuntimeFailure as exc:
         raise ApiError(409, exc.code, exc.message) from exc
+    enforce_quota(db, membership.tenant_id, "monthly_points", 1, "本月模型点数已用完，请联系平台升级或等待下月重置")
     batch = create_batch(db, assistant, cases, target=target, target_label=label, user_id=membership.user_id)
     _audit(db, membership, "assistant.test_run_started", assistant, batch_id=str(batch.id), cases=str(len(cases)), target=label)
     db.commit()
