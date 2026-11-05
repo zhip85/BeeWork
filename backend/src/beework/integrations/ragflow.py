@@ -67,12 +67,33 @@ class RAGFlowClient:
         return True
 
     def create_dataset(
-        self, *, name: str, chunk_method: str = "naive", embedding_model: str | None = None
+        self,
+        *,
+        name: str,
+        chunk_method: str = "naive",
+        embedding_model: str | None = None,
+        parser_config: dict[str, Any] | None = None,
     ) -> str:
         body: dict[str, Any] = {"name": name, "chunk_method": chunk_method}
         if embedding_model:
             body["embedding_model"] = embedding_model
+        if parser_config:
+            body["parser_config"] = parser_config
         return self._request("POST", "/datasets", json=body)["id"]
+
+    def find_dataset(self, name: str) -> str | None:
+        """Id of the dataset with exactly this name, so a retried creation reuses what an earlier attempt made."""
+        try:
+            data = self._request("GET", "/datasets", params={"name": name, "page": 1, "page_size": 5})
+        except KnowledgeEngineError as exc:
+            # RAGFlow answers a name filter that matches nothing with an error rather than an empty list.
+            if "don't own the dataset" in str(exc):
+                return None
+            raise
+        for dataset in data or []:
+            if dataset.get("name") == name:
+                return dataset["id"]
+        return None
 
     def delete_datasets(self, dataset_ids: list[str]) -> None:
         self._request("DELETE", "/datasets", json={"ids": dataset_ids})

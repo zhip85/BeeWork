@@ -37,6 +37,7 @@ def enqueue_scheduled_jobs(db: Session, *, now: datetime | None = None) -> None:
     hour = f"{window}T{current_time.hour:02d}"
     enqueue(db, "tenants.auto_lifecycle", {}, idempotency_key=f"tenants.auto_lifecycle:{hour}")
     enqueue(db, "gateway.reconcile_access", {}, idempotency_key=f"gateway.reconcile_access:{hour}")
+    enqueue(db, "knowledge.reconcile", {}, idempotency_key=f"knowledge.reconcile:{hour}")
     five_minutes = f"{window}T{current_time.hour:02d}:{current_time.minute // 5 * 5:02d}"
     enqueue(db, "conversations.end_inactive", {}, idempotency_key=f"conversations.end_inactive:{five_minutes}")
     enqueue(db, "approvals.sweep", {}, idempotency_key=f"approvals.sweep:{five_minutes}")
