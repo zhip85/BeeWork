@@ -96,6 +96,7 @@ export function KnowledgeDetailPage({ tenant }: { tenant: TenantMembership }) {
         </div>
         <div className="knowledge-badges">
           <span className="assistant-status">{t(`type.${kb.kb_type}`)}</span>
+          <span className="assistant-status">{t(`engine.${kb.engine}`)}</span>
           <span className={`assistant-status knowledge-status-${kb.status}`}>{t(`status.${kb.status}`)}</span>
           {settingsView && <span className="assistant-status">{t('settingsBadge')}</span>}
           {!settingsView && <Link className="text-button" to={`/knowledge/${kb.id}?view=settings`}>{t('menuSettings')}</Link>}

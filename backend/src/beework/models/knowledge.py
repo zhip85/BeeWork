@@ -18,8 +18,8 @@ from beework.models.mixins import SoftDeleteMixin, TenantOwnedMixin, TimestampMi
 
 
 class KnowledgeBase(Base, TenantOwnedMixin, TimestampMixin, VersionedMixin, SoftDeleteMixin):
-    """A knowledge base (PRD 4.6). Parsing, chunking and retrieval run in RAGFlow, one dataset per content kind:
-    documents live in ``ragflow_dataset_id`` and FAQs (``qa`` method) in ``ragflow_faq_dataset_id``."""
+    """A knowledge base (PRD 4.6). Parsing, chunking and retrieval run in the knowledge engine (RAGFlow or Dify), one
+    dataset per content kind: documents live in ``engine_dataset_id`` and FAQs in ``engine_faq_dataset_id``."""
 
     __tablename__ = "knowledge_bases"
     __table_args__ = (
@@ -45,8 +45,10 @@ class KnowledgeBase(Base, TenantOwnedMixin, TimestampMixin, VersionedMixin, Soft
     retrieval_threshold: Mapped[Decimal] = mapped_column(Numeric(3, 2), nullable=False, default=Decimal("0.62"))
     owner_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
     created_by: Mapped[str | None] = mapped_column(String(64))
-    ragflow_dataset_id: Mapped[str | None] = mapped_column(String(64))
-    ragflow_faq_dataset_id: Mapped[str | None] = mapped_column(String(64))
+    # The knowledge engine ("ragflow" | "dify") holding this knowledge base's datasets; fixed when it is created.
+    engine: Mapped[str] = mapped_column(String(16), nullable=False, default="ragflow", server_default="ragflow")
+    engine_dataset_id: Mapped[str | None] = mapped_column(String(64))
+    engine_faq_dataset_id: Mapped[str | None] = mapped_column(String(64))
     # pending | synced | failed | not_configured: whether the RAGFlow datasets match this row.
     sync_status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     sync_error: Mapped[str | None] = mapped_column(String(500))

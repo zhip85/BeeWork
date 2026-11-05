@@ -5,7 +5,7 @@
 ## 范围
 
 1. 挂载选择器支持“知识库”类型：只列出“已索引”的知识库（RUL-010），显示普通 KB / FAQ KB 标签与文档数；挂载写入助理草稿 `mounts.kb`。
-2. 发布快照（T-024）记录挂载知识库当时的 `ragflow_dataset_id` / `ragflow_faq_dataset_id`。
+2. 发布快照（T-024）记录挂载知识库当时的 `engine_dataset_id` / `engine_faq_dataset_id`。
 3. 运行时 `retrieve` 节点：先查 FAQ dataset（命中且相似度 ≥ 阈值时直接作为标准答案依据），否则查文档 dataset，仅保留 ≥ 阈值的分片；**只传入快照中属于当前租户的 dataset ID**。检索结果作为上下文注入 `generate`，并在 `done` 事件和消息中返回引用（文档名、分片 ID、片段）。
 4. 检索调用与耗时进入 Langfuse trace（span）。
 5. 知识库被删除/停用后，助理挂载显示失效并计入配置检查（GLB-083）。

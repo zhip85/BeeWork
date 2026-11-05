@@ -16,6 +16,7 @@ export type KnowledgeBase = {
   status: KbStatus
   docs_count: number
   faq_count: number
+  engine: 'ragflow' | 'dify'
   sync_status: SyncStatus
   sync_error: string | null
   reindexing: boolean

@@ -10,6 +10,7 @@ Language = Literal["multilingual", "zh-CN", "en"]
 EmbeddingModel = Literal["bge-m3", "text-embedding-3-large", "cohere-embed-v3"]
 Chunking = Literal["semantic", "fixed_512", "by_heading"]
 KbStatus = Literal["draft", "processing", "indexed"]
+Engine = Literal["ragflow", "dify"]
 SyncStatus = Literal["pending", "synced", "failed", "not_configured"]
 
 
@@ -53,6 +54,7 @@ class KnowledgeBaseResponse(BaseModel):
     status: KbStatus
     docs_count: int
     faq_count: int
+    engine: Engine
     sync_status: SyncStatus
     sync_error: str | None
     reindexing: bool

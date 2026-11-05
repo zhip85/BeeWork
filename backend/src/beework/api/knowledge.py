@@ -18,6 +18,7 @@ from beework.api.conventions import (
 )
 from beework.auth import require_csrf
 from beework.db import get_db
+from beework.integrations.knowledge_engine import default_engine
 from beework.knowledge import (
     DEFAULT_THRESHOLD,
     content_stats,
@@ -102,7 +103,7 @@ def _response(db: Session, membership: Membership, kb: KnowledgeBase) -> Knowled
         organization_id=kb.organization_id, organization_name=organization.name if organization else "",
         owner_id=kb.owner_id, created_by=kb.created_by, updated_by=kb.updated_by,
         status=derive_status(kb, stats), docs_count=stats.documents, faq_count=stats.faqs,
-        sync_status=kb.sync_status, sync_error=kb.sync_error, reindexing=kb.reindexing, row_version=kb.row_version,
+        engine=kb.engine, sync_status=kb.sync_status, sync_error=kb.sync_error, reindexing=kb.reindexing, row_version=kb.row_version,
         created_at=kb.created_at, updated_at=kb.updated_at, can_edit=True,
     )
 
@@ -196,7 +197,7 @@ def create_knowledge_base(
     kb = KnowledgeBase(
         tenant_id=membership.tenant_id, organization_id=organization_id, name=name,
         description=payload.description.strip(), kb_type=payload.kb_type, language=payload.language,
-        retrieval_threshold=Decimal(DEFAULT_THRESHOLD), owner_id=membership.user_id, created_by=actor, updated_by=actor,
+        retrieval_threshold=Decimal(DEFAULT_THRESHOLD), engine=default_engine(), owner_id=membership.user_id, created_by=actor, updated_by=actor,
     )
     db.add(kb)
     db.flush()
@@ -229,7 +230,7 @@ def update_knowledge_base(
     stats = content_stats(db, kb)
     name = _unique_name(db, membership.tenant_id, payload.name, exclude_id=kb.id)
 
-    old_documents_dataset = kb.ragflow_dataset_id
+    old_documents_dataset = kb.engine_dataset_id
     switching_type = payload.kb_type != kb.kb_type
     if switching_type and payload.kb_type == "faq" and stats.documents > 0:
         raise ApiError(
@@ -253,9 +254,9 @@ def update_knowledge_base(
     kb.kb_type = payload.kb_type
 
     if switching_type and payload.kb_type == "faq":
-        kb.ragflow_dataset_id = None  # the (empty) document dataset is no longer needed
-        request_dataset_deletion(db, kb.tenant_id, [old_documents_dataset])
-    if index_changed and (kb.ragflow_dataset_id or kb.ragflow_faq_dataset_id):
+        kb.engine_dataset_id = None  # the (empty) document dataset is no longer needed
+        request_dataset_deletion(db, kb.tenant_id, kb.engine, [old_documents_dataset])
+    if index_changed and (kb.engine_dataset_id or kb.engine_faq_dataset_id):
         kb.reindexing = True
         request_sync(db, kb, rebuild=True)
     elif switching_type and payload.kb_type == "standard":
@@ -309,7 +310,7 @@ def copy_knowledge_base(
     copy = KnowledgeBase(
         tenant_id=membership.tenant_id, organization_id=source.organization_id, name=name,
         description=source.description, kb_type=source.kb_type, language=source.language,
-        embedding_model=source.embedding_model, chunking=source.chunking,
+        embedding_model=source.embedding_model, chunking=source.chunking, engine=default_engine(),
         retrieval_threshold=source.retrieval_threshold, owner_id=membership.user_id, created_by=actor, updated_by=actor,
     )
     db.add(copy)
@@ -341,7 +342,7 @@ def delete_knowledge_base(
     references = reference_count(db, kb)
     kb.deleted_at = utc_now()
     kb.row_version += 1
-    request_dataset_deletion(db, kb.tenant_id, [kb.ragflow_dataset_id, kb.ragflow_faq_dataset_id])
+    request_dataset_deletion(db, kb.tenant_id, kb.engine, [kb.engine_dataset_id, kb.engine_faq_dataset_id])
     _audit(db, membership, "knowledge.deleted", kb, references=str(references))
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

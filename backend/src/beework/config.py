@@ -32,8 +32,12 @@ class Settings(BaseSettings):
     # Third-party engines are integrated over their HTTP APIs; empty URL = not configured.
     litellm_base_url: str = ""
     litellm_master_key: str = ""
+    # Which engine new knowledge bases use: "ragflow" or "dify" (each knowledge base remembers its own).
+    knowledge_engine: str = "ragflow"
     ragflow_base_url: str = ""
     ragflow_api_key: str = ""
+    dify_base_url: str = ""  # includes /v1, e.g. https://api.dify.ai/v1
+    dify_api_key: str = ""
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""

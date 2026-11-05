@@ -118,7 +118,7 @@ end
 - **身份与租户**：`tenant`、`user`、`membership`、`role`、`permission`、`api_key`、`sso_connection`。
 - **助理与编排**：`assistant`、`assistant_version`、`workflow`、`workflow_version`、`dsl_schema_version`、`published_release`。
 - **可复用能力**：`skill`、`tool_definition`、`connector`、`widget`、`channel_binding`、资源引用/授权表。
-- **知识**：`knowledge_base`（含 `ragflow_dataset_id`）、`document`（含 `ragflow_document_id`、同步状态）、`faq`、`retrieval_profile`；分片与向量存在 RAGFlow 中，BeeWork 保存业务元数据、状态和映射。**租户隔离由 BeeWork 保证**：RAGFlow 只用一个服务账号访问，检索时只传入当前租户、当前助理有权使用的 dataset ID，并有跨租户测试。
+- **知识**：`knowledge_base`（含 `engine_dataset_id`）、`document`（含 `ragflow_document_id`、同步状态）、`faq`、`retrieval_profile`；分片与向量存在 RAGFlow 中，BeeWork 保存业务元数据、状态和映射。**租户隔离由 BeeWork 保证**：RAGFlow 只用一个服务账号访问，检索时只传入当前租户、当前助理有权使用的 dataset ID，并有跨租户测试。
 - **执行与运营**：`conversation`、`message`、`run`、`run_event`、`approval`、`feedback`、`evaluation_dataset`、`evaluation_run`、`usage_record`、`audit_event`。
 
 设计原则：
