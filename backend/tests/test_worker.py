@@ -22,6 +22,7 @@ from beework.worker.queue import (
 )
 from beework.worker.runner import run_once
 from beework.worker.scheduler import enqueue_scheduled_jobs
+from isolation import disable_external_integrations
 
 
 class _PubSub:
@@ -68,6 +69,7 @@ class _Redis:
 class WorkerQueueTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        disable_external_integrations()  # scheduled jobs such as usage.sync must not reach a real gateway
         cls.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
         event.listen(cls.engine, "connect", lambda connection, _: connection.execute("PRAGMA foreign_keys=ON"))
         cls.sessions = sessionmaker(bind=cls.engine, expire_on_commit=False)
@@ -165,13 +167,13 @@ class WorkerQueueTests(unittest.TestCase):
     def test_worker_loop_step_runs_jobs_and_schedules_once_per_day(self):
         with self.sessions.begin() as db:
             enqueue(db, "noop.echo", {"message": "hello"}, tenant_id=self.tenant_id)
-        self.assertEqual(run_once("worker-1", self.sessions, batch_size=20), 11)  # noop.echo + the 10 scheduled jobs
+        self.assertEqual(run_once("worker-1", self.sessions, batch_size=20), 12)  # noop.echo + the 11 scheduled jobs
         self.assertEqual(run_once("worker-2", self.sessions), 0)  # nothing new, no duplicate schedule
         with self.sessions() as db:
             jobs = list(db.scalars(select(Job)))
             self.assertEqual(
                 sorted(job.kind for job in jobs),
-                ["approvals.sweep", "audit.retention", "auth.release_locks", "conversations.end_inactive", "conversations.retention", "gateway.reconcile_access", "memory.retention", "noop.echo", "tenants.auto_lifecycle", "usage.month_rollover", "usage.sync"],
+                ["approvals.sweep", "audit.retention", "auth.release_locks", "conversations.end_inactive", "conversations.retention", "gateway.reconcile_access", "knowledge.reconcile", "memory.retention", "noop.echo", "tenants.auto_lifecycle", "usage.month_rollover", "usage.sync"],
             )
             self.assertTrue(all(job.status == "succeeded" for job in jobs), [(j.kind, j.status, j.last_error) for j in jobs])
 
@@ -199,6 +201,8 @@ class WorkerQueueTests(unittest.TestCase):
                 "conversations.retention:2026-10-23",
                 "gateway.reconcile_access:2026-10-22T08",
                 "gateway.reconcile_access:2026-10-23T08",
+                "knowledge.reconcile:2026-10-22T08",
+                "knowledge.reconcile:2026-10-23T08",
                 "memory.retention:2026-10-22",
                 "memory.retention:2026-10-23",
                 "tenants.auto_lifecycle:2026-10-22T08",

@@ -18,6 +18,7 @@ from beework import (
 from beework import (
     gateway_sync as _gateway_sync,  # noqa: F401  (registers the gateway.* jobs)
 )
+from beework import knowledge as _knowledge  # noqa: F401  (registers knowledge.* jobs)
 from beework import (
     memory_jobs as _memory_jobs,  # noqa: F401  (registers memory.* jobs and the conversation-ended hook)
 )

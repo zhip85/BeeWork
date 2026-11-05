@@ -96,6 +96,18 @@ services:
       valkey:
         condition: service_healthy
 
+  # Stand-in for RAGFlow (dataset endpoints only) for development without a real RAGFlow; see scripts/fake_ragflow.py.
+  #   RAGFLOW_BASE_URL=http://ragflow-fake:9380 RAGFLOW_API_KEY=fake-ragflow-key \
+  #     docker compose --profile fake-ragflow up -d ragflow-fake api worker
+  ragflow-fake:
+    profiles: ["fake-ragflow"]
+    image: python:3.12-slim  # the fake only uses the standard library
+    command: python /app/scripts/fake_ragflow.py
+    volumes:
+      - ./scripts:/app/scripts:ro
+    ports:
+      - "127.0.0.1:9380:9380"
+
   # AI gateway. Runs from the upstream image; BeeWork only calls its HTTP API.
   litellm:
     # LiteLLM 1.106.0, pinned by digest (docker.litellm.ai registry).

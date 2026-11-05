@@ -3,6 +3,7 @@ import { initReactI18next } from 'react-i18next'
 import enApprovals from './en/approvals.json'
 import enAssistants from './en/assistants.json'
 import enChannels from './en/channels.json'
+import enKnowledge from './en/knowledge.json'
 import enDetail from './en/detail.json'
 import enAudit from './en/audit.json'
 import enAuth from './en/auth.json'
@@ -19,6 +20,7 @@ import enSettings from './en/settings.json'
 import zhApprovals from './zh-CN/approvals.json'
 import zhAssistants from './zh-CN/assistants.json'
 import zhChannels from './zh-CN/channels.json'
+import zhKnowledge from './zh-CN/knowledge.json'
 import zhDetail from './zh-CN/detail.json'
 import zhAudit from './zh-CN/audit.json'
 import zhAuth from './zh-CN/auth.json'
@@ -56,14 +58,14 @@ void i18n.use(initReactI18next).init({
   lng: storedLocale(),
   fallbackLng: DEFAULT_LOCALE,
   defaultNS: 'common',
-  ns: ['common', 'channels', 'testing', 'notifications', 'approvals', 'assistants', 'detail', 'conversations', 'versions', 'nav', 'auth', 'members', 'platform', 'settings', 'audit', 'enums'],
+  ns: ['common', 'channels', 'testing', 'notifications', 'approvals', 'assistants', 'detail', 'conversations', 'versions', 'nav', 'auth', 'members', 'platform', 'settings', 'audit', 'enums', 'knowledge'],
   resources: {
     'zh-CN': {
-      channels: zhChannels, testing: zhTesting, notifications: zhNotifications, approvals: zhApprovals, assistants: zhAssistants, detail: zhDetail, common: zhCommon, conversations: zhConversations, nav: zhNav, auth: zhAuth, members: zhMembers,
+      channels: zhChannels, knowledge: zhKnowledge, testing: zhTesting, notifications: zhNotifications, approvals: zhApprovals, assistants: zhAssistants, detail: zhDetail, common: zhCommon, conversations: zhConversations, nav: zhNav, auth: zhAuth, members: zhMembers,
       platform: zhPlatform, settings: zhSettings, versions: zhVersions, audit: zhAudit, enums: zhEnums,
     },
     en: {
-      channels: enChannels, testing: enTesting, notifications: enNotifications, approvals: enApprovals, assistants: enAssistants, detail: enDetail, common: enCommon, conversations: enConversations, nav: enNav, auth: enAuth, members: enMembers,
+      channels: enChannels, knowledge: enKnowledge, testing: enTesting, notifications: enNotifications, approvals: enApprovals, assistants: enAssistants, detail: enDetail, common: enCommon, conversations: enConversations, nav: enNav, auth: enAuth, members: enMembers,
       platform: enPlatform, settings: enSettings, versions: enVersions, audit: enAudit, enums: enEnums,
     },
   },

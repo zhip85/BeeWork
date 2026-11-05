@@ -37,3 +37,39 @@
 - [ ] RAGFlow 未配置时创建知识库仍成功，`sync_status=not_configured`，界面提示管理员配置。
 - [ ] 跨租户访问 404；查看者只读。
 - [ ] 实测记录已填写；用真实 RAGFlow 跑通创建与删除 dataset。
+
+## 完成记录（用假 RAGFlow 开发，第 0 步未做）
+
+**重要前提**：没有 RAGFlow Key，也没有自托管实例，所以本任务是对着 `scripts/fake_ragflow.py`（只实现数据集接口、按 RAGFlow 文档写的假服务）开发和验证的。**“第 0 步：对接验证”和验收项“用真实 RAGFlow 跑通创建与删除 dataset”都没有做**，“实测记录”一节留空。通过假服务只能证明 BeeWork 按文档契约发请求、处理结果的逻辑正确，不能证明真实 RAGFlow 是这样响应的。
+
+**改动文件**
+- 后端：新增 `models/knowledge.py`、迁移 `0029_knowledge_bases`（可降级）、`knowledge.py`（派生状态、数据集同步、Worker 作业）、`schemas/knowledge.py`、`api/knowledge.py`、`tests/test_knowledge.py`（19 项，起一个真实的假 RAGFlow HTTP 服务）；修改 `integrations/ragflow.py`（`parser_config`、`find_dataset`）、`worker/scheduler.py`、`worker/runner.py`。
+- 工具：`scripts/fake_ragflow.py`（标准库实现的假服务，带失败注入）、`scripts/check_knowledge_e2e.py`、`compose.yaml` 的 `ragflow-fake` 服务（profile `fake-ragflow`，默认不启动）。用法：`RAGFLOW_BASE_URL=http://ragflow-fake:9380 RAGFLOW_API_KEY=fake-ragflow-key docker compose --profile fake-ragflow up -d ragflow-fake api worker`。
+- 前端：`pages/knowledge/`（列表、创建页、详情 + 设置视图）、`i18n/*/knowledge.json`、`App.tsx` 路由、`App.css`。
+
+**行为**
+- 接口：`GET/POST /knowledge-bases`、`GET/PUT/DELETE /knowledge-bases/{id}`、`POST …/copy`、`POST …/retry-sync`、`GET …/references`。权限 `knowledge:view/edit/delete`；租户范围角色看全部，组织范围角色只看自己组织子树，助理范围角色看不到；跨租户 404。名称 ≤ 50 字、租户内不分大小写唯一；创建默认 bge-m3 / Semantic / 0.62 / 草稿。
+- 创建只落库并排队 `knowledge.ensure_datasets`，Worker 创建数据集：普通库两个（文档 + FAQ，`qa`），FAQ 库只有 FAQ 数据集；数据集名只用 ID（含代数 `-g1`），不用用户输入；重试先按名字查找，复用上次半途创建的数据集。RAGFlow 未配置时创建照常成功，`sync_status=not_configured`，页面提示；每小时 `knowledge.reconcile` 会为 failed / not_configured / pending 的库补同步，也可手动“重试同步”。
+- 修改向量模型或切片策略：有文档时必须带 `confirm_reindex`，否则 409；保存后进入“处理中”，Worker 新建下一代数据集 → 运行 `REINDEX_HOOKS`（T-031 注册，重传并解析文档）→ 切换 → 再排队删除旧数据集；期间旧数据集继续服务，重建失败时保持旧索引并标记 failed。
+- 切换类型：有文档不能切到 FAQ（409）；切到 FAQ 删除空的文档数据集，切回普通库重新创建。
+- 状态由内容派生（草稿/处理中/已索引）：文档与 FAQ 的统计通过 `register_content_provider` 接入，T-031 / T-032 注册；删除前的引用数通过 `REFERENCE_COUNTERS` 接入，T-033 注册。目前文档数、FAQ 数、引用数都是 0。
+- 删除：软删除，排队删除数据集（引擎不可用时作业重试，不丢）；复制：复制配置，状态草稿，新数据集；复制文档与 FAQ 待 T-031 / T-032。写审计（`knowledge.*`）。
+
+**验证**
+- ruff；`test_knowledge.py` 19 项通过（创建与同步、未配置、失败与重试、半途创建复用、唯一名与校验、权限与租户隔离、组织范围、设置校验与乐观锁、重建与失败回退、类型切换、状态派生、列表筛选、复制、删除与重试）。
+- 真实栈端到端 `check_knowledge_e2e.py`（真实 API + Worker + 假 RAGFlow 容器）通过：创建、数据集同步、改设置触发重建并删除旧数据集、复制、删除。
+- 写测试时发现并修复一个真实缺陷：重建时新数据集与旧数据集同名，按名字查找会把正在服务的旧数据集当成新的，切换后再把它删掉；数据集名现在带代数。
+
+**遗留问题 / 待真实 RAGFlow 确认**
+- `CHUNK_METHODS`（Semantic→`naive`、Fixed 512→`naive`+`chunk_token_num`、By heading→`book`）与 Embedding 模型名（`bge-m3` 等）的传法，都是按文档推断，未验证；`find_dataset` 对“名字没匹配到”的两种可能响应（空列表 / “don't own the dataset”错误）都做了处理。
+- Embedding 选项目前是固定三项；正式版应来自租户已启用的 Embedding 模型。
+- KNW-041（内容变更审批）、文档/FAQ 页签、检索属 T-031 / T-032 / T-033；详情页的页签只是占位。
+- 页面未做浏览器目视验收。
+
+**审查修正**
+- 修复删除知识库与重建/创建并发时遗留孤儿数据集：此前删除只知道旧数据集，若 Worker 正好在重建或创建，新建的数据集永远没人删。现在重建切换前、创建完成后都会重新读取，发现已删除就把新建的数据集交给删除作业。
+- 删除作业改为可重复执行：此前只要有一个数据集已被别的作业删掉，整个批次就报错重试，剩下的永远删不掉；现在对“已不存在”逐个跳过。（“数据集已不存在”的判断依据是假服务模拟的 RAGFlow 报错文案，真实 RAGFlow 的文案待确认。）
+- 修复状态筛选的分页：此前先分页再按状态过滤，`total` 是未过滤的总数；现在先过滤再分页。
+- 改名加租户级锁，两个并发改名不会取到同一个名字。
+- 已知未处理：设置连续修改时，较早的一次重建完成后会短暂把“重建中”标志清掉，随后排队的下一次重建会收敛到最终配置。
+
