@@ -16,6 +16,9 @@ from beework import (
     channel_publish as _channel_publish,  # noqa: F401  (registers the channel.publish approval action)
 )
 from beework import (
+    documents as _documents,  # noqa: F401  (registers knowledge.*_document jobs and hooks)
+)
+from beework import (
     gateway_sync as _gateway_sync,  # noqa: F401  (registers the gateway.* jobs)
 )
 from beework import knowledge as _knowledge  # noqa: F401  (registers knowledge.* jobs)

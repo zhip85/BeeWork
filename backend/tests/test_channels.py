@@ -322,7 +322,13 @@ class ChannelTests(ChannelBase):
         self.assertEqual((again.status_code, again.json()["code"]), (409, "approval.pending_exists"))
         approved = self.client.post(f"/api/v1/approvals/{approval_id}/approve", json={}, headers=self.login("admin2"))
         self.assertEqual(approved.status_code, 200, approved.text)
-        self.assertEqual(self.drain() >= 1, True)
+        self.drain()  # the background worker thread may already have taken the job, so wait for the outcome instead
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            live = self.client.get(f"/api/v1/channels/{channel['id']}", headers=self.login("admin")).json()
+            if live["status"] == "active":
+                break
+            time.sleep(0.1)
         live = self.client.get(f"/api/v1/channels/{channel['id']}", headers=self.login("admin")).json()
         self.assertEqual((live["status"], live["published_version"], live["pending_approval_id"]), ("active", "v1.0", None))
         self.assertEqual(self.session(channel["site_key"]).status_code, 200)

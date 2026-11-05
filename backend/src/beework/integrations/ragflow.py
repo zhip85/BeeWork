@@ -5,12 +5,13 @@ keeps the business records (knowledge base, document, status, permissions) and
 maps each BeeWork knowledge base to one RAGFlow dataset.
 """
 
+import io
 from typing import Any, BinaryIO
 
 import httpx
 
 from beework.config import settings
-from beework.integrations.knowledge_engine import KnowledgeEngineError
+from beework.integrations.knowledge_engine import DocumentRef, DocumentState, KnowledgeEngineError
 
 # How the PRD's chunking strategies map to RAGFlow ``chunk_method`` / ``parser_config``. Taken from RAGFlow's
 # documentation, NOT yet checked against a running RAGFlow (T-030 step 0).
@@ -124,6 +125,28 @@ class RAGFlowClient:
                     if NOT_FOUND not in str(single):
                         raise
 
+    def add_document(self, dataset_id: str, filename: str, data: bytes, *, chunking: str) -> DocumentRef:
+        # RAGFlow applies chunking per dataset (chosen when it was created), so ``chunking`` is not needed here.
+        document_id = self.upload_document(dataset_id, filename, io.BytesIO(data))
+        self.start_parsing(dataset_id, [document_id])
+        return DocumentRef(document_id)
+
+    def document_state(self, dataset_id: str, ref: DocumentRef) -> DocumentState:
+        info = self.document_status(dataset_id, ref.document_id)
+        run = str(info.get("run") or "").upper()
+        if run in ("DONE", "3"):
+            return DocumentState("indexed", int(info.get("chunk_count") or 0))
+        if run in ("FAIL", "4", "CANCEL", "2"):
+            return DocumentState("failed", 0, str(info.get("message") or "知识引擎解析失败")[:500])
+        return DocumentState("processing")
+
+    def list_chunks(self, dataset_id: str, document_id: str, *, page: int, size: int) -> tuple[list[str], int]:
+        data = self._request(
+            "GET", f"/datasets/{dataset_id}/documents/{document_id}/chunks", params={"page": page, "page_size": size}
+        )
+        chunks = [str(chunk.get("content") or "") for chunk in (data or {}).get("chunks", [])]
+        return chunks, int((data or {}).get("total") or len(chunks))
+
     def upload_document(self, dataset_id: str, filename: str, content: BinaryIO) -> str:
         data = self._request(
             "POST", f"/datasets/{dataset_id}/documents", files={"file": (filename, content)}
@@ -151,7 +174,12 @@ class RAGFlowClient:
         }
 
     def delete_documents(self, dataset_id: str, document_ids: list[str]) -> None:
-        self._request("DELETE", f"/datasets/{dataset_id}/documents", json={"ids": document_ids})
+        for document_id in document_ids:  # one by one: a missing id fails the whole bulk call
+            try:
+                self._request("DELETE", f"/datasets/{dataset_id}/documents", json={"ids": [document_id]})
+            except KnowledgeEngineError as exc:
+                if NOT_FOUND not in str(exc) and "not found" not in str(exc).lower():
+                    raise  # a document that is already gone is fine; anything else is a real failure
 
     def retrieve(
         self,

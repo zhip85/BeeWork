@@ -20,7 +20,9 @@ from beework.auth import require_csrf
 from beework.db import get_db
 from beework.integrations.knowledge_engine import default_engine
 from beework.knowledge import (
+    COPY_HOOKS,
     DEFAULT_THRESHOLD,
+    DELETE_HOOKS,
     content_stats,
     derive_status,
     reference_count,
@@ -315,6 +317,8 @@ def copy_knowledge_base(
     )
     db.add(copy)
     db.flush()
+    for hook in COPY_HOOKS:
+        hook(db, source, copy)
     request_sync(db, copy)
     _audit(db, membership, "knowledge.copied", copy, source_id=str(source.id))
     db.commit()
@@ -342,6 +346,8 @@ def delete_knowledge_base(
     references = reference_count(db, kb)
     kb.deleted_at = utc_now()
     kb.row_version += 1
+    for hook in DELETE_HOOKS:
+        hook(db, kb)
     request_dataset_deletion(db, kb.tenant_id, kb.engine, [kb.engine_dataset_id, kb.engine_faq_dataset_id])
     _audit(db, membership, "knowledge.deleted", kb, references=str(references))
     db.commit()

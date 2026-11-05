@@ -3,8 +3,9 @@
     python scripts/fake_ragflow.py            # listens on 0.0.0.0:9380, key "fake-ragflow-key"
 
 RAGFlow lives under ``/api/v1``, Dify under ``/v1`` (use ``http://host:9380/v1`` as DIFY_BASE_URL); both accept the
-same Bearer key. Only the dataset endpoints BeeWork's clients use are implemented (Dify: create, list with
-``keyword``, delete). RAGFlow uses its documented envelope
+same Bearer key. Only the dataset endpoints BeeWork's clients use are implemented (datasets: create, list, delete;
+documents: upload, status, chunks, delete). Parsing "takes" FAKE_PARSE_SECONDS (default 1); a file whose name
+contains "fail" ends in the engine's failure state. RAGFlow uses its documented envelope
 (``{"code": 0, "data": ...}``, errors as ``{"code": != 0, "message": ...}`` even on HTTP 200), Bearer auth,
 duplicate-name rejection and ``name`` / ``id`` filters. State is in memory. It is NOT RAGFlow: nothing here has been
 checked against a real instance, so passing against it proves BeeWork's side of the contract as written from the
@@ -19,8 +20,12 @@ error; ``GET /__fake/state`` returns the RAGFlow datasets, ``GET /__fake/dify-st
 
 import json
 import os
+import re
 import threading
+import time
 import uuid
+from email.parser import BytesParser
+from email.policy import default as email_policy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -28,10 +33,49 @@ API_KEY = os.environ.get("FAKE_RAGFLOW_KEY", "fake-ragflow-key")
 PORT = int(os.environ.get("FAKE_RAGFLOW_PORT", "9380"))
 CHUNK_METHODS = {"naive", "book", "qa", "manual", "paper", "laws", "presentation", "table", "one", "picture", "email"}
 
+PARSE_SECONDS = float(os.environ.get("FAKE_PARSE_SECONDS", "1"))
+CHUNK_SIZE = 200
+
 lock = threading.Lock()
 datasets: dict[str, dict] = {}
 dify_datasets: dict[str, dict] = {}
+documents: dict[str, dict] = {}  # both engines: id -> {engine, dataset, name, text, started, fail, batch}
 fail_next = 0
+
+
+def parse_multipart(content_type: str, body: bytes) -> dict[str, tuple[str | None, bytes]]:
+    """name -> (filename, bytes) for each part of a multipart/form-data body."""
+    message = BytesParser(policy=email_policy).parsebytes(b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + body)
+    parts: dict[str, tuple[str | None, bytes]] = {}
+    for part in message.iter_parts():
+        name = part.get_param("name", header="content-disposition")
+        parts[str(name)] = (part.get_filename(), part.get_payload(decode=True) or b"")
+    return parts
+
+
+def new_document(engine: str, dataset_id: str, filename: str, data: bytes) -> dict:
+    text = data.decode("utf-8", errors="replace")
+    document = {
+        "id": uuid.uuid4().hex if engine == "ragflow" else str(uuid.uuid4()), "engine": engine, "dataset": dataset_id,
+        "name": filename, "text": text, "size": len(data), "started": None, "batch": str(uuid.uuid4()),
+        "fail": "fail" in filename.lower(),
+    }
+    documents[document["id"]] = document
+    return document
+
+
+def document_progress(document: dict) -> str:
+    """not_started | running | done | failed, from how long ago parsing started."""
+    if document["started"] is None:
+        return "not_started"
+    if time.monotonic() - document["started"] < PARSE_SECONDS:
+        return "running"
+    return "failed" if document["fail"] else "done"
+
+
+def chunks_of(document: dict) -> list[str]:
+    text = document["text"] or " "
+    return [text[i : i + CHUNK_SIZE] for i in range(0, len(text), CHUNK_SIZE)] or [" "]
 
 
 def make_handler() -> type[BaseHTTPRequestHandler]:
@@ -59,6 +103,116 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
         def _error(self, message: str, code: int = 102) -> None:
             self._send({"code": code, "message": message})
 
+        def _ragflow_documents(self, method: str, route: re.Match, query: dict) -> None:
+            dataset_id, kind, doc_id = route.group(1), route.group(2), route.group(3)
+            with lock:
+                if dataset_id not in datasets:
+                    return self._error("You don't own the dataset.")
+                if kind == "documents" and doc_id is None and method == "POST":
+                    length = int(self.headers.get("Content-Length") or 0)
+                    files = parse_multipart(self.headers.get("Content-Type", ""), self.rfile.read(length))
+                    filename, data = files.get("file", (None, b""))
+                    if not filename:
+                        return self._error("No file part!")
+                    document = new_document("ragflow", dataset_id, filename, data)
+                    datasets[dataset_id]["document_count"] += 1
+                    return self._send({"code": 0, "data": [{"id": document["id"], "name": filename, "size": document["size"]}]})
+                if kind == "documents" and doc_id is None and method == "GET":
+                    found = [
+                        d for d in documents.values()
+                        if d["engine"] == "ragflow" and d["dataset"] == dataset_id and query.get("id") in (None, d["id"])
+                    ]
+                    docs = []
+                    for d in found:
+                        state = document_progress(d)
+                        docs.append({
+                            "id": d["id"], "name": d["name"], "size": d["size"],
+                            "run": {"not_started": "UNSTART", "running": "RUNNING", "done": "DONE", "failed": "FAIL"}[state],
+                            "progress": 1.0 if state == "done" else 0.0,
+                            "chunk_count": len(chunks_of(d)) if state == "done" else 0,
+                            "progress_msg": "Unsupported content" if state == "failed" else "",
+                        })
+                    return self._send({"code": 0, "data": {"docs": docs, "total": len(docs)}})
+                if kind == "documents" and doc_id is None and method == "DELETE":
+                    ids = self._body().get("ids") or []
+                    missing = [i for i in ids if i not in documents or documents[i]["dataset"] != dataset_id]
+                    if missing:
+                        return self._error(f"Document {missing[0]} not found")
+                    for i in ids:
+                        del documents[i]
+                        datasets[dataset_id]["document_count"] -= 1
+                    return self._send({"code": 0})
+                if kind == "chunks" and doc_id is None and method == "POST":  # start parsing
+                    for i in self._body().get("document_ids") or []:
+                        if i in documents:
+                            documents[i]["started"] = time.monotonic()
+                    return self._send({"code": 0})
+                if kind == "documents" and doc_id and method == "GET":
+                    document = documents.get(doc_id)
+                    if not document or document["dataset"] != dataset_id:
+                        return self._error("Document not found")
+                    chunks = chunks_of(document) if document_progress(document) == "done" else []
+                    page, size = int(query.get("page", "1")), int(query.get("page_size", "30"))
+                    return self._send({"code": 0, "data": {
+                        "chunks": [{"id": f"{doc_id}-{n}", "content": c} for n, c in enumerate(chunks[(page - 1) * size : page * size])],
+                        "total": len(chunks),
+                    }})
+            self._send({"code": 405, "message": "Method not allowed", "status": 405}, 405)
+
+        def _dify_documents(self, method: str, parts: list[str], query: dict) -> None:
+            dataset_id = parts[2]
+            with lock:
+                if dataset_id not in dify_datasets:
+                    return self._send({"code": "not_found", "message": "Dataset not found.", "status": 404}, 404)
+                if parts[3:] == ["document", "create-by-file"] and method == "POST":
+                    length = int(self.headers.get("Content-Length") or 0)
+                    files = parse_multipart(self.headers.get("Content-Type", ""), self.rfile.read(length))
+                    filename, data = files.get("file", (None, b""))
+                    if not filename:
+                        return self._send({"code": "no_file_uploaded", "message": "Please upload your file.", "status": 400}, 400)
+                    try:
+                        options = json.loads(files.get("data", (None, b"{}"))[1] or b"{}")
+                    except ValueError:
+                        options = {}
+                    if options.get("process_rule", {}).get("mode") not in ("automatic", "custom", "hierarchical"):
+                        return self._send({"code": "invalid_param", "message": "process_rule is required.", "status": 400}, 400)
+                    document = new_document("dify", dataset_id, filename, data)
+                    document["started"] = time.monotonic()  # Dify indexes on its own
+                    dify_datasets[dataset_id]["document_count"] += 1
+                    return self._send({"document": {"id": document["id"], "name": filename, "indexing_status": "waiting"}, "batch": document["batch"]})
+                if len(parts) == 6 and parts[3] == "documents" and parts[5] == "indexing-status" and method == "GET":
+                    found = [d for d in documents.values() if d["engine"] == "dify" and d["dataset"] == dataset_id and d["batch"] == parts[4]]
+                    rows = []
+                    for d in found:
+                        state = document_progress(d)
+                        total = len(chunks_of(d))
+                        rows.append({
+                            "id": d["id"], "indexing_status": {"not_started": "waiting", "running": "indexing", "done": "completed", "failed": "error"}[state],
+                            "completed_segments": total if state == "done" else 0, "total_segments": total if state == "done" else 0,
+                            "error": "Unsupported content" if state == "failed" else None,
+                        })
+                    return self._send({"data": rows})
+                if len(parts) == 6 and parts[3] == "documents" and parts[5] == "segments" and method == "GET":
+                    document = documents.get(parts[4])
+                    if not document or document["dataset"] != dataset_id:
+                        return self._send({"code": "not_found", "message": "Document not found.", "status": 404}, 404)
+                    chunks = chunks_of(document) if document_progress(document) == "done" else []
+                    page, limit = int(query.get("page", "1")), int(query.get("limit", "20"))
+                    return self._send({
+                        "data": [{"id": f"{parts[4]}-{n}", "position": n + 1, "content": c} for n, c in enumerate(chunks[(page - 1) * limit : page * limit])],
+                        "total": len(chunks), "page": page, "limit": limit, "has_more": len(chunks) > page * limit,
+                    })
+                if len(parts) == 5 and parts[3] == "documents" and method == "DELETE":
+                    document = documents.get(parts[4])
+                    if not document or document["dataset"] != dataset_id:
+                        return self._send({"code": "not_found", "message": "Document Not Exists.", "status": 404}, 404)
+                    del documents[parts[4]]
+                    dify_datasets[dataset_id]["document_count"] -= 1
+                    self.send_response(204)
+                    self.end_headers()
+                    return
+            self._send({"code": "method_not_allowed", "message": "Method not allowed", "status": 405}, 405)
+
         def _dify(self, method: str, path: str, query: dict) -> None:
             global fail_next
             if self.headers.get("Authorization") != f"Bearer {API_KEY}":
@@ -68,6 +222,8 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
                     fail_next -= 1
                     return self._send({"code": "internal_error", "message": "Injected failure", "status": 500}, 500)
             parts = path.strip("/").split("/")  # ["v1", "datasets", id?]
+            if parts[:2] == ["v1", "datasets"] and len(parts) > 3:
+                return self._dify_documents(method, parts, query)
             if parts[:2] != ["v1", "datasets"] or len(parts) > 3:
                 return self._send({"code": "not_found", "message": "Not found", "status": 404}, 404)
             body = self._body() if method == "POST" else {}
@@ -98,6 +254,8 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
                     if parts[2] not in dify_datasets:
                         return self._send({"code": "not_found", "message": "Dataset not found.", "status": 404}, 404)
                     del dify_datasets[parts[2]]
+                    for key in [k for k, d in documents.items() if d["dataset"] == parts[2]]:
+                        del documents[key]
                     self.send_response(204)
                     self.end_headers()
                     return
@@ -125,6 +283,9 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
                 if fail_next > 0:
                     fail_next -= 1
                     return self._error("Injected failure", 500)
+            doc_route = re.fullmatch(r"/api/v1/datasets/([^/]+)/(documents|chunks)(?:/([^/]+)/chunks)?", url.path)
+            if doc_route:
+                return self._ragflow_documents(method, doc_route, query)
             if url.path != "/api/v1/datasets":
                 return self._send({"code": 404, "message": "Not found"}, 404)
             body = self._body() if method in ("POST", "DELETE", "PUT") else {}
@@ -163,6 +324,8 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
                         return self._error(f"You don't own the dataset {missing[0]}")
                     for item in ids:
                         del datasets[item]
+                        for key in [k for k, d in documents.items() if d["dataset"] == item]:
+                            del documents[key]
                     return self._send({"code": 0})
             self._send({"code": 405, "message": "Method not allowed"}, 405)
 

@@ -4,12 +4,13 @@ Dify Cloud (``https://api.dify.ai/v1``) and self-hosted Dify expose the same API
 "Knowledge API" key (``dataset-…``). Written from Dify's documentation; see T-030 for what has been verified.
 """
 
+import json
 from typing import Any
 
 import httpx
 
 from beework.config import settings
-from beework.integrations.knowledge_engine import KnowledgeEngineError
+from beework.integrations.knowledge_engine import DocumentRef, DocumentState, KnowledgeEngineError
 
 # Dify limits a knowledge base name to 40 characters.
 MAX_NAME_LENGTH = 40
@@ -19,6 +20,24 @@ EMBEDDING_MODELS: dict[str, tuple[str, str] | None] = {
     "bge-m3": None,
     "text-embedding-3-large": ("openai", "text-embedding-3-large"),
     "cohere-embed-v3": ("cohere", "embed-multilingual-v3.0"),
+}
+
+
+# Chunking strategies as Dify ``process_rule``s (applied per document). Taken from Dify's documentation.
+PRE_PROCESSING = [
+    {"id": "remove_extra_spaces", "enabled": True},
+    {"id": "remove_urls_emails", "enabled": False},
+]
+PROCESS_RULES: dict[str, dict[str, Any]] = {
+    "semantic": {"mode": "automatic"},
+    "fixed_512": {
+        "mode": "custom",
+        "rules": {"pre_processing_rules": PRE_PROCESSING, "segmentation": {"separator": "\n", "max_tokens": 512}},
+    },
+    "by_heading": {
+        "mode": "custom",
+        "rules": {"pre_processing_rules": PRE_PROCESSING, "segmentation": {"separator": "\n#", "max_tokens": 1000}},
+    },
 }
 
 
@@ -92,6 +111,48 @@ class DifyClient:
             if dataset.get("name") == name:
                 return dataset["id"]
         return None
+
+    def add_document(self, dataset_id: str, filename: str, data: bytes, *, chunking: str) -> DocumentRef:
+        """Upload a file; Dify starts indexing on its own. The returned ``batch`` is what its status call needs."""
+        options = {
+            "indexing_technique": "high_quality",
+            "process_rule": PROCESS_RULES[chunking],
+            "doc_form": "text_model",
+            "doc_language": "Chinese Simplified",
+        }
+        created = self._request(
+            "POST",
+            f"/datasets/{dataset_id}/document/create-by-file",
+            data={"data": json.dumps(options)},
+            files={"file": (filename, data)},
+        )
+        return DocumentRef(created["document"]["id"], created.get("batch"))
+
+    def document_state(self, dataset_id: str, ref: DocumentRef) -> DocumentState:
+        if not ref.batch_id:
+            raise KnowledgeEngineError("缺少 Dify 的索引批次，无法查询文档状态")
+        payload = self._request("GET", f"/datasets/{dataset_id}/documents/{ref.batch_id}/indexing-status")
+        entries = [item for item in (payload or {}).get("data", []) if item.get("id") == ref.document_id]
+        if not entries:
+            raise KnowledgeEngineError("知识引擎中未找到该文档")
+        entry = entries[0]
+        status = str(entry.get("indexing_status") or "")
+        if status == "completed":
+            return DocumentState("indexed", int(entry.get("total_segments") or entry.get("completed_segments") or 0))
+        if status in ("error", "paused"):
+            return DocumentState("failed", 0, str(entry.get("error") or "知识引擎索引失败")[:500])
+        return DocumentState("processing")
+
+    def delete_documents(self, dataset_id: str, document_ids: list[str]) -> None:
+        for document_id in document_ids:
+            self._request("DELETE", f"/datasets/{dataset_id}/documents/{document_id}", tolerate_missing=True)
+
+    def list_chunks(self, dataset_id: str, document_id: str, *, page: int, size: int) -> tuple[list[str], int]:
+        data = self._request(
+            "GET", f"/datasets/{dataset_id}/documents/{document_id}/segments", params={"page": page, "limit": size}
+        )
+        items = (data or {}).get("data", [])
+        return [str(item.get("content") or "") for item in items], int((data or {}).get("total") or len(items))
 
     def delete_datasets(self, dataset_ids: list[str]) -> None:
         for dataset_id in dataset_ids:  # Dify has no bulk delete

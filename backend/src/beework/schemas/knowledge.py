@@ -66,3 +66,42 @@ class KnowledgeBaseResponse(BaseModel):
 
 class KnowledgeReferencesResponse(BaseModel):
     count: int
+
+
+DocumentFormat = Literal["pdf", "docx", "html", "markdown", "txt", "url"]
+DocumentStatus = Literal["processing", "indexed", "failed"]
+
+
+class DocumentResponse(BaseModel):
+    id: UUID
+    kb_id: UUID
+    name: str
+    format: DocumentFormat
+    source_url: str | None
+    size_bytes: int
+    chunks: int
+    owner_name: str | None
+    status: DocumentStatus
+    error_message: str | None
+    indexed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    can_download: bool
+
+
+class DocumentPage(BaseModel):
+    items: list[DocumentResponse]
+    total: int
+    limit: int
+    offset: int
+    counts: dict[str, int]  # status -> number of documents, plus "all"; for the status bar (KNW-030)
+
+
+class UrlDocumentsRequest(BaseModel):
+    urls: list[str] = Field(min_length=1, max_length=20)
+
+
+class ChunkPreviewResponse(BaseModel):
+    items: list[str]
+    total: int
+    page: int

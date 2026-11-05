@@ -6,7 +6,8 @@ for new knowledge bases; each knowledge base remembers the engine its datasets l
 orphans existing ones.
 """
 
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Literal, Protocol
 
 from beework.config import settings
 
@@ -15,6 +16,21 @@ ENGINES = ("ragflow", "dify")
 
 class KnowledgeEngineError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class DocumentRef:
+    """Where a document lives in the engine; ``batch_id`` is the extra handle some engines need to poll it."""
+
+    document_id: str
+    batch_id: str | None = None
+
+
+@dataclass(frozen=True)
+class DocumentState:
+    status: Literal["processing", "indexed", "failed"]
+    chunks: int = 0
+    message: str | None = None
 
 
 class KnowledgeEngine(Protocol):
@@ -36,6 +52,20 @@ class KnowledgeEngine(Protocol):
 
     def delete_datasets(self, dataset_ids: list[str]) -> None:
         """Delete datasets; ones that are already gone are not an error, so the call can be repeated."""
+        ...
+
+    def add_document(self, dataset_id: str, filename: str, data: bytes, *, chunking: str) -> DocumentRef:
+        """Upload a file and start parsing / indexing it with the given chunking strategy."""
+        ...
+
+    def document_state(self, dataset_id: str, ref: DocumentRef) -> DocumentState: ...
+
+    def delete_documents(self, dataset_id: str, document_ids: list[str]) -> None:
+        """Remove documents; ones that are already gone are not an error."""
+        ...
+
+    def list_chunks(self, dataset_id: str, document_id: str, *, page: int, size: int) -> tuple[list[str], int]:
+        """One page of a document's chunk texts and the total chunk count (for the chunk preview)."""
         ...
 
 

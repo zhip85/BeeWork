@@ -56,6 +56,13 @@ ReindexHook = Callable[[Session, KnowledgeBase, dict[str, str | None]], None]
 REINDEX_HOOKS: list[ReindexHook] = []
 
 
+# Called inside the API transaction when a knowledge base is copied (documents / FAQs follow the copy) or deleted.
+CopyHook = Callable[[Session, KnowledgeBase, KnowledgeBase], None]
+DeleteHook = Callable[[Session, KnowledgeBase], None]
+COPY_HOOKS: list[CopyHook] = []
+DELETE_HOOKS: list[DeleteHook] = []
+
+
 def register_content_provider(provider: ContentProvider) -> None:
     _content_providers.append(provider)
 
@@ -187,6 +194,7 @@ def rebuild_datasets(db: Session, kb: KnowledgeBase) -> None:
         for hook in REINDEX_HOOKS:
             hook(db, kb, new)
     except KnowledgeEngineError as exc:
+        db.rollback()  # a hook that failed midway must not leave its half-applied changes behind
         kb.sync_status = "failed"
         kb.sync_error = str(exc)[:500]
         db.commit()

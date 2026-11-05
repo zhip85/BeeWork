@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { ApiRequestError, apiRequest } from '../../api'
 import type { TenantMembership } from '../../types'
+import { DocumentsTab } from './DocumentsTab'
 import type { KnowledgeBase } from './types'
 
 const EMBEDDINGS = ['bge-m3', 'text-embedding-3-large', 'cohere-embed-v3'] as const
@@ -117,7 +118,9 @@ export function KnowledgeDetailPage({ tenant }: { tenant: TenantMembership }) {
             {!isFaq && <button aria-selected={tab === 'documents'} onClick={() => setTab('documents')} role="tab" type="button">{t('tabDocuments', { count: kb.docs_count })}</button>}
             <button aria-selected={isFaq || tab === 'faq'} onClick={() => setTab('faq')} role="tab" type="button">{t('tabFaq', { count: kb.faq_count })}</button>
           </div>
-          <div className="detail-card"><p className="usage-hint">{!isFaq && tab === 'documents' ? t('documentsSoon') : t('faqSoon')}</p></div>
+          {!isFaq && tab === 'documents'
+            ? <DocumentsTab kbId={kb.id} onChanged={load} tenant={tenant} />
+            : <div className="detail-card"><p className="usage-hint">{t('faqSoon')}</p></div>}
         </>
       )}
 

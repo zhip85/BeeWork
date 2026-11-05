@@ -53,6 +53,7 @@ services:
       - ./backend/migrations:/app/migrations
       - ./backend/tests:/app/tests
       - ./scripts:/app/scripts:ro
+      - knowledge_uploads:/data/uploads  # shared with the worker: uploaded knowledge files
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,6 +94,7 @@ services:
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
     volumes:
       - ./backend/src:/app/src
+      - knowledge_uploads:/data/uploads
     restart: unless-stopped
     depends_on:
       api:
@@ -186,6 +188,7 @@ services:
       retries: 10
 
 volumes:
+  knowledge_uploads:
   postgres_data:
   valkey_data:
   frontend_node_modules:

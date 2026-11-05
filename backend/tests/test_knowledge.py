@@ -75,6 +75,7 @@ class _Harness(unittest.TestCase):
         self.client = TestClient(app)
         self.fake.datasets.clear()
         self.fake.dify_datasets.clear()
+        self.fake.documents.clear()
         self.fake.fail_next = 0
         self.configure(True)
         self._providers = list(knowledge._content_providers)

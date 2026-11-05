@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
+    # Where uploaded knowledge files are kept (a volume shared by the API and the Worker); see file_store.py.
+    file_storage_dir: str = "/data/uploads"
     integration_timeout_seconds: float = 10.0
     model_call_timeout_seconds: float = 60.0
 
