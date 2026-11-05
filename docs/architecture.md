@@ -203,7 +203,7 @@ def update_note(note_id: UUID, payload: NoteWriteRequest,
 | 平台模型目录项 | LiteLLM deployment，别名 `bw-{model_id}` | 停用即从网关删除 |
 | 租户 × 环境 | LiteLLM team（`beework:{tenant}:{env}`）+ 虚拟 Key | team 只放行该环境启用的模型；Key 加密存于 `tenant_model_environments` |
 | 用量/点数 | LiteLLM spend logs（按 team 汇总） | Worker 定期拉取汇总为点数（T-011） |
-| 知识库 | RAGFlow dataset（普通库：文档 dataset + FAQ dataset；FAQ 库：仅 FAQ dataset） | `knowledge_bases.ragflow_dataset_id` / `ragflow_faq_dataset_id`；dataset 名用 `bw-{tenant}-{kb_id}` |
+| 知识库 | RAGFlow dataset（普通库：文档 dataset + FAQ dataset；FAQ 库：仅 FAQ dataset） | `knowledge_bases.engine_dataset_id` / `engine_faq_dataset_id`；dataset 名用 `bw-{tenant}-{kb_id}` |
 | 文档 | RAGFlow document | 上传后触发解析，Worker 轮询状态 |
 | FAQ | FAQ dataset（`qa` 方法）中的问答对 | BeeWork 为事实源，只推送已发布 FAQ |
 | 运行 run | Langfuse trace（`trace_id = run_id`） | 运营页按 run_id 跳转 |

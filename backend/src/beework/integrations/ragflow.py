@@ -10,10 +10,17 @@ from typing import Any, BinaryIO
 import httpx
 
 from beework.config import settings
+from beework.integrations.knowledge_engine import KnowledgeEngineError
 
-
-class KnowledgeEngineError(RuntimeError):
-    pass
+# How the PRD's chunking strategies map to RAGFlow ``chunk_method`` / ``parser_config``. Taken from RAGFlow's
+# documentation, NOT yet checked against a running RAGFlow (T-030 step 0).
+CHUNK_METHODS: dict[str, tuple[str, dict[str, Any]]] = {
+    "semantic": ("naive", {}),
+    "fixed_512": ("naive", {"chunk_token_num": 512}),
+    "by_heading": ("book", {}),
+}
+FAQ_CHUNK_METHOD = "qa"
+NOT_FOUND = "don't own the dataset"
 
 
 def ragflow_configured() -> bool:
@@ -87,7 +94,7 @@ class RAGFlowClient:
             data = self._request("GET", "/datasets", params={"name": name, "page": 1, "page_size": 5})
         except KnowledgeEngineError as exc:
             # RAGFlow answers a name filter that matches nothing with an error rather than an empty list.
-            if "don't own the dataset" in str(exc):
+            if NOT_FOUND in str(exc):
                 return None
             raise
         for dataset in data or []:
@@ -95,8 +102,27 @@ class RAGFlowClient:
                 return dataset["id"]
         return None
 
+    def create_knowledge_dataset(self, name: str, *, faq: bool, chunking: str, embedding_model: str) -> str:
+        if faq:
+            return self.create_dataset(name=name, chunk_method=FAQ_CHUNK_METHOD, embedding_model=embedding_model)
+        method, parser_config = CHUNK_METHODS[chunking]
+        return self.create_dataset(
+            name=name, chunk_method=method, embedding_model=embedding_model, parser_config=parser_config or None
+        )
+
     def delete_datasets(self, dataset_ids: list[str]) -> None:
-        self._request("DELETE", "/datasets", json={"ids": dataset_ids})
+        try:
+            self._request("DELETE", "/datasets", json={"ids": dataset_ids})
+        except KnowledgeEngineError as exc:
+            if NOT_FOUND not in str(exc):
+                raise
+            # Some are already gone (an earlier job or a retry got there first): delete the rest one by one.
+            for dataset_id in dataset_ids:
+                try:
+                    self._request("DELETE", "/datasets", json={"ids": [dataset_id]})
+                except KnowledgeEngineError as single:
+                    if NOT_FOUND not in str(single):
+                        raise
 
     def upload_document(self, dataset_id: str, filename: str, content: BinaryIO) -> str:
         data = self._request(

@@ -35,7 +35,7 @@ def load_fake_ragflow():
     return module
 
 
-class KnowledgeTests(unittest.TestCase):
+class _Harness(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         disable_external_integrations()
@@ -74,6 +74,7 @@ class KnowledgeTests(unittest.TestCase):
         Base.metadata.create_all(self.engine)
         self.client = TestClient(app)
         self.fake.datasets.clear()
+        self.fake.dify_datasets.clear()
         self.fake.fail_next = 0
         self.configure(True)
         self._providers = list(knowledge._content_providers)
@@ -117,9 +118,12 @@ class KnowledgeTests(unittest.TestCase):
 
     # -- helpers ----------------------------------------------------------------------------------------------
 
-    def configure(self, on: bool) -> None:
-        settings.ragflow_base_url = self.fake_url if on else ""
-        settings.ragflow_api_key = self.fake.API_KEY if on else ""
+    def configure(self, on: bool, engine: str = "ragflow") -> None:
+        settings.knowledge_engine = engine
+        settings.ragflow_base_url = self.fake_url if on and engine == "ragflow" else ""
+        settings.ragflow_api_key = self.fake.API_KEY if on and engine == "ragflow" else ""
+        settings.dify_base_url = f"{self.fake_url}/v1" if on and engine == "dify" else ""
+        settings.dify_api_key = self.fake.API_KEY if on and engine == "dify" else ""
 
     def login(self, email: str, tenant_id: UUID | None = None) -> dict[str, str]:
         response = self.client.post("/api/v1/auth/login", json={"email": email, "password": PASSWORD})
@@ -143,6 +147,8 @@ class KnowledgeTests(unittest.TestCase):
     def provide(self, **stats) -> None:
         knowledge.register_content_provider(lambda _db, _kb: knowledge.ContentStats(**stats))
 
+
+class KnowledgeTests(_Harness):
     # -- create + dataset sync --------------------------------------------------------------------------------
 
     def test_create_uses_the_documented_defaults_and_syncs_two_datasets_through_the_worker(self) -> None:
@@ -161,19 +167,20 @@ class KnowledgeTests(unittest.TestCase):
         kb = self.row(body["id"])
         self.assertEqual((kb.sync_status, kb.sync_error), ("synced", None))
         names = {dataset["name"]: dataset for dataset in self.fake.datasets.values()}
-        base = f"bw-{self.tenant_id}-{kb.id}-g1"
+        base = f"bw-{kb.id.hex[:24]}-g1"
         self.assertEqual(set(names), {base, f"{base}-faq"})  # ids only, never the typed name
+        self.assertEqual(kb.engine, "ragflow")
         self.assertEqual(names[base]["chunk_method"], "naive")
         self.assertEqual(names[f"{base}-faq"]["chunk_method"], "qa")
-        self.assertEqual(kb.ragflow_dataset_id, names[base]["id"])
+        self.assertEqual(kb.engine_dataset_id, names[base]["id"])
 
     def test_an_faq_knowledge_base_only_gets_the_faq_dataset(self) -> None:
         headers = self.login("admin@example.com")
         body = self.create(headers, kb_type="faq", language="zh-CN").json()
         self.worker()
         kb = self.row(body["id"])
-        self.assertIsNone(kb.ragflow_dataset_id)
-        self.assertIsNotNone(kb.ragflow_faq_dataset_id)
+        self.assertIsNone(kb.engine_dataset_id)
+        self.assertIsNotNone(kb.engine_faq_dataset_id)
         self.assertEqual(len(self.fake.datasets), 1)
 
     def test_without_an_engine_creation_still_succeeds_and_reconcile_syncs_it_later(self) -> None:
@@ -218,7 +225,7 @@ class KnowledgeTests(unittest.TestCase):
             with RAGFlowClient() as client:
                 orphan = client.create_dataset(name=knowledge.dataset_name(kb), chunk_method="naive")
         self.worker()
-        self.assertEqual(self.row(body["id"]).ragflow_dataset_id, orphan)
+        self.assertEqual(self.row(body["id"]).engine_dataset_id, orphan)
         self.assertEqual(len(self.fake.datasets), 2)
 
     # -- validation, uniqueness, permissions ------------------------------------------------------------------
@@ -286,7 +293,7 @@ class KnowledgeTests(unittest.TestCase):
         body = self.create(headers).json()
         self.worker()
         old = self.row(body["id"])
-        old_ids = {old.ragflow_dataset_id, old.ragflow_faq_dataset_id}
+        old_ids = {old.engine_dataset_id, old.engine_faq_dataset_id}
         self.provide(documents=3, indexed_documents=3)
         url = f"/api/v1/knowledge-bases/{body['id']}"
         refused = self.client.put(url, headers=headers, json=self.settings_payload(body, chunking="by_heading"))
@@ -294,15 +301,15 @@ class KnowledgeTests(unittest.TestCase):
         saved = self.client.put(url, headers=headers, json=self.settings_payload(body, chunking="by_heading", embedding_model="text-embedding-3-large", confirm_reindex=True))
         self.assertEqual(saved.status_code, 200, saved.text)
         self.assertEqual((saved.json()["status"], saved.json()["reindexing"]), ("processing", True))
-        self.assertEqual(self.row(body["id"]).ragflow_dataset_id, old.ragflow_dataset_id)  # the old index keeps serving
+        self.assertEqual(self.row(body["id"]).engine_dataset_id, old.engine_dataset_id)  # the old index keeps serving
         self.worker()
         swapped = self.row(body["id"])
         self.assertFalse(swapped.reindexing)
         self.assertEqual(swapped.sync_status, "synced")
-        self.assertTrue(old_ids.isdisjoint({swapped.ragflow_dataset_id, swapped.ragflow_faq_dataset_id}))
+        self.assertTrue(old_ids.isdisjoint({swapped.engine_dataset_id, swapped.engine_faq_dataset_id}))
         self.worker()  # the old datasets are deleted by their own job after the switch
-        self.assertEqual({dataset["id"] for dataset in self.fake.datasets.values()}, {swapped.ragflow_dataset_id, swapped.ragflow_faq_dataset_id})
-        rebuilt = {dataset["id"]: dataset for dataset in self.fake.datasets.values()}[swapped.ragflow_dataset_id]
+        self.assertEqual({dataset["id"] for dataset in self.fake.datasets.values()}, {swapped.engine_dataset_id, swapped.engine_faq_dataset_id})
+        rebuilt = {dataset["id"]: dataset for dataset in self.fake.datasets.values()}[swapped.engine_dataset_id]
         self.assertEqual((rebuilt["chunk_method"], rebuilt["embedding_model"]), ("book", "text-embedding-3-large"))
         self.assertEqual(self.client.get(url, headers=headers).json()["status"], "indexed")
 
@@ -325,14 +332,14 @@ class KnowledgeTests(unittest.TestCase):
             self.client.put(url, headers=headers, json=self.settings_payload(body, chunking="fixed_512"))
             self.worker()
             failed = self.row(body["id"])
-            self.assertEqual((failed.sync_status, failed.ragflow_dataset_id), ("failed", old.ragflow_dataset_id))
+            self.assertEqual((failed.sync_status, failed.engine_dataset_id), ("failed", old.engine_dataset_id))
             self.assertTrue(failed.reindexing)
             broken["on"] = False
             self.client.post(f"{url}/retry-sync", headers=headers)
             self.worker()
             done = self.row(body["id"])
             self.assertEqual((done.sync_status, done.reindexing), ("synced", False))
-            self.assertNotEqual(done.ragflow_dataset_id, old.ragflow_dataset_id)
+            self.assertNotEqual(done.engine_dataset_id, old.engine_dataset_id)
             self.assertEqual(len(seen), 2)
             self.worker()  # deletes the replaced datasets
             self.assertEqual({d["parser_config"].get("chunk_token_num") for d in self.fake.datasets.values() if d["chunk_method"] == "naive"}, {512})
@@ -350,13 +357,13 @@ class KnowledgeTests(unittest.TestCase):
         knowledge._content_providers.clear()
         to_faq = self.client.put(url, headers=headers, json=self.settings_payload(body, kb_type="faq"))
         self.assertEqual((to_faq.status_code, to_faq.json()["kb_type"]), (200, "faq"), to_faq.text)
-        self.assertIsNone(self.row(body["id"]).ragflow_dataset_id)
+        self.assertIsNone(self.row(body["id"]).engine_dataset_id)
         self.worker()
         self.assertEqual(len(self.fake.datasets), 1)  # the empty document dataset was deleted, the FAQ one kept
         again = self.client.put(url, headers=headers, json=self.settings_payload(to_faq.json(), kb_type="standard"))
         self.assertEqual(again.status_code, 200, again.text)
         self.worker()
-        self.assertIsNotNone(self.row(body["id"]).ragflow_dataset_id)
+        self.assertIsNotNone(self.row(body["id"]).engine_dataset_id)
         self.assertEqual(len(self.fake.datasets), 2)
 
     def test_status_follows_the_content(self) -> None:
@@ -400,7 +407,7 @@ class KnowledgeTests(unittest.TestCase):
         self.assertEqual((copy.json()["status"], copy.json()["retrieval_threshold"]), ("draft", "0.80"))
         self.worker()
         self.assertEqual(len(self.fake.datasets), 6)
-        self.assertNotEqual(self.row(copy.json()["id"]).ragflow_dataset_id, self.row(body["id"]).ragflow_dataset_id)
+        self.assertNotEqual(self.row(copy.json()["id"]).engine_dataset_id, self.row(body["id"]).engine_dataset_id)
 
     def test_delete_is_soft_removes_the_datasets_and_reports_references(self) -> None:
         headers = self.login("admin@example.com")
@@ -511,6 +518,114 @@ class KnowledgeTests(unittest.TestCase):
             actions = sorted(db.scalars(select(AuditEvent.action).where(AuditEvent.action.like("knowledge.%"))))
         self.assertEqual(actions, ["knowledge.copied", "knowledge.created", "knowledge.updated"])
         self.assertEqual(Decimal(self.row(body["id"]).retrieval_threshold), Decimal("0.70"))
+
+
+class DifyTests(_Harness):
+    """The same knowledge-base flows against the Dify API (fake), plus the Dify client's own contract."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.configure(True, "dify")
+
+    def dify(self):
+        return list(self.fake.dify_datasets.values())
+
+    def test_creation_syncs_two_knowledge_bases_named_within_dify_limits(self) -> None:
+        headers = self.login("admin@example.com")
+        body = self.create(headers, name="产品知识库").json()
+        self.assertEqual((body["engine"], body["sync_status"]), ("dify", "pending"))
+        self.worker()
+        kb = self.row(body["id"])
+        self.assertEqual((kb.sync_status, kb.engine), ("synced", "dify"))
+        names = sorted(dataset["name"] for dataset in self.dify())
+        self.assertEqual(names, [f"bw-{kb.id.hex[:24]}-g1", f"bw-{kb.id.hex[:24]}-g1-faq"])
+        self.assertTrue(all(len(name) <= 40 for name in names))
+        self.assertTrue(all(d["indexing_technique"] == "high_quality" for d in self.dify()))
+        self.assertEqual(self.fake.datasets, {})  # nothing went to RAGFlow
+        self.assertEqual(kb.engine_dataset_id in {d["id"] for d in self.dify()}, True)
+
+    def test_the_embedding_choice_maps_to_a_dify_provider_model_or_the_workspace_default(self) -> None:
+        headers = self.login("admin@example.com")
+        body = self.create(headers).json()
+        self.worker()
+        self.assertTrue(all(d["embedding_model"] is None for d in self.dify()))  # bge-m3: workspace default
+        saved = self.client.put(
+            f"/api/v1/knowledge-bases/{body['id']}", headers=headers,
+            json=self.settings_payload(body, embedding_model="text-embedding-3-large"),
+        )
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.worker()
+        self.worker()
+        self.assertEqual(len(self.dify()), 2)  # rebuilt: old generation removed
+        self.assertEqual({(d["embedding_model_provider"], d["embedding_model"]) for d in self.dify()}, {("openai", "text-embedding-3-large")})
+
+    def test_rebuild_and_delete_work_and_deleting_is_repeatable(self) -> None:
+        headers = self.login("admin@example.com")
+        body = self.create(headers).json()
+        self.worker()
+        original = {d["id"] for d in self.dify()}
+        self.client.put(f"/api/v1/knowledge-bases/{body['id']}", headers=headers, json=self.settings_payload(body, chunking="by_heading"))
+        self.worker()
+        self.worker()
+        after = {d["id"] for d in self.dify()}
+        self.assertTrue(original.isdisjoint(after) and len(after) == 2)
+        # One dataset disappears out-of-band; deleting the knowledge base must still remove the rest.
+        gone = next(iter(after))
+        del self.fake.dify_datasets[gone]
+        self.assertEqual(self.client.delete(f"/api/v1/knowledge-bases/{body['id']}", headers=headers).status_code, 204)
+        self.worker()
+        self.assertEqual(self.dify(), [])
+
+    def test_a_knowledge_base_keeps_its_engine_when_the_default_changes(self) -> None:
+        headers = self.login("admin@example.com")
+        body = self.create(headers).json()
+        self.worker()
+        settings.knowledge_engine = "ragflow"
+        settings.ragflow_base_url, settings.ragflow_api_key = self.fake_url, self.fake.API_KEY
+        self.client.put(f"/api/v1/knowledge-bases/{body['id']}", headers=headers, json=self.settings_payload(body, chunking="fixed_512"))
+        self.worker()
+        self.worker()
+        self.assertEqual(self.fake.datasets, {})  # still Dify
+        self.assertEqual(len(self.dify()), 2)
+        other = self.create(headers, name="New one").json()
+        self.assertEqual(other["engine"], "ragflow")  # new knowledge bases follow the new default
+        self.assertEqual(self.client.get(f"/api/v1/knowledge-bases/{body['id']}", headers=headers).json()["engine"], "dify")
+
+    def test_without_dify_credentials_creation_succeeds_and_reconcile_syncs_it_later(self) -> None:
+        self.configure(False, "dify")
+        headers = self.login("admin@example.com")
+        body = self.create(headers).json()
+        self.assertEqual((body["engine"], body["sync_status"]), ("dify", "not_configured"))
+        self.configure(True, "dify")
+        with self.session_factory() as db:
+            knowledge.reconcile_job(db, {})
+        self.worker()
+        self.assertEqual(self.row(body["id"]).sync_status, "synced")
+
+    def test_the_client_contract(self) -> None:
+        from beework.integrations.dify import DifyClient
+        from beework.integrations.knowledge_engine import KnowledgeEngineError
+
+        with DifyClient(f"{self.fake_url}/v1/", "wrong-key") as bad, self.assertRaises(KnowledgeEngineError) as caught:
+            bad.health()
+        self.assertIn("401", str(caught.exception))
+        with DifyClient(f"{self.fake_url}/v1", self.fake.API_KEY) as client:
+            self.assertTrue(client.health())
+            first = client.create_knowledge_dataset("bw-a", faq=False, chunking="semantic", embedding_model="bge-m3")
+            client.create_knowledge_dataset("bw-ab", faq=False, chunking="semantic", embedding_model="bge-m3")
+            self.assertEqual(client.find_dataset("bw-a"), first)  # exact match, not the keyword-matching "bw-ab"
+            self.assertIsNone(client.find_dataset("bw"))
+            with self.assertRaises(KnowledgeEngineError) as duplicate:
+                client.create_knowledge_dataset("bw-a", faq=False, chunking="semantic", embedding_model="bge-m3")
+            self.assertIn("409", str(duplicate.exception))
+            with self.assertRaises(KnowledgeEngineError):
+                client.create_knowledge_dataset("x" * 41, faq=False, chunking="semantic", embedding_model="bge-m3")
+            client.delete_datasets([first, first, "missing"])  # repeatable, missing ids are fine
+            self.assertIsNone(client.find_dataset("bw-a"))
+            self.fake.fail_next = 1
+            with self.assertRaises(KnowledgeEngineError) as injected:
+                client.health()
+            self.assertIn("500", str(injected.exception))
 
 
 if __name__ == "__main__":

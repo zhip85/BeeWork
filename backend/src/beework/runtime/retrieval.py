@@ -45,6 +45,6 @@ def tenant_dataset_ids(tenant_id: UUID, requested: Sequence[str]) -> list[str]:
     """Keep only dataset ids that belong to ``tenant_id``.
 
     There is no knowledge-base table yet, so no dataset can be proven to belong to the tenant and
-    none is allowed. T-033 replaces this with a lookup of the tenant's ``ragflow_dataset_id``s.
+    none is allowed. T-033 replaces this with a lookup of the tenant's ``engine_dataset_id``s.
     """
     return []

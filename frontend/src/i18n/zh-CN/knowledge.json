@@ -50,7 +50,7 @@
     "pending": "正在把知识库同步到知识引擎，稍后自动更新。",
     "synced": "",
     "failed": "同步到知识引擎失败，系统会自动重试，也可以手动重试",
-    "not_configured": "知识引擎（RAGFlow）尚未配置，请管理员配置后重试同步。知识库内容暂时无法索引。"
+    "not_configured": "知识引擎尚未配置（RAGFlow 或 Dify），请管理员配置后重试同步。知识库内容暂时无法索引。"
   },
   "retrySync": "重试同步",
   "retryQueued": "已重新排队同步",
@@ -100,5 +100,9 @@
   "thresholdHint": "仅返回相似度达到该值的知识片段",
   "save": "保存",
   "saving": "保存中…",
-  "readOnly": "你没有修改知识库设置的权限。"
+  "readOnly": "你没有修改知识库设置的权限。",
+  "engine": {
+    "ragflow": "RAGFlow",
+    "dify": "Dify"
+  }
 }

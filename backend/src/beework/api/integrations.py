@@ -3,9 +3,11 @@ from collections.abc import Callable
 from fastapi import APIRouter, Depends
 
 from beework.api.conventions import require_platform_admin
+from beework.integrations.dify import DifyClient
+from beework.integrations.knowledge_engine import engine_configured
 from beework.integrations.langfuse import check_langfuse, langfuse_configured
 from beework.integrations.litellm import LiteLLMClient, gateway_configured
-from beework.integrations.ragflow import RAGFlowClient, ragflow_configured
+from beework.integrations.ragflow import RAGFlowClient
 from beework.models import User
 from beework.schemas import IntegrationStatus
 
@@ -22,9 +24,15 @@ def _ragflow_health() -> bool:
         return client.health()
 
 
+def _dify_health() -> bool:
+    with DifyClient() as client:
+        return client.health()
+
+
 INTEGRATIONS: list[tuple[str, str, str, Callable[[], bool], Callable[[], bool]]] = [
     ("litellm", "LiteLLM", "AI 网关：模型路由、租户密钥、限流与用量", gateway_configured, _litellm_health),
-    ("ragflow", "RAGFlow", "知识引擎：文档解析、切片、向量化与检索", ragflow_configured, _ragflow_health),
+    ("ragflow", "RAGFlow", "知识引擎：文档解析、切片、向量化与检索", lambda: engine_configured("ragflow"), _ragflow_health),
+    ("dify", "Dify", "知识引擎（可选）：Dify 知识库 API", lambda: engine_configured("dify"), _dify_health),
     ("langfuse", "Langfuse", "调用追踪：模型与智能体运行轨迹", langfuse_configured, check_langfuse),
 ]
 

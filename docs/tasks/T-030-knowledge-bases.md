@@ -73,3 +73,11 @@
 - 改名加租户级锁，两个并发改名不会取到同一个名字。
 - 已知未处理：设置连续修改时，较早的一次重建完成后会短暂把“重建中”标志清掉，随后排队的下一次重建会收敛到最终配置。
 
+## 知识引擎改为 RAGFlow / Dify 可配置（2026-11-05）
+
+- **配置**：`KNOWLEDGE_ENGINE=ragflow|dify` 决定**新建**知识库用哪个引擎；`RAGFLOW_BASE_URL/RAGFLOW_API_KEY`、`DIFY_BASE_URL/DIFY_API_KEY` 分别配置。每个知识库在创建时记下自己的引擎（`knowledge_bases.engine`），之后改默认引擎不会让已有知识库的数据集变成孤儿，也不会自动迁移。Dify 的 Key 是工作区的“知识库 API”密钥（`dataset-…`），Dify Cloud 的地址是 `https://api.dify.ai/v1`。
+- **代码**：新增 `integrations/knowledge_engine.py`（统一接口 `create_knowledge_dataset / find_dataset / delete_datasets`、`default_engine / engine_configured / open_engine`）与 `integrations/dify.py`；`RAGFlowClient` 实现同一接口，切片映射表 `CHUNK_METHODS` 挪进 RAGFlow 客户端；`knowledge.py` 只依赖接口。迁移 `0030_knowledge_engine`：数据集列改名为 `engine_dataset_id / engine_faq_dataset_id`，新增 `engine`（存量默认 `ragflow`）。数据集名改为 `bw-<知识库 id 前 24 位十六进制>-g<代数>[-faq]`（≤ 40 字符，满足 Dify 的名称上限）。平台“集成”列表里 RAGFlow 与 Dify 各一行。
+- **Dify 与 RAGFlow 的差异（按 Dify 文档）**：知识库名 ≤ 40 字符；切片规则（`process_rule`）和问答模式（`doc_form`）是**文档级**参数，数据集创建时不带，留给 T-031 / T-032 上传文档时带；Embedding 在数据集上用 `embedding_model_provider` + `embedding_model`，BeeWork 的 `text-embedding-3-large`、`cohere-embed-v3` 映射到 Dify 云端的 OpenAI / Cohere 模型，`bge-m3` 云端没有，用工作区默认；Dify 没有批量删除，逐个删除，404 当作已删除。
+- **验证**：`test_knowledge.py` 29 项（RAGFlow 23 项 + Dify 6 项：创建与命名、Embedding 映射、重建与可重复删除、改默认引擎后旧知识库保持原引擎、未配置与补同步、客户端契约）通过；`check_knowledge_e2e.py` 在真实 API + Worker + 假服务上分别用 RAGFlow 与 Dify 两种配置通过。假服务 `scripts/fake_ragflow.py` 现在同时模拟两种接口（Dify 在 `/v1`）。
+- **用真实 Dify 的验证没有完成**：用你提供的 Dify Cloud Key 只读探测 `GET /v1/datasets`，返回 `403 forbidden：The API key is not authorized to access this knowledge base`；同一接口用乱写的 Key 返回 `401 Access token is invalid`，说明 Dify 认得这个 Key，但拒绝它访问知识库 API。可能是 Key 的创建者或套餐权限的限制，需要在 Dify 控制台确认。所以 Dify 客户端同样只对着假服务验证过，创建/删除/检索字段名和行为均按文档推断。
+
