@@ -305,7 +305,7 @@ class RuntimeTests(unittest.TestCase):
         model = build_chat_model(dsl, api_key="sk-virtual", metadata={"tenant_id": "t1", "run_id": "r1"})
         self.assertEqual(model.model_name, "bw-abc")
         self.assertTrue(model.streaming)
-        self.assertEqual(model.extra_body, {"metadata": {"tenant_id": "t1", "run_id": "r1"}})
+        self.assertEqual(model.extra_body, {"metadata": {"tenant_id": "t1", "run_id": "r1", "spend_logs_metadata": {"tenant_id": "t1", "run_id": "r1"}}})
         self.assertEqual(model.openai_api_key.get_secret_value(), "sk-virtual")
         self.assertTrue(str(model.openai_api_base).endswith("/v1"))
 

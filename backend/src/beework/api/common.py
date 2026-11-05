@@ -12,6 +12,7 @@ from beework.auth import (
     CSRF_COOKIE,
 )
 from beework.config import settings
+from beework.entitlements import environments_for
 from beework.models import (
     AuditEvent,
     AuthSession,
@@ -30,7 +31,7 @@ from beework.schemas import (
     TenantMembershipResponse,
 )
 from beework.security import create_access_token
-from beework.tenant_access import environments_for_plan, tenant_access_mode
+from beework.tenant_access import tenant_access_mode
 
 
 def create_login_session(db: Session, user: User, response: Response) -> None:
@@ -128,7 +129,7 @@ def make_current_user_response(db: Session, user: User) -> CurrentUserResponse:
                 tenant_status=tenant.status,
                 access_mode=tenant_access_mode(tenant.status, member.role),
                 plan=tenant.plan,
-                environments=list(environments_for_plan(tenant.plan)),
+                environments=list(environments_for(db, tenant.id)),
                 permissions=sorted(
                     flatten_permissions(custom_role.permissions)
                     if custom_role and custom_role.is_active

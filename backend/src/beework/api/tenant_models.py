@@ -9,6 +9,7 @@ from beework.auth import (
     require_csrf,
 )
 from beework.db import get_db
+from beework.entitlements import environments_for
 from beework.gateway_sync import request_environment_sync, tenant_gateway_key
 from beework.integrations.litellm import GatewayError, model_alias
 from beework.model_testing import run_model_test
@@ -33,15 +34,15 @@ from beework.schemas import (
     TenantModelOption,
     TenantModelTestRequest,
 )
-from beework.tenant_access import ENVIRONMENTS, environments_for_plan
+from beework.tenant_access import ENVIRONMENTS
 
 router = APIRouter()
 
 
-def _ensure_environment_available(tenant: Tenant, environment: str) -> None:
+def _ensure_environment_available(db: Session, tenant: Tenant, environment: str) -> None:
     if environment not in ENVIRONMENTS:
         raise HTTPException(status_code=422, detail="环境必须是开发、预发或生产")
-    if environment not in environments_for_plan(tenant.plan):
+    if environment not in environments_for(db, tenant.id):
         raise HTTPException(status_code=403, detail="当前套餐仅提供生产环境，开发与预发环境需企业版")
 
 
@@ -107,7 +108,7 @@ def _tenant_model_environment_response(
     return TenantModelEnvironmentResponse(
         tenant_id=tenant.id,
         environment=environment,
-        available_environments=list(environments_for_plan(tenant.plan)),
+        available_environments=list(environments_for(db, tenant.id)),
         plan=tenant.plan,
         region=tenant.region,
         version=config.version if config else 0,
@@ -143,7 +144,7 @@ def list_tenant_environments(
     tenant = db.get(Tenant, membership.tenant_id)
     if tenant is None:
         raise HTTPException(status_code=404, detail="未找到企业工作区")
-    offered = environments_for_plan(tenant.plan)
+    offered = environments_for(db, tenant.id)
     statuses = {
         row.environment: row.gateway_sync_status
         for row in db.scalars(select(TenantModelEnvironment).where(TenantModelEnvironment.tenant_id == tenant.id))
@@ -173,7 +174,7 @@ def get_tenant_model_environment(
     tenant = db.get(Tenant, membership.tenant_id)
     if tenant is None:
         raise HTTPException(status_code=404, detail="未找到企业工作区")
-    _ensure_environment_available(tenant, environment)
+    _ensure_environment_available(db, tenant, environment)
     return _tenant_model_environment_response(db, tenant, environment)
 
 
@@ -193,7 +194,7 @@ def update_tenant_model_environment(
     )
     if tenant is None:
         raise HTTPException(status_code=404, detail="未找到企业工作区")
-    _ensure_environment_available(tenant, environment)
+    _ensure_environment_available(db, tenant, environment)
     config = db.scalar(
         select(TenantModelEnvironment)
         .where(
@@ -263,7 +264,7 @@ def _environment_config(
     tenant = db.get(Tenant, membership.tenant_id)
     if tenant is None:
         raise HTTPException(status_code=404, detail="未找到企业工作区")
-    _ensure_environment_available(tenant, environment)
+    _ensure_environment_available(db, tenant, environment)
     config = db.scalar(
         select(TenantModelEnvironment).where(
             TenantModelEnvironment.tenant_id == tenant.id,

@@ -400,6 +400,34 @@ class PostgresIntegrationTests(unittest.TestCase):
         correct = TestClient(app).post("/api/v1/auth/login", json={"email": "pg-victim@example.com", "password": "the right password"})
         self.assertEqual((correct.status_code, correct.json()["code"]), (423, "auth.locked"))
 
+    def test_concurrent_usage_pulls_count_each_gateway_request_once(self) -> None:
+        from datetime import UTC, datetime, timedelta
+        from decimal import Decimal
+
+        from beework import usage
+        from test_usage import FakeSpendLogs, spend_row
+
+        now = datetime.now(UTC).replace(microsecond=0)
+        gateway = FakeSpendLogs()
+        for index in range(30):
+            gateway.rows.append(spend_row(f"pg-{index}", now - timedelta(minutes=20), self.tenant_id, tokens_in=1000, tokens_out=0))
+        with self.engine.begin() as connection:
+            connection.execute(text("TRUNCATE usage_records, usage_seen, usage_sync_state, usage_alerts"))
+        barrier = threading.Barrier(4)
+
+        def pull() -> int:
+            barrier.wait()
+            with self.session_factory() as db, gateway.client() as client:
+                return usage.pull_usage(db, client, now=now).counted
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            counted = list(pool.map(lambda _: pull(), range(4)))
+        self.assertEqual(sum(counted), 30)  # the advisory lock serialises the pulls; the others see every request as seen
+        with self.session_factory() as db:
+            self.assertEqual(usage.month_points_decimal(db, self.tenant_id, now.date()), Decimal(0))  # unpriced: no model row
+            records = list(db.scalars(select(usage.UsageRecord).where(usage.UsageRecord.tenant_id == self.tenant_id)))
+            self.assertEqual(sum(record.requests for record in records), 30)
+
     def test_concurrent_workers_claim_each_job_once(self) -> None:
         with self.session_factory.begin() as db:
             for index in range(8):

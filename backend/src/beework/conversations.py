@@ -9,12 +9,14 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from beework.compliance import get_policy
+from beework.entitlements import enforce_quota
 from beework.models import AuditEvent, Tenant, User
 from beework.models.assistants import Assistant
 from beework.models.conversations import Conversation, EndUser, Message
 from beework.models.jobs import RunEvent
 from beework.models.runtime import Run
 from beework.pii import redact_text
+from beework.usage import NON_BILLABLE_CONVERSATION_SOURCES
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,8 @@ def console_end_user(db: Session, tenant_id: UUID, user: User) -> EndUser:
 def start_conversation(
     db: Session, *, assistant: Assistant, end_user: EndUser, source: str, environment: str, created_by: UUID | None
 ) -> Conversation:
+    if source not in NON_BILLABLE_CONVERSATION_SOURCES:
+        enforce_quota(db, assistant.tenant_id, "monthly_conversations", 1, "本月会话数已达套餐上限，请联系平台升级")
     now = datetime.now(UTC)
     conversation = Conversation(
         tenant_id=assistant.tenant_id,

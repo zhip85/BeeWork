@@ -17,12 +17,14 @@ from beework.api import (
     notifications,
     organizations,
     platform_models,
+    platform_plans,
     platform_tenants,
     roles,
     runs,
     subscription,
     tenant_models,
     test_cases,
+    usage,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -38,6 +40,7 @@ for module in (
     audit,
     channels,
     platform_tenants,
+    platform_plans,
     platform_models,
     tenant_models,
     members,
@@ -49,5 +52,6 @@ for module in (
     runs,
     subscription,
     test_cases,
+    usage,
 ):
     router.include_router(module.router)

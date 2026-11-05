@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from beework.conversations import append_message, start_conversation
-from beework.entitlements import check_quota, get_usage_counter, quota_limit
+from beework.entitlements import check_quota, environments_for, get_usage_counter, quota_limit
 from beework.errors import ApiError
 from beework.gateway_sync import environment_ready
 from beework.models import Tenant, TenantModelEnvironment
@@ -26,7 +26,8 @@ from beework.ratelimit import limiter
 from beework.runtime.dsl import AssistantDSLv1, dsl_from_draft
 from beework.runtime.errors import RuntimeFailure
 from beework.runtime.executor import SERVING_TENANT_STATUSES
-from beework.tenant_access import ENVIRONMENTS, environments_for_plan
+from beework.tenant_access import ENVIRONMENTS
+from beework.usage import ensure_environment_active
 from beework.worker.events import publish_run_event, stream_run_events
 from beework.worker.queue import enqueue
 
@@ -66,7 +67,7 @@ def enforce_visitor_limit(ip: str | None, scope: str, *, per_second: float = 1.0
 
 
 def resolve_target(db: Session, tenant: Tenant, assistant_id: UUID, environment: str, message: str) -> ChatTarget:
-    if environment not in ENVIRONMENTS or environment not in environments_for_plan(tenant.plan):
+    if environment not in ENVIRONMENTS or environment not in environments_for(db, tenant.id):
         raise ApiError(403, "environment_unavailable", "当前套餐不提供该环境")
     if tenant.status not in SERVING_TENANT_STATUSES:
         raise ApiError(403, "tenant_unavailable", "企业工作区当前不可用")
@@ -109,8 +110,9 @@ def resolve_target(db: Session, tenant: Tenant, assistant_id: UUID, environment:
         raise ApiError(503, "service_unavailable", "助理所选模型当前不可用")
     if len(message.strip()) > dsl.limits.max_input_chars:
         raise ApiError(422, "invalid_request", f"message：长度不能超过 {dsl.limits.max_input_chars} 个字符")
-    if get_usage_counter("monthly_points") is not None and not check_quota(db, tenant.id, "monthly_points", 0).allowed:
+    if get_usage_counter("monthly_points") is not None and not check_quota(db, tenant.id, "monthly_points", 1).allowed:
         raise ApiError(402, "quota_exceeded", "本月模型点数已用完")
+    ensure_environment_active(db, tenant.id, environment)
     return ChatTarget(assistant, dsl, version_id, label, environment)
 
 

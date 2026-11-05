@@ -3,6 +3,7 @@
     "models": "Models & environments",
     "privacy": "Data & privacy",
     "approvals": "Approval policies",
+    "usage": "Subscription & usage",
     "api": "API keys"
   },
   "privacy": {
@@ -25,5 +26,63 @@
     "saved": "Saved",
     "readOnly": "You do not have permission to change these settings.",
     "conflict": "The settings were changed by someone else; they have been reloaded."
+  },
+  "usage": {
+    "title": "Subscription & usage",
+    "subtitle": "Current plan, this month's points, the monthly budget and alerts. Points come from the AI gateway's call records, summarised about every 5 minutes.",
+    "loading": "Loading…",
+    "loadFailed": "Could not load usage",
+    "currentPlan": "Current plan",
+    "cycle": {
+      "monthly": "Monthly",
+      "yearly": "Yearly"
+    },
+    "renews": "Renews {{date}}",
+    "noRenewal": "No renewal date set",
+    "seatsCount": "{{count}} seats",
+    "environmentsCount": "{{count}} environments",
+    "changePlanNote": "Contact the platform to change plans.",
+    "pointsUsed": "Points used this month",
+    "unlimited": "Unlimited in plan",
+    "seats": "Seats",
+    "projected": "Projected month-end usage",
+    "projectedHint": "Linear extrapolation from the days elapsed this month",
+    "syncedAt": "Usage last summarised at {{time}}",
+    "neverSynced": "Usage has not been summarised yet (the Worker pulls every 5 minutes)",
+    "syncError": "The last summary failed; data may lag",
+    "trend": "Monthly points",
+    "trendHint": "Last 6 months; the horizontal line is the monthly budget and months over budget are highlighted.",
+    "budgetLine": "Budget {{value}}",
+    "byAssistant": "This month by assistant",
+    "byAssistantEmpty": "No usage yet this month.",
+    "other": "Other",
+    "unattributed": "Unattributed",
+    "exported": "Usage report exported",
+    "exportFailed": "Could not export the usage report",
+    "export": {
+      "title": "Export usage report",
+      "hint": "CSV by day × assistant × model × environment, up to 366 days.",
+      "from": "From",
+      "to": "To",
+      "action": "Export CSV",
+      "exporting": "Exporting"
+    },
+    "budget": {
+      "title": "Budget & alerts",
+      "used": "{{percent}}% of this month's budget used.",
+      "paused": "This month's budget is used up: development and staging are paused; production is unaffected.",
+      "monthly": "Monthly budget (points)",
+      "thresholds": "Alert thresholds",
+      "thresholdsHint": "Each time usage reaches a level, workspace admins are notified once per month (in-app).",
+      "recipients": "Alert recipients (emails, comma-separated)",
+      "recipientsHint": "Email delivery is not connected yet; only in-app notifications are sent. Recipients are saved for later.",
+      "pause": "Pause non-production traffic at 100%",
+      "pauseHint": "Production assistants are unaffected; development and staging are paused and resume next month or once the budget is raised.",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Budget saved",
+      "saveFailed": "Could not save the budget",
+      "readOnly": "You do not have permission to change the budget."
+    }
   }
 }

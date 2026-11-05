@@ -26,6 +26,7 @@
     "tenant.status_changed": "企业工作区状态已变更：{{status}}",
     "assistant.published": "助理“{{name}}”已发布 v{{version}}",
     "approval.withdrawn": "审批已被撤回（已有更新的变更直接生效）：{{title}}",
-    "security.account_locked": "账号 {{email}} 因连续登录失败被锁定 15 分钟"
+    "security.account_locked": "账号 {{email}} 因连续登录失败被锁定 15 分钟",
+    "usage.threshold": "本月点数用量已达预算的 {{threshold}}%（{{used}} / {{budget}}）"
   }
 }

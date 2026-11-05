@@ -6,6 +6,7 @@ team + virtual key restricted to the models that environment has enabled.
 LiteLLM then enforces the allowlist, RPM limits and records spend per team.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -154,6 +155,29 @@ class LiteLLMClient:
     def unblock_key(self, key: str) -> None:
         self._request("POST", "/key/unblock", json={"key": key})
 
+    def spend_logs(
+        self, *, start: datetime, end: datetime, page: int, page_size: int = 200
+    ) -> tuple[list[dict[str, Any]], int]:
+        """One page of per-request spend logs ordered by start time, and the total page count.
+
+        ``/spend/logs`` (without ``/v2``) returns per-day aggregates; only ``/spend/logs/v2`` has one row per call.
+        """
+        payload = self._request(
+            "GET",
+            "/spend/logs/v2",
+            params={
+                "start_date": start.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+                "end_date": end.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+                "page": page,
+                "page_size": page_size,
+                "sort_by": "startTime",
+                "sort_order": "asc",
+            },
+        )
+        if not isinstance(payload, dict):
+            raise GatewayError("AI 网关返回了无法识别的用量记录")
+        return list(payload.get("data") or []), int(payload.get("total_pages") or 1)
+
     def accessible_models(self, *, api_key: str) -> list[str]:
         """Model aliases the given key may call; validates the key without a provider call."""
         payload = self._request(
@@ -173,7 +197,7 @@ class LiteLLMClient:
         """Call a model through the gateway with a tenant virtual key."""
         body: dict[str, Any] = {"model": model, "messages": messages, "max_tokens": max_tokens}
         if metadata:
-            body["metadata"] = metadata
+            body["metadata"] = {**metadata, "spend_logs_metadata": dict(metadata)}  # see runtime.llm
         return self._request(
             "POST",
             "/chat/completions",

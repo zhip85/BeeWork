@@ -133,6 +133,25 @@ def seat_usage(db: Session, tenant_id: UUID) -> int:
 register_usage_counter("seats", seat_usage)
 
 
+def _points_used(db: Session, tenant_id: UUID) -> int:
+    from beework.usage import month_points
+
+    return month_points(db, tenant_id)
+
+
+def _conversations_used(db: Session, tenant_id: UUID) -> int:
+    from beework.usage import month_conversations
+
+    return month_conversations(db, tenant_id)
+
+
+# Points and conversations are metered by T-011; the counters import it lazily because usage depends on this module.
+register_usage_counter("monthly_points", _points_used)
+register_usage_counter("monthly_conversations", _conversations_used)
+
+ENVIRONMENTS_ENTITLEMENT = {"production_only": ("production",), "all": ("development", "staging", "production")}
+
+
 def ensure_default_plans(db: Session) -> None:
     """Insert any missing default plan / version 1 (idempotent; no-op after the migration seed)."""
     for code, definition in PLAN_DEFAULTS.items():
@@ -278,6 +297,12 @@ def require_entitlement(key: str):
     return dependency
 
 
+def environments_for(db: Session, tenant_id: UUID) -> tuple[str, ...]:
+    """Environments the tenant's subscription offers (RUL-004); the subscription, not ``tenants.plan``, decides."""
+    value = get_subscription(db, tenant_id).entitlements.get("environments")
+    return ENVIRONMENTS_ENTITLEMENT.get(value, ("production",))
+
+
 def quota_limit(db: Session, tenant_id: UUID, key: str) -> int | None:
     return get_subscription(db, tenant_id).quotas.get(key)
 
@@ -311,3 +336,149 @@ def enforce_quota(
             message or f"已达套餐配额上限（{decision.used}/{decision.limit}），请联系平台升级",
         )
     return decision
+
+
+# ---------------------------------------------------------------------------
+# Plan maintenance (T-010, PLT-085) and applying a plan to a tenant.
+# ---------------------------------------------------------------------------
+
+ENTITLEMENT_KEYS = tuple(PLAN_DEFAULTS["standard"]["entitlements"])
+OVERAGE_POLICIES = ("hard", "soft", "degrade")
+
+
+def validate_plan_definition(
+    entitlements: dict | None, quotas: dict | None, overage_policy: dict | None
+) -> None:
+    for key, value in (entitlements or {}).items():
+        if key not in ENTITLEMENT_KEYS:
+            raise ApiError(422, "plan.invalid", f"未知权益：{key}")
+        if value is not None and not isinstance(value, bool | str | int):
+            raise ApiError(422, "plan.invalid", f"权益 {key} 的取值无效")
+    environments = (entitlements or {}).get("environments")
+    if environments is not None and environments not in ENVIRONMENTS_ENTITLEMENT:
+        raise ApiError(422, "plan.invalid", "环境权益必须是 production_only 或 all")
+    levels = (entitlements or {}).get("approval_levels")
+    if levels is not None and levels not in (1, "multi"):
+        raise ApiError(422, "plan.invalid", "审批层级必须是 1 或 multi")
+    for key, value in (quotas or {}).items():
+        if key not in QUOTA_KEYS:
+            raise ApiError(422, "plan.invalid", f"未知配额：{key}")
+        if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 0):
+            raise ApiError(422, "plan.invalid", f"配额 {key} 必须是非负整数，或留空表示不限")
+    for key, value in (overage_policy or {}).items():
+        if key not in QUOTA_KEYS or value not in OVERAGE_POLICIES:
+            raise ApiError(422, "plan.invalid", f"超额策略 {key} 无效")
+
+
+def latest_version(db: Session, plan: Plan) -> PlanVersion:
+    return db.scalars(
+        select(PlanVersion).where(PlanVersion.plan_id == plan.id).order_by(PlanVersion.version.desc()).limit(1)
+    ).one()
+
+
+def publish_plan_version(
+    db: Session,
+    plan: Plan,
+    *,
+    entitlements: dict | None = None,
+    quotas: dict | None = None,
+    overage_policy: dict | None = None,
+    name: str | None = None,
+    description: str | None = None,
+    price_text: str | None = None,
+) -> PlanVersion:
+    """Save the plan with the given changes applied as a new immutable version (PLT-085).
+
+    Existing subscriptions keep their snapshot; only tenants subscribed afterwards get the new version.
+    """
+    validate_plan_definition(entitlements, quotas, overage_policy)
+    db.execute(select(Plan.id).where(Plan.id == plan.id).with_for_update())  # serialise concurrent publishes
+    current = latest_version(db, plan)
+    if name is not None:
+        plan.name = name
+    if description is not None:
+        plan.description = description
+    if price_text is not None:
+        plan.price_text = price_text
+    version = PlanVersion(
+        plan_id=plan.id,
+        version=current.version + 1,
+        entitlements={**current.entitlements, **(entitlements or {})},
+        quotas={**current.quotas, **(quotas or {})},
+        overage_policy={**current.overage_policy, **(overage_policy or {})},
+    )
+    db.add(version)
+    db.flush()
+    return version
+
+
+def change_subscription(
+    db: Session,
+    tenant: Tenant,
+    plan_code: str,
+    *,
+    version_number: int | None = None,
+    seats: int | None = None,
+    billing_cycle: str = "monthly",
+    renews_at: datetime | None = None,
+) -> TenantSubscription:
+    """Apply a plan version to a tenant as its new current subscription snapshot (history is kept).
+
+    Objects the tenant created beyond the new quotas stay (PLT-083); they just cannot be added to. Without ``seats`` the
+    plan's own seat quota applies, except when re-applying the tenant's current plan, which keeps its seats. ``tenants.plan`` / ``seat_limit`` are denormalised copies kept in step.
+    """
+    ensure_default_plans(db)
+    plan = db.scalar(select(Plan).where(Plan.code == plan_code))
+    if plan is None:
+        raise ApiError(404, "plan.not_found", f"未找到套餐：{plan_code}")
+    version = (
+        db.scalar(select(PlanVersion).where(PlanVersion.plan_id == plan.id, PlanVersion.version == version_number))
+        if version_number is not None
+        else latest_version(db, plan)
+    )
+    if version is None:
+        raise ApiError(404, "plan.version_not_found", "未找到指定的套餐版本")
+    quotas = dict(version.quotas)
+    current = db.scalar(
+        select(TenantSubscription).where(TenantSubscription.tenant_id == tenant.id, TenantSubscription.is_current.is_(True))
+    )
+    if seats is None and current is not None and tenant.plan == plan.code and current.quotas.get("seats") is not None:
+        seats = current.quotas["seats"]  # moving to a newer version of the same plan must not reset negotiated seats
+    if seats is not None:
+        quotas["seats"] = seats
+    db.execute(
+        update(TenantSubscription)
+        .where(TenantSubscription.tenant_id == tenant.id, TenantSubscription.is_current.is_(True))
+        .values(is_current=False)
+    )
+    previous = db.scalar(
+        select(TenantSubscription).where(TenantSubscription.tenant_id == tenant.id).order_by(TenantSubscription.created_at.desc()).limit(1)
+    )
+    subscription = TenantSubscription(
+        tenant_id=tenant.id,
+        plan_version_id=version.id,
+        entitlements=dict(version.entitlements),
+        quotas=quotas,
+        overage_policy=dict(version.overage_policy),
+        billing_cycle=billing_cycle,
+        renews_at=renews_at,
+        addons=dict(previous.addons) if previous is not None else {},
+    )
+    db.add(subscription)
+    tenant.plan = plan.code
+    if quotas.get("seats") is not None:
+        tenant.seat_limit = quotas["seats"]
+    db.flush()
+    return subscription
+
+
+def plan_in_use(db: Session, plan: Plan) -> bool:
+    """RUL-013: a plan any tenant is on, or any subscription (including history) points at, cannot be deleted."""
+    on_tenant = db.scalar(select(Tenant.id).where(Tenant.plan == plan.code).limit(1))
+    on_subscription = db.scalar(
+        select(TenantSubscription.id)
+        .join(PlanVersion, PlanVersion.id == TenantSubscription.plan_version_id)
+        .where(PlanVersion.plan_id == plan.id)
+        .limit(1)
+    )
+    return on_tenant is not None or on_subscription is not None

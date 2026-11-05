@@ -165,13 +165,13 @@ class WorkerQueueTests(unittest.TestCase):
     def test_worker_loop_step_runs_jobs_and_schedules_once_per_day(self):
         with self.sessions.begin() as db:
             enqueue(db, "noop.echo", {"message": "hello"}, tenant_id=self.tenant_id)
-        self.assertEqual(run_once("worker-1", self.sessions), 9)  # noop.echo + the 8 scheduled jobs
+        self.assertEqual(run_once("worker-1", self.sessions, batch_size=20), 11)  # noop.echo + the 10 scheduled jobs
         self.assertEqual(run_once("worker-2", self.sessions), 0)  # nothing new, no duplicate schedule
         with self.sessions() as db:
             jobs = list(db.scalars(select(Job)))
             self.assertEqual(
                 sorted(job.kind for job in jobs),
-                ["approvals.sweep", "audit.retention", "auth.release_locks", "conversations.end_inactive", "conversations.retention", "gateway.reconcile_access", "memory.retention", "noop.echo", "tenants.auto_lifecycle"],
+                ["approvals.sweep", "audit.retention", "auth.release_locks", "conversations.end_inactive", "conversations.retention", "gateway.reconcile_access", "memory.retention", "noop.echo", "tenants.auto_lifecycle", "usage.month_rollover", "usage.sync"],
             )
             self.assertTrue(all(job.status == "succeeded" for job in jobs), [(j.kind, j.status, j.last_error) for j in jobs])
 
@@ -203,6 +203,10 @@ class WorkerQueueTests(unittest.TestCase):
                 "memory.retention:2026-10-23",
                 "tenants.auto_lifecycle:2026-10-22T08",
                 "tenants.auto_lifecycle:2026-10-23T08",
+                "usage.month_rollover:2026-10-22T08",
+                "usage.month_rollover:2026-10-23T08",
+                "usage.sync:2026-10-22T08:00",
+                "usage.sync:2026-10-23T08:00",
             ],
         )
 

@@ -30,6 +30,7 @@ from beework import (
 from beework import (
     test_cases as _test_cases,  # noqa: F401  (registers the testcases.run job)
 )
+from beework import usage as _usage  # noqa: F401  (registers usage.sync and usage.month_rollover)
 from beework.db import SessionLocal
 from beework.runtime import jobs as _runtime_jobs  # noqa: F401  (registers runtime.execute)
 from beework.worker.queue import claim_jobs, execute_job, reclaim_expired_jobs

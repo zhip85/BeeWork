@@ -26,6 +26,7 @@
     "tenant.status_changed": "Workspace status changed: {{status}}",
     "assistant.published": "Assistant “{{name}}” published v{{version}}",
     "approval.withdrawn": "Approval withdrawn (a newer change took effect directly): {{title}}",
-    "security.account_locked": "Account {{email}} was locked for 15 minutes after repeated failed sign-ins"
+    "security.account_locked": "Account {{email}} was locked for 15 minutes after repeated failed sign-ins",
+    "usage.threshold": "This month's points usage reached {{threshold}}% of the budget ({{used}} / {{budget}})"
   }
 }

@@ -269,8 +269,9 @@ class AssistantTests(unittest.TestCase):
         headers = self.login("admin@example.com")
         with self.session_factory.begin() as db:
             tenant = db.get(Tenant, UUID(self.ids["tenant"]))
-            tenant.plan = "standard"
-        # The enterprise snapshot is not created until first use, so the standard limit (5) applies.
+            from beework.entitlements import change_subscription
+
+            change_subscription(db, tenant, "standard")  # login already snapshotted the enterprise plan; downgrade to the limit of 5
         for index in range(5):
             self.assertEqual(self.create(headers, name=f"A{index}").status_code, 201)
         blocked = self.create(headers, name="A5")

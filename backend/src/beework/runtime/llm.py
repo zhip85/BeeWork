@@ -10,7 +10,8 @@ from beework.runtime.dsl import AssistantDSLv1
 def build_chat_model(dsl: AssistantDSLv1, *, api_key: str, metadata: dict[str, Any]) -> ChatOpenAI:
     """ChatOpenAI pointed at LiteLLM with the tenant environment's virtual key.
 
-    ``metadata`` (tenant, assistant, run, ...) is forwarded to the gateway so usage can be attributed.
+    ``metadata`` (tenant, assistant, run, ...) is forwarded to the gateway so usage can be attributed. LiteLLM only
+    persists request metadata placed under ``spend_logs_metadata``; usage metering (T-011) reads it back from there.
     """
     return ChatOpenAI(
         model=dsl.model_alias,
@@ -21,5 +22,5 @@ def build_chat_model(dsl: AssistantDSLv1, *, api_key: str, metadata: dict[str, A
         max_tokens=dsl.limits.max_tokens,
         timeout=dsl.limits.timeout_seconds,
         max_retries=0,
-        extra_body={"metadata": metadata},
+        extra_body={"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}},
     )

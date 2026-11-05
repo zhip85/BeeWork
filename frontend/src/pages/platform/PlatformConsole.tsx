@@ -3,6 +3,7 @@ import {
   Boxes,
   FileText,
   Hexagon,
+  Layers,
   LayoutDashboard,
   LogOut,
   ListRestart,
@@ -16,6 +17,7 @@ import { PlatformModelsPage } from './PlatformModelsPage'
 import { PlatformOverviewPage } from './PlatformOverviewPage'
 import { PlatformTenantsPage } from './PlatformTenantsPage'
 import { PlatformJobsPage } from './PlatformJobsPage'
+import { PlatformPlansPage } from './PlatformPlansPage'
 import type { CurrentUser } from '../../types'
 
 export function PlatformConsole({
@@ -31,6 +33,7 @@ export function PlatformConsole({
   const isAuditPage = location.pathname === '/platform/audit'
   const isModelPage = location.pathname === '/platform/models'
   const isJobsPage = location.pathname === '/platform/jobs'
+  const isPlansPage = location.pathname === '/platform/plans'
 
   return (
     <div className="platform-shell">
@@ -61,6 +64,9 @@ export function PlatformConsole({
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/models">
           <Boxes size={18} strokeWidth={1.8} /><span>{t('models')}</span>
         </NavLink>
+        <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/plans">
+          <Layers size={18} strokeWidth={1.8} /><span>{t('plans.nav')}</span>
+        </NavLink>
         <div className="nav-caption">{t('auditSection')}</div>
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/audit">
           <FileText size={18} strokeWidth={1.8} /><span>{t('auditPage')}</span>
@@ -78,7 +84,7 @@ export function PlatformConsole({
       </aside>
       <main className="main-area platform-main">
         <header className="topbar">
-          <div className="breadcrumbs"><span>{t('breadcrumbRoot')}</span><span className="crumb-slash">/</span><strong>{isTenantPage ? t('tenants') : isAuditPage ? t('auditPage') : isModelPage ? t('models') : isJobsPage ? t('jobs') : t('overviewPage')}</strong></div>
+          <div className="breadcrumbs"><span>{t('breadcrumbRoot')}</span><span className="crumb-slash">/</span><strong>{isTenantPage ? t('tenants') : isAuditPage ? t('auditPage') : isModelPage ? t('models') : isJobsPage ? t('jobs') : isPlansPage ? t('plans.nav') : t('overviewPage')}</strong></div>
           <div className="topbar-actions">
             <LanguageSwitch persist /><span className="platform-admin-badge"><i />{t('adminBadge')}</span>
             {user.memberships.length > 0 && <Link className="platform-tenant-link" to="/">{t('enterWorkspace')}</Link>}
@@ -89,6 +95,8 @@ export function PlatformConsole({
             ? <AuditLogPage key="platform-audit" canExport platformMode />
             : isModelPage
               ? <PlatformModelsPage />
+              : isPlansPage
+                ? <PlatformPlansPage />
               : isJobsPage
                 ? <PlatformJobsPage />
               : isTenantPage
