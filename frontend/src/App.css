@@ -4097,3 +4097,14 @@ tr.policy-off td { opacity: 0.55; }
 .knowledge-threshold { display: flex; gap: 10px; align-items: center; }
 .knowledge-threshold input[type='range'] { flex: 1; }
 .knowledge-threshold input[type='number'] { width: 80px; }
+
+/* Knowledge documents (T-031) */
+.knowledge-documents { display: grid; gap: 12px; }
+.knowledge-status-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.knowledge-status-bar button { padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; }
+.knowledge-status-bar button.active { border-color: var(--brand, #f59e0b); background: #fffaf0; }
+.knowledge-status-bar .search-field { margin-left: auto; }
+.knowledge-doc-indexed { background: #e2f4e8; color: #1f8a4c; } .knowledge-doc-processing { background: #e4effd; color: #2468c9; } .knowledge-doc-failed { background: #fde8e6; color: #b42318; }
+.knowledge-doc-actions { white-space: nowrap; text-align: right; }
+.knowledge-preview { max-width: 720px; max-height: 80vh; overflow: auto; }
+.knowledge-preview pre { white-space: pre-wrap; word-break: break-word; margin: 0 0 8px; font: inherit; }

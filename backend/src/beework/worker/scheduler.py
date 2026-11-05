@@ -42,5 +42,6 @@ def enqueue_scheduled_jobs(db: Session, *, now: datetime | None = None) -> None:
     enqueue(db, "conversations.end_inactive", {}, idempotency_key=f"conversations.end_inactive:{five_minutes}")
     enqueue(db, "approvals.sweep", {}, idempotency_key=f"approvals.sweep:{five_minutes}")
     enqueue(db, "auth.release_locks", {}, idempotency_key=f"auth.release_locks:{five_minutes}")
+    enqueue(db, "knowledge.sweep_documents", {}, idempotency_key=f"knowledge.sweep_documents:{five_minutes}")
     enqueue(db, "usage.sync", {}, idempotency_key=f"usage.sync:{five_minutes}")
     enqueue(db, "usage.month_rollover", {}, idempotency_key=f"usage.month_rollover:{hour}")

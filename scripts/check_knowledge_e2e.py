@@ -62,10 +62,31 @@ def main() -> None:
         wait_for("Worker rebuilt the datasets", lambda: tenant_admin.get(url, headers=headers).json(), lambda k: k["sync_status"] == "synced" and not k["reindexing"])
         wait_for("replaced datasets deleted", lambda: [d for d in fake_datasets().values() if tag(kb_id) in d["name"]], lambda items: len(items) == 2 and all("-g2" in d["name"] for d in items))
 
+        # Documents: upload (raw body), Worker hands it to the engine, status polling, preview, download, re-index, delete.
+        text = ("退货政策：购买后 7 天内可申请无理由退货。\n" * 40).encode()
+        up = tenant_admin.post(f"{url}/documents", params={"filename": "policy.md"}, headers={**headers, "Content-Type": "application/octet-stream"}, content=text)
+        check("upload document", up.status_code == 201 and up.json()["status"] == "processing", up.text[:200])
+        doc_id = up.json()["id"]
+        indexed = wait_for("document indexed (upload -> parse -> poll)", lambda: tenant_admin.get(f"{url}/documents/{doc_id}", headers=headers).json(), lambda d: d["status"] == "indexed")
+        check("chunk count recorded", indexed["chunks"] > 0, indexed["chunks"])
+        preview = tenant_admin.get(f"{url}/documents/{doc_id}/chunks", headers=headers).json()
+        check("chunk preview from the engine", preview["total"] == indexed["chunks"] and "退货政策" in preview["items"][0], preview["total"])
+        got = tenant_admin.get(f"{url}/documents/{doc_id}/download", headers=headers)
+        check("download returns the original bytes as an attachment", got.content == text and got.headers["content-disposition"].startswith("attachment"))
+        check("knowledge base status follows the content", tenant_admin.get(url, headers=headers).json()["status"] == "indexed")
+        check("reindex", tenant_admin.post(f"{url}/documents/{doc_id}/reindex", headers=headers).status_code == 200)
+        wait_for("document indexed again", lambda: tenant_admin.get(f"{url}/documents/{doc_id}", headers=headers).json(), lambda d: d["status"] == "indexed")
+        bad = tenant_admin.post(f"{url}/documents", params={"filename": "fake.pdf"}, headers={**headers, "Content-Type": "application/octet-stream"}, content=b"not a pdf")
+        check("a renamed text file is refused as a PDF", bad.status_code == 422 and bad.json()["code"] == "knowledge.content_mismatch", bad.text[:200])
+        bad_url = tenant_admin.post(f"{url}/documents/urls", headers=headers, json={"urls": ["https://127.0.0.1/admin"]})
+        check("an internal URL is refused", bad_url.status_code == 400, bad_url.text[:200])
+
         copied = tenant_admin.post(f"{url}/copy", headers=headers)
-        check("copy is a draft with a suffixed name", copied.status_code == 201 and copied.json()["name"] == f"{name}（副本）" and copied.json()["status"] == "draft", copied.text[:200])
+        check("copy has a suffixed name and is processing its copied document", copied.status_code == 201 and copied.json()["name"] == f"{name}（副本）" and copied.json()["status"] == "processing", copied.text[:200])
         copy_id = copied.json()["id"]
         wait_for("copy got its own datasets", lambda: [d for d in fake_datasets().values() if tag(copy_id) in d["name"]], lambda items: len(items) == 2)
+        copy_docs = wait_for("copy re-indexed its copied document", lambda: tenant_admin.get(f"/api/v1/knowledge-bases/{copy_id}/documents", headers=headers).json(), lambda page: page["counts"]["indexed"] == 1)
+        check("copied document has its own id", copy_docs["items"][0]["id"] != doc_id)
 
         check("delete", tenant_admin.delete(url, headers=headers).status_code == 204)
         check("deleted knowledge base is gone", tenant_admin.get(url, headers=headers).status_code == 404)

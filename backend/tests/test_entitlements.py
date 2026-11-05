@@ -199,7 +199,7 @@ class EntitlementTests(unittest.TestCase):
         self.assertEqual((body["plan_code"], body["plan_version"]), ("standard", 1))
         quotas = {item["key"]: item for item in body["quotas"]}
         self.assertEqual((quotas["seats"]["limit"], quotas["seats"]["used"]), (3, 2))
-        self.assertIsNone(quotas["storage_gb"]["used"])  # no counter registered yet
+        self.assertEqual(quotas["storage_gb"]["used"], 0)  # counted from knowledge documents (T-031)
         foreign_header = self.client.get(
             "/api/v1/tenant/subscription", headers={"X-Tenant-ID": str(self.other_tenant_id)}
         )
