@@ -81,3 +81,19 @@
 - **验证**：`test_knowledge.py` 29 项（RAGFlow 23 项 + Dify 6 项：创建与命名、Embedding 映射、重建与可重复删除、改默认引擎后旧知识库保持原引擎、未配置与补同步、客户端契约）通过；`check_knowledge_e2e.py` 在真实 API + Worker + 假服务上分别用 RAGFlow 与 Dify 两种配置通过。假服务 `scripts/fake_ragflow.py` 现在同时模拟两种接口（Dify 在 `/v1`）。
 - **用真实 Dify 的验证没有完成**：用你提供的 Dify Cloud Key 只读探测 `GET /v1/datasets`，返回 `403 forbidden：The API key is not authorized to access this knowledge base`；同一接口用乱写的 Key 返回 `401 Access token is invalid`，说明 Dify 认得这个 Key，但拒绝它访问知识库 API。可能是 Key 的创建者或套餐权限的限制，需要在 Dify 控制台确认。所以 Dify 客户端同样只对着假服务验证过，创建/删除/检索字段名和行为均按文档推断。
 
+### Dify 实测记录（2026-11-05，Dify Cloud `https://api.dify.ai/v1`，经用户同意在其工作区内创建并删除测试知识库）
+
+换了新的 Key 后 `GET /datasets` 返回 200。只动了名为 `bw-verify-…` / `bw-v41-…` / `bw-vemb-…` 的测试知识库，用完立即删除，账号里原有 4 个知识库未被触碰，结束时仍是 4 个。
+
+已在真实 Dify 上确认：
+- 列表响应含 `data / has_more / limit / total / page`，BeeWork 的 `health()`、`find_dataset`（按 `keyword` 搜索后精确匹配名称）可用。
+- 创建 `POST /datasets`（`name`、`indexing_technique=high_quality`、`permission=all_team_members`）返回含 `id` 的对象，权限、索引方式如请求；未指定 Embedding 时使用工作区默认（该工作区是通义 `text-embedding-v2`）。
+- 重名返回 `409 The dataset name already exists`；名称超过 40 字符由服务端返回 `422 String should have at most 40 characters`（上限属实）。
+- `DELETE /datasets/{id}` 可删除；对已删除的 ID 再删，客户端按 404 视为成功，不报错；删除后按名称查不到。
+- 指定 `embedding_model_provider=openai` + `embedding_model=text-embedding-3-large` 被接受，返回的 provider 规范化为 `langgenius/openai/openai`。
+
+仍未验证：
+- `cohere-embed-v3`（`cohere` / `embed-multilingual-v3.0`）的映射；该工作区是否真的能用 OpenAI 的 Embedding（创建时被接受，不代表后续上传文档时一定成功，要到 T-031 才会触发实际向量化）。
+- 文档上传、`process_rule`、`doc_form`（问答模式）、检索——属 T-031 / T-032 / T-033。
+- 建议：把 Embedding 选项改为从工作区实际可用的模型里取（Dify 有按模型类型列出可用模型的接口，待确认），而不是写死三项。
+
