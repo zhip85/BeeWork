@@ -42,7 +42,7 @@ export function KnowledgeCreatePage({ tenant }: { tenant: TenantMembership }) {
 
   return (
     <section className="kb-create-page">
-      <Link className="kb-create-back" to="/knowledge"><ArrowLeft size={15} /> {t('backToList')}</Link>
+      <Link className="back-link" to="/knowledge"><ArrowLeft size={15} /> {t('backToList')}</Link>
       <div className="kb-create-shell">
         <header className="kb-create-title">
           <span className="kb-icon violet"><BookOpen size={24} /></span>

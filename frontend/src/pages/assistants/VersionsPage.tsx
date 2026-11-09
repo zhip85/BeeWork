@@ -105,7 +105,7 @@ export function VersionsPage({ tenant }: { tenant: TenantMembership }) {
 
   return (
     <section className="settings-page versions-page">
-      <Link className="text-button" to="/assistants"><ArrowLeft size={14} /> {t('page.back')}</Link>
+      <Link className="back-link" to="/assistants"><ArrowLeft size={14} /> {t('page.back')}</Link>
       <div className="page-heading"><div><p className="section-kicker">{assistant?.name ?? ''}</p><h1>{t('page.title')}</h1><p>{t('page.subtitle')}</p></div></div>
       {notice && <p className="assistants-notice" role="status">{notice}</p>}
       {error && <p className="form-error" role="alert">{error} <button className="text-button" onClick={refresh} type="button">{t('page.retry')}</button></p>}

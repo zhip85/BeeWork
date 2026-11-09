@@ -111,7 +111,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
   if (!assistant) {
     return (
       <section className="settings-page assistant-detail">
-        <Link className="text-button" to="/assistants"><ArrowLeft size={14} /> {t('back')}</Link>
+        <Link className="back-link" to="/assistants"><ArrowLeft size={14} /> {t('back')}</Link>
         {error ? <p className="form-error" role="alert">{error} <button className="text-button" onClick={refresh} type="button">{ta('retry')}</button></p> : <p>{t('loading')}</p>}
       </section>
     )
@@ -132,7 +132,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
 
   return (
     <section className="settings-page assistant-detail">
-      <Link className="text-button" to="/assistants"><ArrowLeft size={14} /> {t('back')}</Link>
+      <Link className="back-link" to="/assistants"><ArrowLeft size={14} /> {t('back')}</Link>
       <header className="detail-header">
         <span className="assistant-icon"><Bot size={22} /></span>
         <div>

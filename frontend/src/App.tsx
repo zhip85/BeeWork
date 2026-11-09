@@ -54,6 +54,7 @@ import { UsagePage } from './pages/settings/UsagePage'
 import { roleLabel } from './roles'
 import type { CurrentUser, TenantEnvironmentName } from './types'
 import './App.css'
+import './design-system.css'
 
 const navigation = [
   { labelKey: 'dashboard', to: '/', icon: LayoutDashboard, end: true, permission: 'dashboard:view' },

@@ -1,0 +1,356 @@
+/*
+ * BeeWork design system layer.
+ *
+ * Loaded after App.css so that every page shares one set of type sizes, page headers, buttons, form controls,
+ * tables, cards, badges and dialogs, whatever class the page historically used. Tokens live in index.css;
+ * the rules are documented in docs/design-system.md. New pages should use the canonical classes in section 1.
+ */
+
+/* ------------------------------------------------------------------ 1. Typography */
+
+h1, h2, h3, h4 { margin: 0; color: var(--ink); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
+p { margin: 0; }
+small { font-size: var(--fs-xs); }
+
+/* Page title (24 / 600), kicker (11 caps) and subtitle (13 muted): one look for every page header. */
+.page-heading h1,
+.page-header h1,
+.welcome-row h1,
+.members-heading h1,
+.platform-page-heading h1,
+.detail-header h1,
+.kb-create-title h1,
+.channels-head h1,
+.placeholder-page h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+}
+
+.page-heading > div > p:not(.section-kicker),
+.page-header > div > p:not(.section-kicker),
+.welcome-row p,
+.members-heading p,
+.platform-page-heading p,
+.kb-create-title p,
+.placeholder-page p {
+  margin-top: 6px;
+  max-width: 760px;
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-base);
+}
+
+.page-heading,
+.page-header,
+.welcome-row,
+.members-heading,
+.platform-page-heading {
+  display: flex;
+  min-height: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.eyebrow,
+.section-kicker,
+.page-heading .section-kicker {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+/* Section and card titles. */
+.detail-card h2,
+.panel h2,
+.members-panel h2,
+.organization-panel h2,
+.role-management-panel h2,
+.tenants-list-panel h2,
+.tenant-create-panel h2,
+.integration-panel h2,
+.model-catalog-panel h2,
+.model-defaults-panel h2,
+.platform-summary-panel h2,
+.quick-panel h2,
+.notification-panel h2,
+.detail-card-head h2,
+.members-table-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+}
+
+h3 { font-size: var(--fs-md); }
+
+.usage-hint,
+.usage-plan-note,
+.wizard-muted,
+.organization-description,
+.assistants-empty-filtered { color: var(--ink-soft); font-size: var(--fs-xs); line-height: var(--lh-base); }
+
+/* ------------------------------------------------------------------ 2. Buttons */
+
+.primary-button,
+.secondary-button,
+.text-button,
+.danger-button,
+.tenant-status-action,
+.kb-cancel {
+  display: inline-flex;
+  min-height: var(--control-h);
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.primary-button { border-color: var(--forest); background: var(--forest); color: #fff; }
+.primary-button:hover:not(:disabled) { transform: none; border-color: #24554b; background: #24554b; }
+.primary-button.danger-button, .danger-button { border-color: var(--danger); background: var(--danger); color: #fff; }
+
+.secondary-button:hover:not(:disabled),
+.text-button:hover:not(:disabled),
+.tenant-status-action:hover:not(:disabled),
+.kb-cancel:hover { border-color: var(--forest); color: var(--forest); background: #fff; }
+
+/* A text button is a quiet action inside rows and headers. */
+.text-button { min-height: var(--control-h-sm); padding: 0 10px; border-color: transparent; background: transparent; color: var(--forest); font-weight: var(--fw-medium); }
+.text-button:hover:not(:disabled) { border-color: transparent; background: var(--mint); }
+
+.tenant-status-action { min-height: var(--control-h-sm); padding: 0 10px; font-size: var(--fs-xs); }
+.tenant-status-action.suspend { border-color: #efc4be; color: var(--danger); }
+
+.primary-button:disabled,
+.secondary-button:disabled,
+.text-button:disabled,
+.danger-button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.icon-button {
+  display: inline-grid;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.icon-button:hover { border-color: var(--line); background: #fff; color: var(--forest); }
+
+/* ------------------------------------------------------------------ 3. Form controls */
+
+/* Zero-specificity on purpose: a component class can still adjust its own controls. */
+:where(main, .create-modal) :where(input:not([type=checkbox], [type=radio], [type=file], [type=range], [type=color], [type=hidden]), select) {
+  min-height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+}
+
+:where(main, .create-modal) textarea {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+}
+
+:where(main, .create-modal) :where(input, select, textarea):focus {
+  outline: none;
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px var(--mint);
+}
+
+:where(main, .create-modal) :where(input, textarea)::placeholder { color: #9aa6a1; }
+
+:where(main) :where(input, select, textarea):disabled { background: #f6f8f6; color: var(--muted); cursor: not-allowed; }
+
+/* Form labels: the caption above a control. */
+:where(main, .create-modal) label { color: var(--ink); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
+:where(main, .create-modal) label small { color: var(--muted); font-size: var(--fs-xs); font-weight: var(--fw-regular); }
+
+/* Search boxes sit inside a bordered frame, the field itself is bare. */
+.search-field { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: var(--control-h); padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #fff; }
+.search-field:focus-within { border-color: var(--forest); box-shadow: 0 0 0 3px var(--mint); }
+.search-field input { min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.search-field input:focus { box-shadow: none; }
+
+/* ------------------------------------------------------------------ 4. Cards, panels, tables */
+
+.panel,
+.detail-card,
+.metric-card,
+.members-panel,
+.organization-panel,
+.role-management-panel,
+.tenants-list-panel,
+.tenant-create-panel,
+.integration-panel,
+.model-catalog-panel,
+.model-defaults-panel,
+.platform-summary-panel,
+.quick-panel,
+.notification-panel,
+.kb-create-form {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+table { border-collapse: collapse; }
+
+.data-table,
+.members-table,
+.assistants-table,
+.audit-table,
+.model-catalog-table,
+.permission-matrix,
+.plans-detail table {
+  width: 100%;
+  font-size: var(--fs-sm);
+}
+
+.data-table th,
+.members-table th,
+.assistants-table th,
+.audit-table th,
+.model-catalog-table th,
+.permission-matrix th,
+.plans-detail table th {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.02em;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.data-table td,
+.members-table td,
+.assistants-table td,
+.audit-table td,
+.model-catalog-table td,
+.permission-matrix td,
+.plans-detail table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #eef1ee;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  vertical-align: middle;
+}
+
+.members-table td small,
+.assistants-table td small,
+.audit-table td small,
+.model-catalog-table td small { display: block; margin-top: 2px; color: var(--muted); font-size: var(--fs-xs); }
+
+.data-table tr:last-child td,
+.members-table tr:last-child td,
+.assistants-table tr:last-child td,
+.audit-table tr:last-child td { border-bottom: 0; }
+
+/* ------------------------------------------------------------------ 5. Badges and status */
+
+.assistant-status,
+.member-status,
+.tenant-role-chip,
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ 6. Dialogs */
+
+.create-modal h2 { color: var(--ink); font-size: var(--fs-xl); font-weight: var(--fw-semibold); }
+.create-modal p { font-size: var(--fs-sm); color: var(--ink-soft); }
+.create-modal { border-radius: var(--radius-xl); }
+
+/* Messages. */
+.form-error,
+.members-error { color: var(--danger); font-size: var(--fs-xs); }
+.assistants-notice,
+.tenant-success { font-size: var(--fs-sm); }
+
+/* ------------------------------------------------------------------ 7. Enforced sizes
+ * Legacy component rules set their own control sizes; these win on purpose so that every input, select, textarea and
+ * button in the product renders at the same size. Layout (padding, width) stays with the component.
+ */
+:where(main, .create-modal, .modal-backdrop) :is(input:not([type=checkbox], [type=radio]), select, textarea) { font-size: var(--fs-sm) !important; }
+:is(.primary-button, .secondary-button, .text-button, .danger-button, .kb-cancel) { font-size: var(--fs-sm) !important; }
+.tenant-status-action, .tenant-status-action.suspend { font-size: var(--fs-xs) !important; }
+.kb-form-heading h2 { font-size: var(--fs-lg); }
+
+/* Back link above a detail page: left-aligned, quiet. */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  justify-self: start;
+  gap: 6px;
+  width: fit-content;
+  margin-bottom: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  cursor: pointer;
+}
+.back-link:hover { color: var(--forest); }
+
+/* Every h1 inside the app area is a page title. */
+:where(main) h1 { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); line-height: var(--lh-tight); letter-spacing: -0.01em; }
+.orchestration-nav .orchestration-selector > button { flex-direction: row; white-space: nowrap; }
+.orchestration-page > header, .knowledge-page > .page-heading, .assistant-detail .detail-header { margin-bottom: 16px; }
+
+/* Sidebar group captions get the same rhythm in the workspace and platform consoles. */
+.sidebar .nav-link + .nav-caption,
+.platform-sidebar .nav-link + .nav-caption { margin-top: 22px; }
+.platform-sidebar .nav-link { margin-bottom: 2px; }
+
+/* Plain data tables get a card frame. */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); }
