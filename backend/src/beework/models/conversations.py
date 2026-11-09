@@ -95,6 +95,8 @@ class Message(Base, TenantOwnedMixin):
     # Stored redacted when the tenant's "redact personal information in logs" policy is on.
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
     widgets: Mapped[dict | None] = mapped_column(JSON)
+    # Knowledge passages the answer was based on: [{document_name, chunk_id, snippet, kind, kb_name, score}].
+    citations: Mapped[list | None] = mapped_column(JSON)
     trace_id: Mapped[str | None] = mapped_column(String(64))
     run_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), index=True)
     feedback: Mapped[str | None] = mapped_column(String(8))

@@ -85,7 +85,8 @@
     "caseAdded": "Added as a test case",
     "trace": "Trace",
     "noPermission": "Your role cannot use the test console",
-    "stubRetrieval": "Retrieval: stub, not connected to RAGFlow",
-    "meta": "{{seconds}} s · in {{tokensIn}} / out {{tokensOut}} tokens"
+    "meta": "{{seconds}} s · in {{tokensIn}} / out {{tokensOut}} tokens",
+    "citations": "Sources",
+    "faq": "Standard answer"
   }
 }

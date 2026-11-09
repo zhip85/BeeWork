@@ -38,7 +38,7 @@
 | [T-030](./T-030-knowledge-bases.md) | 知识库与 RAGFlow dataset | 4 | T-001、T-002 | RAGFlow Cloud 付费版 API Key | 已完成（有条件） | Claude Sonnet 5.5 | 用 `scripts/fake_ragflow.py` 假服务开发与验证；**第 0 步对接验证与真实 RAGFlow 跑通未做**，拿到真实 RAGFlow 后补 |
 | [T-031](./T-031-documents.md) | 文档上传、解析状态同步、删除与重建 | 4 | T-030 | 同上 | 已完成（有条件） | Claude Sonnet 5.5 | Dify 真实环境验证了上传/索引/分片/删除（Markdown）；**RAGFlow 未验证；PDF/DOCX/HTML、10 MB 耗时（NFR-003）未验证** |
 | [T-032](./T-032-faq.md) | FAQ 生命周期与推送 | 4 | T-030 | 同上 | 待开发 | | |
-| [T-033](./T-033-knowledge-retrieval.md) | 知识挂载、运行时检索与引用 | 4 | T-025、T-031 | 同上 | 待开发 | | 须替换 T-025 的检索桩才算完成 |
+| [T-033](./T-033-knowledge-retrieval.md) | 知识挂载、运行时检索与引用 | 4 | T-025、T-031 | 同上 | 待验收 | Claude Sonnet 5.5 | 已替换检索桩；**仅假引擎 + mock 模型验证**，真实 RAGFlow/Dify 与真实模型未验证 |
 | [T-040](./T-040-website-channel.md) | 网站渠道（最小版）：实例、发布快照、嵌入脚本 | 6 | T-024、T-025 | — | 已完成 | Claude Sonnet 5.5 | `widget.js` 已用 jsdom 在真实栈上跑通一次对话，**未在真实浏览器里验证** |
 
 ## 闭环切片（优先线，2026-10-28 起）

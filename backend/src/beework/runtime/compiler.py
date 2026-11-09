@@ -18,7 +18,7 @@ from langchain_core.messages import AIMessageChunk, BaseMessage, HumanMessage, S
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
-from beework.runtime.dsl import AssistantDSLv1
+from beework.runtime.dsl import AssistantDSLv1, KnowledgeBaseRef
 from beework.runtime.errors import RunCancelled, RuntimeFailure
 from beework.runtime.retrieval import Retriever
 
@@ -74,8 +74,9 @@ class RuntimeDeps:
     llm: BaseChatModel
     retriever: Retriever
     tenant_id: UUID
-    # Dataset ids the tenant may query; the retrieval step never passes anything else on.
-    allowed_dataset_ids: Callable[[Sequence[str]], list[str]]
+    # Turns the DSL's mounted knowledge base ids into the tenant's current, searchable knowledge bases; the
+    # retrieval step never searches anything else.
+    resolve_bases: Callable[[Sequence[UUID]], list[KnowledgeBaseRef]]
     # Called between model chunks; raises RunCancelled / RunTimedOut to stop the run.
     check_stop: Callable[[], None] = lambda: None
     callbacks: list[Any] = field(default_factory=list)
@@ -135,8 +136,12 @@ def _system_prompt(dsl: AssistantDSLv1, state: RuntimeState) -> str:
         parts.append("# 记忆\n" + "\n".join(f"- [{m.get('file', 'memory')}] {m['text']}" for m in memory))
     context = state.get("context") or []
     if context:
-        snippets = "\n\n".join(f"[{i}] {c['document_name']}\n{c['text']}" for i, c in enumerate(context, 1))
-        parts.append(f"# 参考资料\n{snippets}")
+        snippets = "\n\n".join(
+            f"[{i}] {'标准答案 · ' if c.get('kind') == 'faq' else ''}{c['document_name']}\n{c['text']}"
+            for i, c in enumerate(context, 1)
+        )
+        intro = "以下是知识库的标准答案，请优先依据它回答。\n\n" if any(c.get("kind") == "faq" for c in context) else ""
+        parts.append(f"# 参考资料\n{intro}{snippets}")
     return "\n\n".join(parts)
 
 
@@ -147,18 +152,18 @@ def _execute(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
     def node(state: RuntimeState) -> RuntimeState:
         writer = get_stream_writer()
         update: RuntimeState = {}
-        with deps.clock.external():
+        bases = deps.resolve_bases([base.kb_id for base in dsl.knowledge.bases]) if dsl.knowledge.bases else []
+        with deps.clock.external(), deps.span("retrieval"):
             result = deps.retriever.retrieve(
-                tenant_id=deps.tenant_id,
-                query=state["input"],
-                dataset_ids=deps.allowed_dataset_ids(dsl.knowledge.dataset_ids),
-                top_k=dsl.knowledge.top_k,
+                tenant_id=deps.tenant_id, query=state["input"], bases=bases, top_k=dsl.knowledge.top_k
             )
-        chunks = [chunk for chunk in result.chunks if chunk.score >= dsl.knowledge.min_score]
         update["retrieval_mode"] = result.mode
         update["context"] = [
-            {"document_name": c.document_name, "chunk_id": c.chunk_id, "text": c.text, "score": c.score}
-            for c in chunks
+            {
+                "document_name": c.document_name, "chunk_id": c.chunk_id, "text": c.text, "score": c.score,
+                "kind": c.kind, "kb_name": c.kb_name,
+            }
+            for c in result.chunks
         ]
 
         messages: list[BaseMessage] = [SystemMessage(content=_system_prompt(dsl, {**state, **update}))]

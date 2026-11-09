@@ -144,7 +144,7 @@
 - 接口：`POST /assistants/{id}/runs`（调试，读取草稿并冻结快照）→ 202 + `run_id`；`GET /runs/{id}`；`POST /runs/{id}/cancel`；`GET /runs/{id}/events`（SSE，改为按 `runs` 校验）。准入：租户状态、助理状态、环境网关同步、模型仍启用；点数配额待 T-011（暂跳过）。
 - 取消、超时、模型/网关错误都有终止事件与可见状态；错误信息只给固定中文文案，不回显网关原文。
 - **验证用的是 `mock_response` 模型，不是真实供应商**（无供应商 Key）：`scripts/check_runtime_e2e.py` 把一个临时目录模型在 LiteLLM 里替换成带 `mock_response` 的部署，真实走完 API → Worker → LangGraph → LiteLLM → SSE，并在 Langfuse Cloud 读到了 `assistant.run` + `ChatOpenAI` 两个 observation（metadata 含 tenant / assistant / run）。
-- **知识检索未接真实 RAGFlow**：只有桩实现，`retrieval.mode = "stub"`。
+- 知识检索：T-025 时只有桩实现；已由 T-033 接入真实知识引擎（见下）。
 - 已知限制：见任务文件“遗留问题”。
 
 ### 会话与消息、保留期与脱敏（T-026，已验收）
@@ -245,6 +245,14 @@
 - T-028：设置 → API 密钥（明文只显示一次、只存哈希与掩码、吊销立即生效、成员暂停/移除时吊销其密钥）；开放 API `/v1`（`POST /v1/assistants/{id}/chat`、`GET /v1/conversations/{id}/messages`，生产跑线上版本、开发/预发跑草稿，SSE，统一错误信封，独立 OpenAPI 文档 `/v1/docs`）；按租户 QPS 的 Valkey 令牌桶（429 + Retry-After）。迁移 `0027`。
 - T-040：网站渠道（草稿 → 发布快照，受“接入新的外部渠道”审批策略约束；域名白名单 + site_key + 访客令牌；`/v1/widget/*` 与 `widget.js`）；渠道页、助理详情“渠道”页签（含开放 API 接入说明）。
 - 验证：ruff、`test-postgres.sh`（337 项）、前端检查；真实栈上 `check_open_api_e2e.py` 全部通过，真实 `widget.js` 经 jsdom 完成一次对话。**只用 LiteLLM `mock_response` 验证，没有真实供应商 Key；未在真实浏览器里验证挂件。**
+
+### 知识挂载与运行时检索（T-033，待验收：仅假引擎验证）
+
+- 助理可挂载知识库（`mounts.kb`）：`GET /capabilities/candidates?kind=kb` 只列出“已索引”的知识库（按组织范围过滤），创建/编辑校验（只能新挂载已索引的本租户知识库，最多 10 个；已有的失效挂载不阻止保存）；`MOUNT_RESOLVERS["kb"]` 报告 `available` / `disabled`（无已索引内容）/ `deleted`，失效挂载进入配置检查（GLB-083）；知识库“被引用数”统计草稿与线上版本（`knowledge_mounts.py`）。向导第 3 步与详情页“挂载能力”弹窗已接入选择器。
+- 运行时：`StubRetriever` 已被 `EngineRetriever` 取代（引擎的 `search` 对 RAGFlow、Dify 都已实现），FAQ 优先、阈值取知识库设置，检索进入 Langfuse span `oc.retrieval`；`retrieval.mode` 取值 `none` / `ragflow` / `dify` / `stub`。引用写入 `done` 事件、`runs.output` 与新列 `messages.citations`（迁移 0032），会话详情、开放 API 响应与测试控制台都能看到；测试控制台的“检索：桩实现”标识已移除。
+- 租户安全：运行时只按 `kb_id` 解析租户当前的知识库行得到 dataset，DSL 里写的 dataset ID 不被信任；快照仍记录发布时的引擎与 dataset ID。
+- 验证：ruff、迁移升降级 + `alembic check`、全量 472 项后端测试、前端检查通过；真实走 HTTP 的测试（假 RAGFlow / 假 Dify 引擎）覆盖“上传 → 索引 → 挂载 → 提问 → 带引用回答”、未索引/他租户知识库不可挂载、失效挂载、引用计数、引擎失败、删除后不再检索；隔离栈上 `scripts/check_retrieval_e2e.py` 在 RAGFlow、Dify 两种假引擎下均通过（真实 Worker + LiteLLM `mock_response` + Langfuse）。
+- **未验证**：真实 RAGFlow 与真实 Dify 的检索（没有可用的密钥）、检索质量与阈值是否合适、真实模型下的引用回答；验收规格要求的“真实引擎 + 真实模型跑通”仍未满足。
 
 ## 4. 下一步
 

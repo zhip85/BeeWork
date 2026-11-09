@@ -72,7 +72,7 @@
   "capabilities": {
     "title": "Mounted capabilities {{count}}",
     "mount": "Mount capability",
-    "soonHint": "Mounting knowledge bases and other capabilities opens as those modules go live",
+    "soonHint": "Mounting for other capability types opens as each module ships",
     "empty": "No capabilities mounted yet",
     "draftNote": "Mount changes are saved to the draft and take effect after you publish an update.",
     "kinds": {

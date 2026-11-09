@@ -99,7 +99,7 @@ def resolve_target(db: Session, tenant: Tenant, assistant_id: UUID, environment:
         model_id, version_id, label = version.snapshot.get("model_id"), version.id, f"v{version.version}"
     else:
         try:
-            dsl = dsl_from_draft(assistant)
+            dsl = dsl_from_draft(assistant, db)
         except RuntimeFailure as exc:
             raise ApiError(409, "assistant_not_ready", exc.message) from exc
         model_id, version_id, label = assistant.draft_config.get("model_id"), None, f"draft:{assistant.draft_version}"
@@ -226,7 +226,7 @@ def wait_for_reply(bind, run_id: UUID, *, timeout_seconds: int) -> dict:
                 if event["type"] == "token":
                     text += event["data"].get("text", "")
                 elif event["type"] == "done":
-                    return {"content": event["data"].get("text", text), "usage": _usage(event["data"])}
+                    return {"content": event["data"].get("text", text), "usage": _usage(event["data"]), "citations": _citations(event["data"])}
                 elif event["type"] == "error":
                     raise ApiError(502, "run_failed", event["data"].get("message", "助理运行失败"))
                 elif event["type"] == "cancelled":
@@ -234,6 +234,14 @@ def wait_for_reply(bind, run_id: UUID, *, timeout_seconds: int) -> dict:
             if time.monotonic() > deadline:
                 raise ApiError(504, "timeout", "助理响应超时")
     raise ApiError(504, "timeout", "助理响应超时")
+
+
+def _citations(done: dict) -> list[dict]:
+    """Knowledge passages the answer was based on, as shown to API callers (no internal scores of other kinds)."""
+    return [
+        {"document": c.get("document_name"), "snippet": c.get("snippet"), "kind": c.get("kind", "document")}
+        for c in (done.get("retrieval") or {}).get("citations", [])
+    ]
 
 
 def relay_events(bind, run_id: UUID, conversation_id: UUID, *, timeout_seconds: int) -> Iterator[str]:
@@ -254,7 +262,7 @@ def relay_events(bind, run_id: UUID, conversation_id: UUID, *, timeout_seconds: 
             elif event["type"] == "token":
                 yield frame("delta", {"text": event["data"].get("text", "")})
             elif event["type"] == "done":
-                yield frame("done", {"message": {"role": "assistant", "content": event["data"].get("text", "")}, "usage": _usage(event["data"])})
+                yield frame("done", {"message": {"role": "assistant", "content": event["data"].get("text", "")}, "usage": _usage(event["data"]), "citations": _citations(event["data"])})
                 return
             elif event["type"] in ("error", "cancelled"):
                 yield frame("error", {"code": event["data"].get("code", event["type"]), "message": event["data"].get("message", "助理运行失败")})

@@ -85,7 +85,8 @@
     "caseAdded": "已添加为测试用例",
     "trace": "调用链",
     "noPermission": "当前角色不能使用测试控制台",
-    "stubRetrieval": "检索：桩实现，未接真实 RAGFlow",
-    "meta": "{{seconds}} 秒 · 输入 {{tokensIn}} / 输出 {{tokensOut}} tokens"
+    "meta": "{{seconds}} 秒 · 输入 {{tokensIn}} / 输出 {{tokensOut}} tokens",
+    "citations": "引用来源",
+    "faq": "标准答案"
   }
 }

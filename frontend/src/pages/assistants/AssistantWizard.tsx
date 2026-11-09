@@ -3,6 +3,7 @@ import { Check, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { CapabilityPicker } from './CapabilityPicker'
 import { currentLocale } from '../../i18n'
 import type { TenantMembership } from '../../types'
 import { ASSISTANT_CATEGORIES } from './types'
@@ -16,7 +17,6 @@ import type {
 } from './types'
 
 const STEP_KEYS = ['start', 'basics', 'capabilities', 'experience'] as const
-const MOUNT_KEYS = ['kb', 'agent', 'mcp', 'skill', 'chatflow', 'flow', 'api'] as const
 const MAX_PROMPT = 8000
 
 type Form = {
@@ -60,6 +60,8 @@ export function AssistantWizard({
   const [error, setError] = useState('')
   const [confirmClose, setConfirmClose] = useState(false)
   const [models, setModels] = useState<AssistantModelOptions | null>(null)
+  const [kbIds, setKbIds] = useState<string[]>(assistant?.config.mounts?.kb ?? [])
+  const [kbNames, setKbNames] = useState<Record<string, string>>({})
   const [form, setForm] = useState<Form>(() => ({
     name: assistant?.name ?? '',
     description: assistant?.description ?? '',
@@ -126,7 +128,7 @@ export function AssistantWizard({
         greeting: form.greeting,
         suggested_questions: form.suggested,
         feedback_enabled: form.feedback,
-        mounts: assistant?.config.mounts ?? {},
+        mounts: { ...(assistant?.config.mounts ?? {}), kb: kbIds },
         oc: assistant?.config.oc ?? {},
       },
     }
@@ -254,9 +256,12 @@ export function AssistantWizard({
             <div>
               <h3>{t('wizard.capabilities.title')}</h3>
               <p>{t('wizard.capabilities.hint')}</p>
-              <ul className="wizard-capabilities">
-                {MOUNT_KEYS.map((key) => <li key={key}><span>{t(`wizard.capabilities.${key}`)}</span><em>{t('wizard.capabilities.soon')}</em></li>)}
-              </ul>
+              <CapabilityPicker
+                names={kbNames}
+                onChange={(ids, names) => { setKbIds(ids); setKbNames(names); setDirty(true) }}
+                selected={kbIds}
+                tenantId={tenant.id}
+              />
             </div>
           )}
 

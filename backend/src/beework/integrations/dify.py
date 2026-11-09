@@ -10,7 +10,12 @@ from typing import Any
 import httpx
 
 from beework.config import settings
-from beework.integrations.knowledge_engine import DocumentRef, DocumentState, KnowledgeEngineError
+from beework.integrations.knowledge_engine import (
+    DocumentRef,
+    DocumentState,
+    EngineChunk,
+    KnowledgeEngineError,
+)
 
 # Dify limits a knowledge base name to 40 characters.
 MAX_NAME_LENGTH = 40
@@ -157,3 +162,37 @@ class DifyClient:
     def delete_datasets(self, dataset_ids: list[str]) -> None:
         for dataset_id in dataset_ids:  # Dify has no bulk delete
             self._request("DELETE", f"/datasets/{dataset_id}", tolerate_missing=True)
+
+    def search(self, dataset_ids: list[str], query: str, *, top_k: int, threshold: float) -> list[EngineChunk]:
+        """Dify retrieves per knowledge base (``/datasets/{id}/retrieve``), so query each one and merge by score."""
+        found: list[EngineChunk] = []
+        for dataset_id in dataset_ids:
+            data = self._request(
+                "POST",
+                f"/datasets/{dataset_id}/retrieve",
+                json={
+                    "query": query,
+                    "retrieval_model": {
+                        "search_method": "semantic_search",
+                        "reranking_enable": False,
+                        "top_k": top_k,
+                        "score_threshold_enabled": True,
+                        "score_threshold": threshold,
+                    },
+                },
+            )
+            for record in (data or {}).get("records", []):
+                segment = record.get("segment") or {}
+                score = float(record.get("score") or 0)
+                if score < threshold:
+                    continue
+                found.append(
+                    EngineChunk(
+                        dataset_id=dataset_id,
+                        chunk_id=str(segment.get("id") or ""),
+                        document_name=str((segment.get("document") or {}).get("name") or ""),
+                        text=str(segment.get("content") or ""),
+                        score=score,
+                    )
+                )
+        return sorted(found, key=lambda c: c.score, reverse=True)[:top_k]

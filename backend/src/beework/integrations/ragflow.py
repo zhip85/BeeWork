@@ -11,7 +11,12 @@ from typing import Any, BinaryIO
 import httpx
 
 from beework.config import settings
-from beework.integrations.knowledge_engine import DocumentRef, DocumentState, KnowledgeEngineError
+from beework.integrations.knowledge_engine import (
+    DocumentRef,
+    DocumentState,
+    EngineChunk,
+    KnowledgeEngineError,
+)
 
 # How the PRD's chunking strategies map to RAGFlow ``chunk_method`` / ``parser_config``. Taken from RAGFlow's
 # documentation, NOT yet checked against a running RAGFlow (T-030 step 0).
@@ -202,6 +207,7 @@ class RAGFlowClient:
         return [
             {
                 "chunk_id": chunk.get("id"),
+                "dataset_id": chunk.get("dataset_id"),
                 "document_id": chunk.get("document_id"),
                 "document_name": chunk.get("document_keyword"),
                 "content": chunk.get("content"),
@@ -209,3 +215,19 @@ class RAGFlowClient:
             }
             for chunk in (data or {}).get("chunks", [])
         ]
+
+    def search(self, dataset_ids: list[str], query: str, *, top_k: int, threshold: float) -> list[EngineChunk]:
+        if not dataset_ids:
+            return []
+        found = self.retrieve(question=query, dataset_ids=dataset_ids, top_k=top_k, similarity_threshold=threshold)
+        chunks = [
+            EngineChunk(
+                dataset_id=str(item.get("dataset_id") or (dataset_ids[0] if len(dataset_ids) == 1 else "")),
+                chunk_id=str(item.get("chunk_id") or ""),
+                document_name=str(item.get("document_name") or ""),
+                text=str(item.get("content") or ""),
+                score=float(item.get("similarity") or 0),
+            )
+            for item in found
+        ]
+        return sorted((c for c in chunks if c.score >= threshold), key=lambda c: c.score, reverse=True)[:top_k]

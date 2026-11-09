@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session
 from beework.compliance import get_policy
 from beework.conversations import append_message, history_for_run
 from beework.gateway_sync import tenant_gateway_key
+from beework.integrations.knowledge_engine import KnowledgeEngineError
 from beework.integrations.litellm import GatewayError
+from beework.knowledge_mounts import resolve_knowledge_bases
 from beework.memory import load_memory_context
 from beework.models import Tenant, TenantModelEnvironment
 from beework.models.conversations import Conversation
@@ -26,10 +28,10 @@ from beework.runtime import (
     memory_stage as _memory_stage,  # noqa: F401  (registers the memory stage)
 )
 from beework.runtime.compiler import RuntimeDeps, StageClock, compile_assistant
-from beework.runtime.dsl import AssistantDSLv1
+from beework.runtime.dsl import AssistantDSLv1, KnowledgeBaseRef
 from beework.runtime.errors import RunCancelled, RunTimedOut, RuntimeFailure
 from beework.runtime.llm import build_chat_model
-from beework.runtime.retrieval import Retriever, StubRetriever, tenant_dataset_ids
+from beework.runtime.retrieval import EngineRetriever, Retriever
 from beework.runtime.tracing import TraceHandle, trace_run
 from beework.worker.events import publish_run_event
 
@@ -93,6 +95,8 @@ def classify_error(exc: Exception) -> RuntimeFailure:
 def _classify(exc: Exception) -> RuntimeFailure:
     if isinstance(exc, RuntimeFailure):
         return exc
+    if isinstance(exc, KnowledgeEngineError):
+        return RuntimeFailure("runtime.knowledge_error", "知识库检索失败，请检查知识引擎状态后重试")
     if isinstance(exc, openai.APITimeoutError):
         return RuntimeFailure("runtime.model_timeout", "模型响应超时")
     if isinstance(exc, openai.APIConnectionError):
@@ -239,8 +243,10 @@ def _execute_run(
                     if side.scalar(select(Run.cancel_requested).where(Run.id == run.id)):
                         raise RunCancelled
 
-        def allowed_datasets(requested: Sequence[str]) -> list[str]:
-            return tenant_dataset_ids(run.tenant_id, requested)
+        def resolve_bases(requested: Sequence[UUID]) -> list[KnowledgeBaseRef]:
+            # Called from a graph worker thread: own session. The tenant's current rows decide what is searched.
+            with Session(bind=bind) as side:
+                return resolve_knowledge_bases(side, run.tenant_id, list(requested))
 
         end_user_id = None
         if run.conversation_id is not None:
@@ -263,9 +269,9 @@ def _execute_run(
                 dsl,
                 RuntimeDeps(
                     llm=llm,
-                    retriever=retriever or StubRetriever(),
+                    retriever=retriever or EngineRetriever(),
                     tenant_id=run.tenant_id,
-                    allowed_dataset_ids=allowed_datasets,
+                    resolve_bases=resolve_bases,
                     check_stop=check_stop,
                     callbacks=trace.callbacks,
                     span=trace.span,
@@ -304,10 +310,13 @@ def _execute_run(
 
     usage = final.get("usage") or {"input": None, "output": None}
     citations = [
-        {"document_name": c["document_name"], "chunk_id": c["chunk_id"], "snippet": c["text"][:200]}
+        {
+            "document_name": c["document_name"], "chunk_id": c["chunk_id"], "snippet": c["text"][:200],
+            "kind": c.get("kind", "document"), "kb_name": c.get("kb_name", ""), "score": round(c.get("score", 0), 4),
+        }
         for c in final.get("context", [])
     ]
-    retrieval = {"mode": final.get("retrieval_mode", "stub"), "citations": citations}
+    retrieval = {"mode": final.get("retrieval_mode", "none"), "citations": citations}
     run.tokens_in, run.tokens_out = usage.get("input"), usage.get("output")
     run.retrieval_mode = retrieval["mode"]
     text = final.get("text", "")
@@ -319,7 +328,7 @@ def _execute_run(
         if conversation is not None:
             append_message(
                 db, conversation, "assistant", text,
-                run_id=run.id, trace_id=trace_url.rsplit("/", 1)[-1] if trace_url else None,
+                run_id=run.id, trace_id=trace_url.rsplit("/", 1)[-1] if trace_url else None, citations=citations,
             )
             conversation.tokens += (usage.get("input") or 0) + (usage.get("output") or 0)
     _finish(
