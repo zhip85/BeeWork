@@ -92,5 +92,6 @@
     "applyFailed": "Could not apply the change"
   },
   "piiRules": "PII rules",
-  "baseline": "Security baseline"
+  "baseline": "Security baseline",
+  "glossaries": "Industry glossaries"
 }

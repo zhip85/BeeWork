@@ -110,6 +110,7 @@ export type PlatformTenant = {
   seat_limit: number
   plan: string
   region: string
+  industry: string
   member_count: number
   admin_email: string | null
   admin_name: string | null

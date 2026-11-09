@@ -92,5 +92,6 @@
     "applyFailed": "应用订阅变更失败"
   },
   "piiRules": "PII 规则",
-  "baseline": "安全基线"
+  "baseline": "安全基线",
+  "glossaries": "行业术语表"
 }

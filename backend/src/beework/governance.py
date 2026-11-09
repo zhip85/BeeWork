@@ -32,7 +32,7 @@ SCOPES = ("all", "enterprise", "region_cn", "industry_finance")
 STATUSES = ("enabled", "draft")
 RULESET_KINDS = ("all", "enforced", "rules")
 REVIEW_TIMEOUT = timedelta(hours=72)
-FINANCE_INDUSTRIES = frozenset({"banking", "insurance", "finance"})
+FINANCE_INDUSTRIES = frozenset({"banking", "insurance"})
 CHINA_REGIONS = frozenset({"cn_shanghai"})
 MAX_RETENTION_DAYS = 3650
 
@@ -429,7 +429,8 @@ def reject_change(db: Session, request: PlatformChangeRequest, reviewer: User, c
 # Inheritance helpers for tenants, assistants and the runtime.
 # ---------------------------------------------------------------------------
 
-# T-051 (industry dictionary) registers how a tenant's industry is found; until then no tenant is in the finance scope.
+# A tenant's industry is a code of the platform industry dictionary (T-051). ``INDUSTRY_RESOLVERS`` lets a caller override
+# it (tests use it to place a tenant in an industry without editing the row).
 IndustryResolver = Callable[[Session, Tenant], str | None]
 INDUSTRY_RESOLVERS: list[IndustryResolver] = []
 
@@ -439,7 +440,7 @@ def tenant_industry(db: Session, tenant: Tenant) -> str | None:
         industry = resolver(db, tenant)
         if industry:
             return industry
-    return None
+    return tenant.industry
 
 
 def scope_matches(db: Session, tenant: Tenant, scope: str) -> bool:

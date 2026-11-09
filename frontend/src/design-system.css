@@ -381,3 +381,20 @@ table { border-collapse: collapse; }
 .governance-switch input[type=checkbox]:disabled { opacity: 0.5; cursor: not-allowed; }
 .platform-governance-page .knowledge-status-bar { margin-bottom: 12px; }
 .governance-modal .plans-actions, .governance-changes .plans-actions { justify-content: flex-end; }
+
+/* Platform glossaries */
+.glossary-layout { display: grid; grid-template-columns: 260px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .glossary-layout { grid-template-columns: 1fr; } }
+.glossary-list { display: grid; gap: 6px; }
+.glossary-list button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #fff; text-align: left; cursor: pointer; }
+.glossary-list button.active { border-color: var(--forest); background: #f4f9f6; box-shadow: 0 0 0 2px var(--mint); }
+.glossary-list button > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.glossary-list small { color: var(--muted); font-size: var(--fs-xs); }
+.glossary-list .kb-icon { width: 30px; height: 30px; border-radius: 9px; }
+.glossary-terms { padding: 18px 20px; }
+.glossary-search { margin: 12px 0; width: min(360px, 100%); }
+.glossary-definition { max-width: 380px; color: var(--ink-soft); }
+.industry-manager { width: min(760px, 96vw); }
+.industry-edit { display: flex; gap: 6px; }
+.industry-edit input { min-width: 0; width: 140px; }
+.industry-add { display: grid; grid-template-columns: 1fr 1fr 1.2fr auto; gap: 8px; }
