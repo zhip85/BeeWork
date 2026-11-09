@@ -33,6 +33,12 @@ class DocumentState:
     message: str | None = None
 
 
+def faq_text(question: str, similar_questions: list[str], answer: str) -> str:
+    """The text an FAQ is indexed as: question, similar phrasings, then the answer."""
+    similar = "；".join(similar_questions)
+    return f"{question}\n{similar}\n\n答：{answer}" if similar else f"{question}\n\n答：{answer}"
+
+
 @dataclass(frozen=True)
 class EngineChunk:
     """One retrieved passage; ``score`` is the engine's similarity in 0..1."""
@@ -42,6 +48,7 @@ class EngineChunk:
     document_name: str
     text: str
     score: float
+    document_id: str = ""  # lets BeeWork map a hit back to the FAQ (or document) it came from
 
 
 class KnowledgeEngine(Protocol):
@@ -77,6 +84,14 @@ class KnowledgeEngine(Protocol):
 
     def list_chunks(self, dataset_id: str, document_id: str, *, page: int, size: int) -> tuple[list[str], int]:
         """One page of a document's chunk texts and the total chunk count (for the chunk preview)."""
+        ...
+
+    def add_faq(self, dataset_id: str, question: str, similar_questions: list[str], answer: str) -> DocumentRef:
+        """Push one FAQ as a single-chunk document of an FAQ dataset (the engine indexes it for retrieval).
+
+        Dify's segment API is a paid-plan feature, so each FAQ is its own small document; ``delete_documents`` removes
+        it. The question and its similar phrasings come first so they dominate the match; the answer follows.
+        """
         ...
 
     def search(self, dataset_ids: list[str], query: str, *, top_k: int, threshold: float) -> list[EngineChunk]:

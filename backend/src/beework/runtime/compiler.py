@@ -161,7 +161,7 @@ def _execute(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
         update["context"] = [
             {
                 "document_name": c.document_name, "chunk_id": c.chunk_id, "text": c.text, "score": c.score,
-                "kind": c.kind, "kb_name": c.kb_name,
+                "kind": c.kind, "kb_name": c.kb_name, "document_id": c.document_id,
             }
             for c in result.chunks
         ]

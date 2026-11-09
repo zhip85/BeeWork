@@ -6,12 +6,13 @@ import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { ApiRequestError, apiRequest } from '../../api'
 import type { TenantMembership } from '../../types'
 import { DocumentsTab } from './DocumentsTab'
+import { FaqTab } from './FaqTab'
 import type { KnowledgeBase } from './types'
 
 const EMBEDDINGS = ['bge-m3', 'text-embedding-3-large', 'cohere-embed-v3'] as const
 const CHUNKINGS = ['semantic', 'fixed_512', 'by_heading'] as const
 
-/** Knowledge base detail (KNW-020–022) and its settings view (KNW-032). Documents and FAQ tabs arrive with T-031 / T-032. */
+/** Knowledge base detail (KNW-020–022) and its settings view (KNW-032). Documents (T-031) and FAQ (T-032) tabs. */
 export function KnowledgeDetailPage({ tenant }: { tenant: TenantMembership }) {
   const { t } = useTranslation('knowledge')
   const { kbId } = useParams()
@@ -120,7 +121,7 @@ export function KnowledgeDetailPage({ tenant }: { tenant: TenantMembership }) {
           </div>
           {!isFaq && tab === 'documents'
             ? <DocumentsTab kbId={kb.id} onChanged={load} tenant={tenant} />
-            : <div className="detail-card"><p className="usage-hint">{t('faqSoon')}</p></div>}
+            : <FaqTab kbId={kb.id} onChanged={load} tenant={tenant} />}
         </>
       )}
 

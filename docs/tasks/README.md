@@ -37,7 +37,7 @@
 | [T-028](./T-028-open-api.md) | 租户 API 密钥与开放对话 API | 3/6 | T-024、T-025、T-010 | — | 已完成 | Claude Sonnet 5.5 | 与 T-040 一并合入；真实供应商对话待 Key（目前只用 `mock_response` 验证） |
 | [T-030](./T-030-knowledge-bases.md) | 知识库与知识引擎 dataset（Dify） | 4 | T-001、T-002 | Dify 知识库 API 密钥（已配置） | 已完成（有条件） | Claude Sonnet 5.5 | 知识引擎改用 **Dify**（2026-11-09 决定）；真实 Dify 已验证创建/删除数据集；RAGFlow 保留为可选实现、不再验证；速率限制待观察 |
 | [T-031](./T-031-documents.md) | 文档上传、解析状态同步、删除与重建 | 4 | T-030 | Dify（已配置） | 已完成（有条件） | Claude Sonnet 5.5 | Dify 真实环境验证了上传/索引/分片/删除（Markdown）；**PDF/DOCX/HTML、10 MB 耗时（NFR-003）未验证**；RAGFlow 不再使用 |
-| [T-032](./T-032-faq.md) | FAQ 生命周期与推送 | 4 | T-030 | Dify（已配置） | 待开发 | | |
+| [T-032](./T-032-faq.md) | FAQ 生命周期与推送 | 4 | T-030 | Dify（已配置） | 待验收 | Claude Sonnet 5.5 | 假 Dify / 假 RAGFlow 全量验证；FAQ 经 Dify 的真实推送只做过手工探测（单段文档可检索，得分 0.575–0.619），未跑完整端到端；审批流程未接入 |
 | [T-033](./T-033-knowledge-retrieval.md) | 知识挂载、运行时检索与引用 | 4 | T-025、T-031 | Dify（已配置） | 已完成（有条件） | Claude Sonnet 5.5 | 替换了检索桩；**Dify Cloud 已用真实环境验证**（上传 → 索引 → 语义检索 → 带引用回答）；真实模型未验证（回答用 mock 模型）；RAGFlow 不再使用 |
 | [T-040](./T-040-website-channel.md) | 网站渠道（最小版）：实例、发布快照、嵌入脚本 | 6 | T-024、T-025 | — | 已完成 | Claude Sonnet 5.5 | `widget.js` 已用 jsdom 在真实栈上跑通一次对话，**未在真实浏览器里验证** |
 
