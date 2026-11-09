@@ -5,7 +5,7 @@ otherwise it becomes an approval request whose executor (``tenant.pii_rules``) w
 """
 
 from typing import Any
-from uuid import UUID, uuid5
+from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -202,9 +202,11 @@ def precheck(db: Session, tenant_id: UUID, operation: str, key: UUID | None, fie
         _ensure_unique_name(db, tenant_id, cleaned["name"], exclude_id=existing.id if existing else None, platform_id=platform.id)
 
 
-def object_id_for(tenant_id: UUID, key: UUID | None) -> UUID:
-    """One pending approval per rule: the approval object is derived from the tenant and the rule key."""
-    return uuid5(tenant_id, str(key) if key else "settings-or-new")
+def object_id_for(tenant_id: UUID, key: UUID | None, operation: str = "update") -> UUID:
+    """The approval object: one pending request per existing rule, one for the switch; creations never block each other."""
+    if operation == "create":
+        return uuid4()
+    return uuid5(tenant_id, str(key) if key else "settings")
 
 
 @approval_action(ACTION)

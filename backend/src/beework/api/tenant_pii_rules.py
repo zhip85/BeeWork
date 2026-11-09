@@ -66,7 +66,7 @@ def _submit(
     diff = service.diff_for(db, membership.tenant_id, operation, key, fields)
     result = submit_change(
         db, tenant_id=membership.tenant_id, event=service.EVENT, action=service.ACTION, object_type=service.OBJECT_TYPE,
-        object_id=service.object_id_for(membership.tenant_id, key), title=title[:200],
+        object_id=service.object_id_for(membership.tenant_id, key, operation), title=title[:200],
         payload={"operation": operation, "key": str(key) if key else None, "fields": fields}, change_diff=diff,
         checks=[{"label": "只影响本租户的 PII 规则", "level": "ok"}], requester_id=membership.user_id,
     )

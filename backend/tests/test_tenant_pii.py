@@ -189,6 +189,14 @@ class TenantPiiTests(test_versions.VersionTests):
         self.assertEqual(self.drain(), 1)
         self.assertEqual((self.items()["手机号"]["label"], self.items()["手机号"]["pattern"]), ("tenant_modified", "x"))
 
+    def test_pending_creations_and_the_switch_do_not_block_each_other(self) -> None:
+        self.require_approval()
+        first = self.create()
+        second = self.create(name="工号", pattern="E\\d+")
+        switch = self.client.put(f"{URL}/settings", json={"inherit_platform": False, "row_version": 0}, headers=self.admin)
+        self.assertEqual((first.status_code, second.status_code, switch.status_code), (202, 202, 202))
+        self.assertEqual(len({first.json()["approval_id"], second.json()["approval_id"], switch.json()["approval_id"]}), 3)
+
     def test_a_rejected_change_never_applies_and_other_rules_stay_editable(self) -> None:
         self.require_approval()
         pending = self.create().json()
