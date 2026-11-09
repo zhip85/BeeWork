@@ -17,6 +17,7 @@ type TenantForm = {
   seatLimit: number
   plan: string
   region: string
+  industry: string
   provisioning: 'formal' | 'trial'
   trialDays: number
   trialEndsAt: string
@@ -24,11 +25,12 @@ type TenantForm = {
 
 const EMPTY_FORM: TenantForm = {
   name: '', slug: '', adminName: '', adminEmail: '', adminPassword: '', seatLimit: 10, plan: 'standard',
-  region: 'ap_singapore', provisioning: 'formal', trialDays: 14, trialEndsAt: '',
+  region: 'ap_singapore', industry: 'general_office', provisioning: 'formal', trialDays: 14, trialEndsAt: '',
 }
 
 /** The tenant fields shared by the create form and the edit dialog (the edit dialog leaves the password optional). */
-function TenantFields({ form, onChange, mode, status, memberCount }: {
+function TenantFields({ form, onChange, mode, status, memberCount, industries }: {
+  industries: { code: string; name_zh: string }[]
   form: TenantForm
   onChange: (patch: Partial<TenantForm>) => void
   mode: 'create' | 'edit'
@@ -46,6 +48,7 @@ function TenantFields({ form, onChange, mode, status, memberCount }: {
       <label>{editing ? '席位上限' : '初始席位上限'}<input max={100000} min={1} onChange={(event) => onChange({ seatLimit: Number(event.target.value) })} required type="number" value={form.seatLimit} /><small>{editing ? `当前成员与待接受邀请共 ${memberCount ?? 0} 个；不能低于已使用的席位。` : '当前由平台按租户配置；后续套餐权益将接管此上限。'}</small></label>
       <label>套餐<select onChange={(event) => onChange({ plan: event.target.value })} value={form.plan}><option value="standard">标准版</option><option value="professional">专业版</option><option value="enterprise">企业版</option></select>{editing && <small>保存后立即按新套餐的权益生效。</small>}</label>
       <label>数据区域<select onChange={(event) => onChange({ region: event.target.value })} value={form.region}><option value="us_east">US-East</option><option value="eu_west">EU-West</option><option value="ap_singapore">AP-Singapore</option><option value="cn_shanghai">CN-Shanghai</option></select><small>模型目录仅显示本区域可用模型{editing ? '；修改区域会改变该企业可见的模型。' : '。'}</small></label>
+      <label>所属行业<select onChange={(event) => onChange({ industry: event.target.value })} value={form.industry}>{industries.map((item) => <option key={item.code} value={item.code}>{item.name_zh}</option>)}</select><small>来自平台行业字典；决定可继承的行业术语表与按行业下发的安全基线。</small></label>
       {!editing && <label>开通方式<select onChange={(event) => onChange({ provisioning: event.target.value as 'formal' | 'trial' })} value={form.provisioning}><option value="formal">正式</option><option value="trial">试用</option></select><small>试用到期后自动停用。</small></label>}
       {!editing && form.provisioning === 'trial' && <label>试用天数<input max={90} min={1} onChange={(event) => onChange({ trialDays: Number(event.target.value) })} type="number" value={form.trialDays} /></label>}
       {editing && status === 'trial' && <label>试用到期日<input onChange={(event) => onChange({ trialEndsAt: event.target.value })} required type="date" value={form.trialEndsAt} /><small>到期后自动停用。</small></label>}
@@ -59,6 +62,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [operations, setOperations] = useState<PlatformOperation[]>([])
+  const [industries, setIndustries] = useState<{ code: string; name_zh: string }[]>([{ code: 'general_office', name_zh: '通用办公' }])
   const [lifecycleTenant, setLifecycleTenant] = useState<PlatformTenant | null>(null)
   const [lifecycleAction, setLifecycleAction] = useState('')
   const [lifecycleReason, setLifecycleReason] = useState('')
@@ -76,11 +80,13 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
     Promise.all([
       apiRequest<PlatformTenant[]>('/api/v1/platform/tenants'),
       apiRequest<PlatformOperation[]>('/api/v1/platform/operations?status=pending'),
+      apiRequest<{ code: string; name_zh: string; status: string }[]>('/api/v1/platform/industries'),
     ])
-      .then(([tenantResult, operationResult]) => {
+      .then(([tenantResult, operationResult, industryResult]) => {
         if (!active) return
         setTenants(tenantResult)
         setOperations(operationResult)
+        setIndustries(industryResult.filter((item) => item.status === 'active'))
       })
       .catch((requestError: Error) => active && setError(requestError.message))
       .finally(() => active && setLoading(false))
@@ -108,6 +114,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
             seat_limit: createForm.seatLimit,
             plan: createForm.plan,
             region: createForm.region,
+            industry: createForm.industry,
             provisioning: createForm.provisioning,
             trial_days: createForm.provisioning === 'trial' ? createForm.trialDays : undefined,
           }),
@@ -136,7 +143,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
     setEditing(tenant)
     setEditForm({
       name: tenant.name, slug: tenant.slug, adminName: tenant.admin_name ?? '', adminEmail: tenant.admin_email ?? '',
-      adminPassword: '', seatLimit: tenant.seat_limit, plan: tenant.plan, region: tenant.region, provisioning: 'formal',
+      adminPassword: '', seatLimit: tenant.seat_limit, plan: tenant.plan, region: tenant.region, industry: tenant.industry, provisioning: 'formal',
       trialDays: 14, trialEndsAt: tenant.trial_ends_at ? tenant.trial_ends_at.slice(0, 10) : '',
     })
     setEditError('')
@@ -154,6 +161,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
       if (editForm.plan !== editing.plan) body.plan = editForm.plan
       if (editForm.seatLimit !== editing.seat_limit) body.seat_limit = editForm.seatLimit
       if (editForm.region !== editing.region) body.region = editForm.region
+      if (editForm.industry !== editing.industry) body.industry = editForm.industry
       if (editForm.adminName.trim() !== (editing.admin_name ?? '')) body.admin_name = editForm.adminName.trim()
       if (editForm.adminEmail.trim() !== (editing.admin_email ?? '')) body.admin_email = editForm.adminEmail.trim()
       if (editForm.adminPassword) body.admin_password = editForm.adminPassword
@@ -241,7 +249,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
         </div>
         <p className="organization-description">初始密码由平台管理员设置，创建后不会再次显示；请先记录并通过安全渠道交付。</p>
         <form className="tenant-create-form" onSubmit={createTenant}>
-          <TenantFields form={createForm} mode="create" onChange={(patch) => setCreateForm((current) => ({ ...current, ...patch }))} />
+          <TenantFields form={createForm} industries={industries} mode="create" onChange={(patch) => setCreateForm((current) => ({ ...current, ...patch }))} />
           <button className="primary-button tenant-provision-submit" disabled={submitting} type="submit"><Plus size={16} />{submitting ? '正在创建…' : '创建企业并开通管理员'}</button>
         </form>
       </div>
@@ -310,7 +318,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
             <button className="modal-close" type="button" aria-label="关闭" onClick={() => setEditing(null)}><X size={18} /></button>
             <div className="section-kicker">编辑企业</div>
             <h2 id="tenant-edit-title">{editing.name}</h2>
-            <TenantFields form={editForm} memberCount={editing.member_count} mode="edit" onChange={(patch) => setEditForm((current) => ({ ...current, ...patch }))} status={editing.status} />
+            <TenantFields form={editForm} industries={industries} memberCount={editing.member_count} mode="edit" onChange={(patch) => setEditForm((current) => ({ ...current, ...patch }))} status={editing.status} />
             {editError && <p className="members-error" role="alert">{editError}</p>}
             <button className="primary-button" disabled={editSubmitting} type="submit">{editSubmitting ? '保存中…' : '保存'}</button>
           </form>

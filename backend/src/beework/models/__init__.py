@@ -34,6 +34,16 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "baseline_rule.created": "新增安全基线规则",
     "baseline_rule.updated": "修改安全基线规则",
     "baseline_rule.deleted": "删除安全基线规则",
+    "industry.created": "新增行业",
+    "industry.updated": "修改行业",
+    "industry.deleted": "删除行业",
+    "glossary.created": "新建行业术语库",
+    "glossary.updated": "修改行业术语库",
+    "glossary.deleted": "删除行业术语库",
+    "glossary_term.created": "新增行业术语",
+    "glossary_term.updated": "修改行业术语",
+    "glossary_term.deleted": "删除行业术语",
+    "glossary_term.imported": "导入行业术语",
     "platform_rule.change_requested": "发起强制规则变更（待复核）",
     "platform_rule.change_approved": "复核通过强制规则变更",
     "platform_rule.change_rejected": "驳回强制规则变更",
@@ -138,6 +148,8 @@ class Tenant(Base):
     seat_limit: Mapped[int] = mapped_column(nullable=False, default=10)
     plan: Mapped[str] = mapped_column(String(24), nullable=False, default="standard")
     region: Mapped[str] = mapped_column(String(32), nullable=False, default="ap_singapore")
+    # A code of the platform industry dictionary (T-051); checked by the API, not by a foreign key.
+    industry: Mapped[str] = mapped_column(String(32), nullable=False, default="general_office", server_default="general_office")
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
@@ -710,6 +722,7 @@ from beework.models import (  # noqa: E402,F401
     channels,
     conversations,
     faq,
+    glossary,
     governance,
     jobs,
     knowledge,

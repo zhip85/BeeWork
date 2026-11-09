@@ -11,6 +11,7 @@ from beework.auth import (
 )
 from beework.db import get_db
 from beework.entitlements import change_subscription, create_subscription, seat_usage
+from beework.glossary import ensure_industry
 from beework.models import (
     AuditEvent,
     AuthSession,
@@ -72,6 +73,7 @@ def create_tenant(
         seat_limit=payload.seat_limit,
         plan=payload.plan,
         region=payload.region,
+        industry=ensure_industry(db, payload.industry),
     )
     if payload.provisioning == "trial":
         started = datetime.now(UTC)
@@ -156,6 +158,9 @@ def update_tenant(
             raise HTTPException(status_code=409, detail="企业标识已被使用")
         changes["slug"] = f"{tenant.slug} → {payload.slug}"
         tenant.slug = payload.slug
+    if payload.industry is not None and payload.industry != tenant.industry:
+        changes["industry"] = f"{tenant.industry} → {payload.industry}"
+        tenant.industry = ensure_industry(db, payload.industry)
     if payload.region is not None and payload.region != tenant.region:
         changes["region"] = f"{tenant.region} → {payload.region}"
         tenant.region = payload.region
@@ -276,6 +281,7 @@ def _tenant_response(db: Session, tenant: Tenant) -> PlatformTenantResponse:
         seat_limit=tenant.seat_limit,
         plan=tenant.plan,
         region=tenant.region,
+        industry=tenant.industry,
         member_count=member_count,
         admin_email=admin.email if admin else None,
         admin_name=admin.display_name if admin else None,

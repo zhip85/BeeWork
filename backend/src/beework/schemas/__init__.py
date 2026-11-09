@@ -19,6 +19,7 @@ class CreateTenantRequest(BaseModel):
     seat_limit: int = Field(ge=1, le=100000)
     plan: Literal["standard", "professional", "enterprise"] = "standard"
     region: Literal["us_east", "eu_west", "ap_singapore", "cn_shanghai"] = "ap_singapore"
+    industry: str = Field(default="general_office", max_length=32)  # a code of the industry dictionary (T-051)
     admin_email: EmailStr
     admin_name: str = Field(min_length=1, max_length=120)
     admin_password: str = Field(min_length=12, max_length=256)
@@ -44,6 +45,7 @@ class UpdateTenantRequest(BaseModel):
     plan: Literal["standard", "professional", "enterprise"] | None = None
     seat_limit: int | None = Field(default=None, ge=1, le=100000)
     region: Literal["us_east", "eu_west", "ap_singapore", "cn_shanghai"] | None = None
+    industry: str | None = Field(default=None, max_length=32)
     admin_name: str | None = Field(default=None, min_length=1, max_length=120)
     admin_email: EmailStr | None = None
     admin_password: str | None = Field(default=None, min_length=12, max_length=256)
@@ -125,6 +127,7 @@ class PlatformTenantResponse(BaseModel):
     seat_limit: int
     plan: str
     region: str
+    industry: str = "general_office"
     member_count: int
     admin_email: EmailStr | None = None
     admin_name: str | None = None

@@ -5,6 +5,7 @@ import enAssistants from './en/assistants.json'
 import enChannels from './en/channels.json'
 import enKnowledge from './en/knowledge.json'
 import enGovernance from './en/governance.json'
+import enGlossary from './en/glossary.json'
 import enOrchestration from './en/orchestration.json'
 import enDetail from './en/detail.json'
 import enAudit from './en/audit.json'
@@ -24,6 +25,7 @@ import zhAssistants from './zh-CN/assistants.json'
 import zhChannels from './zh-CN/channels.json'
 import zhKnowledge from './zh-CN/knowledge.json'
 import zhGovernance from './zh-CN/governance.json'
+import zhGlossary from './zh-CN/glossary.json'
 import zhOrchestration from './zh-CN/orchestration.json'
 import zhDetail from './zh-CN/detail.json'
 import zhAudit from './zh-CN/audit.json'
@@ -62,14 +64,14 @@ void i18n.use(initReactI18next).init({
   lng: storedLocale(),
   fallbackLng: DEFAULT_LOCALE,
   defaultNS: 'common',
-  ns: ['common', 'channels', 'testing', 'notifications', 'approvals', 'assistants', 'detail', 'conversations', 'versions', 'nav', 'auth', 'members', 'platform', 'settings', 'audit', 'enums', 'knowledge', 'orchestration', 'governance'],
+  ns: ['common', 'channels', 'testing', 'notifications', 'approvals', 'assistants', 'detail', 'conversations', 'versions', 'nav', 'auth', 'members', 'platform', 'settings', 'audit', 'enums', 'knowledge', 'orchestration', 'governance', 'glossary'],
   resources: {
     'zh-CN': {
-      channels: zhChannels, knowledge: zhKnowledge, orchestration: zhOrchestration, governance: zhGovernance, testing: zhTesting, notifications: zhNotifications, approvals: zhApprovals, assistants: zhAssistants, detail: zhDetail, common: zhCommon, conversations: zhConversations, nav: zhNav, auth: zhAuth, members: zhMembers,
+      channels: zhChannels, knowledge: zhKnowledge, orchestration: zhOrchestration, governance: zhGovernance, glossary: zhGlossary, testing: zhTesting, notifications: zhNotifications, approvals: zhApprovals, assistants: zhAssistants, detail: zhDetail, common: zhCommon, conversations: zhConversations, nav: zhNav, auth: zhAuth, members: zhMembers,
       platform: zhPlatform, settings: zhSettings, versions: zhVersions, audit: zhAudit, enums: zhEnums,
     },
     en: {
-      channels: enChannels, knowledge: enKnowledge, orchestration: enOrchestration, governance: enGovernance, testing: enTesting, notifications: enNotifications, approvals: enApprovals, assistants: enAssistants, detail: enDetail, common: enCommon, conversations: enConversations, nav: enNav, auth: enAuth, members: enMembers,
+      channels: enChannels, knowledge: enKnowledge, orchestration: enOrchestration, governance: enGovernance, glossary: enGlossary, testing: enTesting, notifications: enNotifications, approvals: enApprovals, assistants: enAssistants, detail: enDetail, common: enCommon, conversations: enConversations, nav: enNav, auth: enAuth, members: enMembers,
       platform: enPlatform, settings: enSettings, versions: enVersions, audit: enAudit, enums: enEnums,
     },
   },
