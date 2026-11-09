@@ -80,7 +80,7 @@
 | [T-008](./T-008-email-delivery.md) | 邮件发送基础设施（邀请邮件） | T-002 | 生产 SMTP（开发用 Mailpit） | 待开发 | | 可提前到 V0.1 收尾 |
 | [T-009](./T-009-shell-completion.md) | 应用外壳补全（收起记忆、帮助、无权访问页） | T-003 | — | 待开发 | | 可随时做 |
 | [T-012](./T-012-byok.md) | BYOK 自有模型密钥 | T-010、T-022、T-002 | — | 待开发 | | |
-| [T-013](./T-013-environment-promotion.md) | 模型配置跨环境发布 | T-006、T-022 | — | 待开发 | | |
+| [T-013](./T-013-environment-promotion.md) | 模型配置跨环境发布 | T-006、T-022 | 等待 T-012 BYOK 实现后确定密钥方式发布规则 | 阻塞 | Copilot SDK | 已创建分支 `task/T-013-environment-promotion`；按确认暂缓 T-013 实现 |
 | [T-014](./T-014-model-catalog-completion.md) | 模型目录补全：降级、停用影响、删除限制 | T-005、T-070 | — | 待开发 | | |
 | [T-029](./T-029-prompt-suggestion.md) | 助理提示词 AI 生成建议 | T-020、T-025 | 供应商 Key | 待开发 | | |
 | [T-050](./T-050-platform-pii-baseline.md) | 平台 PII 规则与安全基线 | T-001、T-010 | — | 待开发 | | OC 前置 |
