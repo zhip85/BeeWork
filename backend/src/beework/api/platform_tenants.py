@@ -13,6 +13,7 @@ from beework.db import get_db
 from beework.entitlements import change_subscription, create_subscription, seat_usage
 from beework.models import (
     AuditEvent,
+    AuthSession,
     Membership,
     Organization,
     PlatformOperationRequest,
@@ -150,20 +151,59 @@ def update_tenant(
     if payload.name is not None and payload.name != tenant.name:
         changes["name"] = f"{tenant.name} → {payload.name}"
         tenant.name = payload.name
+    if payload.slug is not None and payload.slug != tenant.slug:
+        if db.scalar(select(Tenant.id).where(Tenant.slug == payload.slug, Tenant.id != tenant.id)):
+            raise HTTPException(status_code=409, detail="企业标识已被使用")
+        changes["slug"] = f"{tenant.slug} → {payload.slug}"
+        tenant.slug = payload.slug
+    if payload.region is not None and payload.region != tenant.region:
+        changes["region"] = f"{tenant.region} → {payload.region}"
+        tenant.region = payload.region
+    if payload.trial_ends_at is not None:
+        if tenant.status != "trial":
+            raise HTTPException(status_code=409, detail="只有试用中的企业可以修改试用到期时间")
+        if as_utc(payload.trial_ends_at) != (as_utc(tenant.trial_ends_at) if tenant.trial_ends_at else None):
+            changes["trial_ends_at"] = f"{tenant.trial_ends_at} → {payload.trial_ends_at}"
+            tenant.trial_ends_at = as_utc(payload.trial_ends_at)
     new_plan = payload.plan if payload.plan is not None else tenant.plan
     new_seats = payload.seat_limit if payload.seat_limit is not None else tenant.seat_limit
     if new_plan != tenant.plan or new_seats != tenant.seat_limit:
         used = seat_usage(db, tenant.id)
         if new_seats < used:
             raise HTTPException(status_code=422, detail=f"席位上限不能低于已使用的席位（{used}）")
-        if new_plan != tenant.plan:
-            changes["plan"] = f"{tenant.plan} → {new_plan}"
-        if payload.seat_limit is not None and new_seats != tenant.seat_limit:
-            changes["seat_limit"] = f"{tenant.seat_limit} → {new_seats}"
+        old_plan, old_seats = tenant.plan, tenant.seat_limit
         # Without an explicit seat limit a plan change takes the new plan's own seat quota.
         change_subscription(db, tenant, new_plan, seats=payload.seat_limit)
-        if new_seats != tenant.seat_limit and payload.seat_limit is None:
-            changes["seat_limit"] = f"{new_seats} → {tenant.seat_limit}"
+        if new_plan != old_plan:
+            changes["plan"] = f"{old_plan} → {new_plan}"
+        if tenant.seat_limit != old_seats:
+            changes["seat_limit"] = f"{old_seats} → {tenant.seat_limit}"
+    if payload.admin_name or payload.admin_email or payload.admin_password:
+        admin = db.scalar(
+            select(User)
+            .join(Membership, Membership.user_id == User.id)
+            .where(Membership.tenant_id == tenant.id, Membership.role == "tenant_admin", User.is_active.is_(True))
+            .order_by(Membership.created_at)
+            .limit(1)
+        )
+        if admin is None:
+            raise HTTPException(status_code=409, detail="该企业没有可编辑的企业管理员")
+        if payload.admin_name and payload.admin_name != admin.display_name:
+            changes["admin_name"] = f"{admin.display_name} → {payload.admin_name}"
+            admin.display_name = payload.admin_name
+        if payload.admin_email:
+            email = str(payload.admin_email).strip().lower()
+            if email != admin.email:
+                if db.scalar(select(User.id).where(User.email == email, User.id != admin.id)):
+                    raise HTTPException(status_code=409, detail="企业管理员邮箱已注册，请使用其他邮箱")
+                changes["admin_email"] = f"{admin.email} → {email}"
+                admin.email = email
+        if payload.admin_password:
+            admin.password_hash = hash_password(payload.admin_password)
+            db.query(AuthSession).filter(AuthSession.user_id == admin.id, AuthSession.revoked_at.is_(None)).update(
+                {"revoked_at": datetime.now(UTC)}, synchronize_session=False
+            )
+            changes["admin_password"] = "已重置"
     if changes:
         record_lifecycle_audit(db, actor_id=user.id, tenant=tenant, action="tenant.updated", details=changes)
     db.commit()
