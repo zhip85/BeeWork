@@ -2,7 +2,7 @@
 
 **版本**：V0.2　**依赖**：T-006、T-022　**PRD**：SET-040、SET-042、SET-045、RUL-004
 
-**状态**：阻塞　**负责人**：Copilot SDK　**分支**：`task/T-013-environment-promotion`
+**状态**：阻塞　**分支**：`task/T-013-environment-promotion`
 
 ## 范围
 
