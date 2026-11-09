@@ -219,5 +219,18 @@
     "importConfirm": "导入 {{count}} 条",
     "imported": "已导入 {{count}} 条 FAQ",
     "close": "关闭"
+  },
+  "basicsTitle": "基础信息",
+  "basicsSubtitle": "设置知识库的基本信息与默认索引语言。",
+  "required": "必填",
+  "createNote": {
+    "standard": {
+      "title": "下一步添加文档和 FAQ",
+      "body": "创建后，文档和 FAQ 都在当前知识库内管理。"
+    },
+    "faq": {
+      "title": "仅可添加 FAQ",
+      "body": "FAQ 知识库不提供文档上传和文档检索。"
+    }
   }
 }
