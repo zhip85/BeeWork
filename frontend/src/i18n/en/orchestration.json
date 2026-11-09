@@ -1,0 +1,83 @@
+{
+  "title": "Orchestration control (OC)",
+  "subtitle": "Configure the governed request pipeline and the single egress gateway.",
+  "back": "Back to assistant",
+  "navLabel": "OC stages",
+  "assistant": "Assistant",
+  "notPublished": "Not published",
+  "status": {
+    "draft": "Draft",
+    "published": "Published",
+    "disabled": "Disabled"
+  },
+  "overview": "Overview",
+  "configure": "Configure",
+  "soon": "Coming soon",
+  "soonStage": "“{{name}}” is coming soon.",
+  "loading": "Loading…",
+  "loadFailed": "Could not load the OC configuration",
+  "actionFailed": "Action failed",
+  "stale": "The configuration was changed by someone else. Refresh and try again.",
+  "groups": {
+    "input": "Input",
+    "context": "Understanding & context",
+    "execute": "Execution",
+    "output": "Output"
+  },
+  "stages": {
+    "pii": {
+      "name": "PII rules",
+      "subtitle": "Platform · tenant · assistant"
+    },
+    "memory": {
+      "name": "Memory",
+      "subtitle": "Short-term · long-term"
+    },
+    "glossary": {
+      "name": "Glossary",
+      "subtitle": "Platform · tenant · assistant"
+    },
+    "rewrite": {
+      "name": "Query rewrite",
+      "subtitle": "Rewrite strategies"
+    },
+    "routing": {
+      "name": "Routing",
+      "subtitle": "Dispatch to mounted agents / flows"
+    },
+    "components": {
+      "name": "Components",
+      "subtitle": "Inject by channel · validate · degrade"
+    }
+  },
+  "save": "Save draft",
+  "saving": "Saving…",
+  "saved": "Draft saved",
+  "saveFirst": "Save the draft first",
+  "unsaved": "You have unsaved changes.",
+  "submit": "Submit for approval",
+  "submitting": "Submitting…",
+  "cancel": "Cancel",
+  "pending": "An OC change is awaiting approval.",
+  "viewApproval": "View approval",
+  "leaveTitle": "Discard unsaved changes?",
+  "leaveBody": "You have unsaved OC changes that will be lost.",
+  "leave": "Discard and leave",
+  "stay": "Keep editing",
+  "submitTitle": "OC change · {{name}}",
+  "publishFirst": "Publish the assistant first, then submit OC changes.",
+  "noChanges": "The OC draft matches the live version.",
+  "approvalRequired": "Approval required: once approved it goes live as a new assistant version containing only the OC changes. If rejected the draft is kept.",
+  "approvalOff": "No approval flow is configured: it takes effect immediately and contains only the OC changes.",
+  "note": "Change note (optional)",
+  "submitted": "Submitted for approval",
+  "applied": "OC change is live",
+  "replaceTitle": "Withdraw the pending request?",
+  "replaceBody": "An OC change is already pending. Withdraw it and submit the current draft?",
+  "pipelineTitle": "Request pipeline",
+  "pipelineSubtitle": "Every message goes through this governed path.",
+  "configureOc": "Configure OC",
+  "denied": "You do not have permission to view orchestration.",
+  "draftDiffers": "The OC draft differs from the live version and has not been submitted.",
+  "inSync": "The OC draft matches the live version."
+}

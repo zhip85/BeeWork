@@ -610,11 +610,12 @@ class VersionTests(unittest.TestCase):
         from beework.capabilities import MOUNT_RESOLVERS, MountItem
 
         live, off = UUID("00000000-0000-4000-8000-000000000001"), UUID("00000000-0000-4000-8000-000000000002")
+        original = MOUNT_RESOLVERS.get("kb")
         MOUNT_RESOLVERS["kb"] = lambda _db, _tenant, ids: {
             live: MountItem(live, "kb", "FAQ", "available"),
             off: MountItem(off, "kb", "Old", "disabled"),
         }
-        self.addCleanup(MOUNT_RESOLVERS.pop, "kb", None)
+        self.addCleanup(lambda: MOUNT_RESOLVERS.__setitem__("kb", original) if original else MOUNT_RESOLVERS.pop("kb", None))
         with self.session_factory.begin() as db:
             assistant = db.get(Assistant, UUID(self.aid))
             assistant.draft_config = {**assistant.draft_config, "mounts": {"kb": [str(live), str(off)]}}

@@ -13,7 +13,7 @@ import type { Assistant } from './types'
 type Version = {
   id: string
   version: string
-  kind: 'publish' | 'rollback'
+  kind: 'publish' | 'rollback' | 'oc_change'
   change_note: string
   published_by: string | null
   published_at: string
@@ -120,6 +120,7 @@ export function VersionsPage({ tenant }: { tenant: TenantMembership }) {
                 <strong>v{version.version}</strong>
                 <span className={`assistant-status ${version.is_live ? 'published' : 'draft'}`}>{version.is_live ? t('page.live') : t('page.history')}</span>
                 {version.kind === 'rollback' && <span className="assistant-status handoff">{t('page.kindRollback')}</span>}
+                {version.kind === 'oc_change' && <span className="assistant-status handoff">{t('page.kindOcChange')}</span>}
               </header>
               <p>{version.change_note || t('page.noNote')}</p>
               <small>{t('page.by', { name: version.published_by ?? '—', time: formatRelativeTime(version.published_at) })}</small>

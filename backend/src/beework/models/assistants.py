@@ -101,7 +101,7 @@ class AssistantVersion(Base, TenantOwnedMixin):
     assistant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     version_seq: Mapped[int] = mapped_column(Integer, nullable=False)
     version: Mapped[str] = mapped_column(String(16), nullable=False)  # "1.0", "1.1", ...
-    kind: Mapped[str] = mapped_column(String(16), nullable=False, default="publish")  # publish | rollback
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, default="publish")  # publish | rollback | oc_change
     source_version_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))  # rollback target
     snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
     change_note: Mapped[str] = mapped_column(String(500), nullable=False, default="")
