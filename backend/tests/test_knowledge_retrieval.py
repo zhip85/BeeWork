@@ -387,6 +387,17 @@ class RuntimeRetrievalTests(_RetrievalHarness):
         with self.session_factory() as db:
             self.assertEqual(knowledge_mounts.resolve_knowledge_bases(db, self.other_id, [UUID(kb_id)]), [])
 
+    def test_datasets_without_indexed_content_are_not_searched(self) -> None:
+        from beework import knowledge_mounts
+
+        kb_id = self.indexed_kb()
+        empty_id = self.kb(self.admin, name="空知识库")
+        with self.session_factory() as db:
+            refs = knowledge_mounts.resolve_knowledge_bases(db, self.tenant_id, [UUID(kb_id), UUID(empty_id)])
+        self.assertEqual([r.kb_id for r in refs], [UUID(kb_id)])  # nothing to find in the empty one
+        self.assertIsNotNone(refs[0].dataset_id)
+        self.assertIsNone(refs[0].faq_dataset_id)  # no published FAQ: its (empty) FAQ dataset is skipped
+
     def test_live_runs_retrieve_too_and_the_dsl_needs_a_session_for_mounts(self) -> None:
         kb_id = self.indexed_kb()
         assistant = self.assistant([kb_id]).json()

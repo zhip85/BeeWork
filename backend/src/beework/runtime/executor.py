@@ -96,6 +96,8 @@ def _classify(exc: Exception) -> RuntimeFailure:
     if isinstance(exc, RuntimeFailure):
         return exc
     if isinstance(exc, KnowledgeEngineError):
+        # The user sees a fixed message; operators get the engine's (already sanitized) reason in the Worker log.
+        logger.warning("Knowledge retrieval failed: %s", exc)
         return RuntimeFailure("runtime.knowledge_error", "知识库检索失败，请检查知识引擎状态后重试")
     if isinstance(exc, openai.APITimeoutError):
         return RuntimeFailure("runtime.model_timeout", "模型响应超时")

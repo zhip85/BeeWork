@@ -246,13 +246,14 @@
 - T-040：网站渠道（草稿 → 发布快照，受“接入新的外部渠道”审批策略约束；域名白名单 + site_key + 访客令牌；`/v1/widget/*` 与 `widget.js`）；渠道页、助理详情“渠道”页签（含开放 API 接入说明）。
 - 验证：ruff、`test-postgres.sh`（337 项）、前端检查；真实栈上 `check_open_api_e2e.py` 全部通过，真实 `widget.js` 经 jsdom 完成一次对话。**只用 LiteLLM `mock_response` 验证，没有真实供应商 Key；未在真实浏览器里验证挂件。**
 
-### 知识挂载与运行时检索（T-033，待验收：仅假引擎验证）
+### 知识挂载与运行时检索（T-033，待验收：Dify 已用真实环境验证，RAGFlow 与真实模型未验证）
 
 - 助理可挂载知识库（`mounts.kb`）：`GET /capabilities/candidates?kind=kb` 只列出“已索引”的知识库（按组织范围过滤），创建/编辑校验（只能新挂载已索引的本租户知识库，最多 10 个；已有的失效挂载不阻止保存）；`MOUNT_RESOLVERS["kb"]` 报告 `available` / `disabled`（无已索引内容）/ `deleted`，失效挂载进入配置检查（GLB-083）；知识库“被引用数”统计草稿与线上版本（`knowledge_mounts.py`）。向导第 3 步与详情页“挂载能力”弹窗已接入选择器。
 - 运行时：`StubRetriever` 已被 `EngineRetriever` 取代（引擎的 `search` 对 RAGFlow、Dify 都已实现），FAQ 优先、阈值取知识库设置，检索进入 Langfuse span `oc.retrieval`；`retrieval.mode` 取值 `none` / `ragflow` / `dify` / `stub`。引用写入 `done` 事件、`runs.output` 与新列 `messages.citations`（迁移 0032），会话详情、开放 API 响应与测试控制台都能看到；测试控制台的“检索：桩实现”标识已移除。
 - 租户安全：运行时只按 `kb_id` 解析租户当前的知识库行得到 dataset，DSL 里写的 dataset ID 不被信任；快照仍记录发布时的引擎与 dataset ID。
 - 验证：ruff、迁移升降级 + `alembic check`、全量 472 项后端测试、前端检查通过；真实走 HTTP 的测试（假 RAGFlow / 假 Dify 引擎）覆盖“上传 → 索引 → 挂载 → 提问 → 带引用回答”、未索引/他租户知识库不可挂载、失效挂载、引用计数、引擎失败、删除后不再检索；隔离栈上 `scripts/check_retrieval_e2e.py` 在 RAGFlow、Dify 两种假引擎下均通过（真实 Worker + LiteLLM `mock_response` + Langfuse）。
-- **未验证**：真实 RAGFlow 与真实 Dify 的检索（没有可用的密钥）、检索质量与阈值是否合适、真实模型下的引用回答；验收规格要求的“真实引擎 + 真实模型跑通”仍未满足。
+- **真实 Dify Cloud 验证（2026-11-09）**：`check_retrieval_e2e.py`（`E2E_ENGINE=dify`）在真实 Dify 上通过——上传 Markdown、Dify 真实索引（高质量嵌入）、挂载、提问、语义检索得到带引用的上下文（直接调用 `search` 得分 0.814，阈值 0.62 通过）、删除知识库后不再检索；回答仍由 LiteLLM `mock_response` 模型产生。验证中发现并修复两个只有真实引擎才暴露的问题：Dify 对**没有任何已索引内容的 dataset** 检索会返回 `400 … 404 Not Found`（标准知识库总有一个空的 FAQ dataset），现在只检索有已索引文档 / 已发布 FAQ 的 dataset；以及 Dify 套餐有 API 速率限制（403 “request rate limit of your subscription”），触发时检索按 `runtime.knowledge_error` 失败。
+- **仍未验证**：RAGFlow（没有可用的实例）、真实模型下的回答质量、阈值是否合适（默认 0.62 在这份短文档上够用，但只试了一份）、更大的文档与多知识库挂载下的延迟，以及 Dify 速率限制下的表现（每次提问 1 次检索，运行时没有重试）。
 
 ## 4. 下一步
 
