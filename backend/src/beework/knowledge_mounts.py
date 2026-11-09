@@ -76,12 +76,20 @@ def resolve_knowledge_bases(db: Session, tenant_id: UUID, kb_ids: list[UUID]) ->
     """The tenant's current knowledge bases for ``kb_ids`` that can be searched (datasets exist), in the given order.
 
     Ids that belong to another tenant, were deleted or have not been synced to the engine yet are simply absent.
+    A dataset with nothing indexed in it is left out too: Dify answers a search on an empty dataset with an error
+    (``400 … 404 Not Found``), and there is nothing to find there anyway. So every standard knowledge base no longer
+    makes a pointless FAQ call just because its FAQ dataset exists.
     """
     found = _live(db, tenant_id, kb_ids)
     refs: list[KnowledgeBaseRef] = []
     for kb_id in kb_ids:
         kb = found.get(kb_id)
-        if kb is None or not (kb.engine_dataset_id or kb.engine_faq_dataset_id):
+        if kb is None:
+            continue
+        stats = content_stats(db, kb)
+        dataset_id = kb.engine_dataset_id if stats.indexed_documents > 0 else None
+        faq_dataset_id = kb.engine_faq_dataset_id if stats.published_faqs > 0 else None
+        if not (dataset_id or faq_dataset_id):
             continue
         refs.append(
             KnowledgeBaseRef(
@@ -89,8 +97,8 @@ def resolve_knowledge_bases(db: Session, tenant_id: UUID, kb_ids: list[UUID]) ->
                 name=kb.name,
                 kb_type=kb.kb_type,
                 engine=kb.engine,
-                dataset_id=kb.engine_dataset_id,
-                faq_dataset_id=kb.engine_faq_dataset_id,
+                dataset_id=dataset_id,
+                faq_dataset_id=faq_dataset_id,
                 threshold=float(kb.retrieval_threshold),
             )
         )

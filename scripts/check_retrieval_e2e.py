@@ -1,13 +1,12 @@
 """End-to-end check of knowledge retrieval (T-033): upload -> index -> mount -> ask -> cited answer.
 
-Run inside an api container whose worker shares the same database and knowledge engine settings:
+Run inside an api container whose worker shares the same database and knowledge engine settings. The engine is
+whatever ``KNOWLEDGE_ENGINE`` points at: the FAKE one of scripts/fake_ragflow.py, or a real RAGFlow / Dify (set
+``E2E_ENGINE`` to match). Against a real Dify its API rate limit (403 "request rate limit of your subscription") can
+fail a run; wait a minute and retry. ``E2E_ENDPOINT_URL`` replaces the (never called) model endpoint when
+``api.openai.com`` does not resolve to a public address on your network.
 
-    # engine: the FAKE engine of scripts/fake_ragflow.py (RAGFlow flavour; E2E_ENGINE=dify for Dify's API)
-    docker compose exec api python /app/scripts/check_retrieval_e2e.py
-
-What is real: the BeeWork API and Worker, the knowledge engine HTTP contract (against the fake), LangGraph, LiteLLM and
-Langfuse. What is NOT: the engine itself (a fake with word-overlap "embeddings") and the model (LiteLLM
-``mock_response``). It says nothing about retrieval quality in a real RAGFlow / Dify.
+The model is always LiteLLM ``mock_response``, so this says nothing about answer quality with a real model.
 """
 
 import os
@@ -124,7 +123,7 @@ def main() -> None:
                 "region", "context_window", "max_output_tokens", "default_temperature", "rpm_limit", "fallback_model_id",
                 "allowlist_tenant_ids")
         platform.put(f"/api/v1/platform/models/{model['id']}", json={**{k: model[k] for k in keys}, "status": "disabled"})
-    print(f"Retrieval end-to-end check passed ({ENGINE} flavour of the FAKE engine, mock_response model).")
+    print(f"Retrieval end-to-end check passed (engine: {ENGINE}, model: LiteLLM mock_response).")
 
 
 if __name__ == "__main__":
