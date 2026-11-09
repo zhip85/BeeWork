@@ -1533,6 +1533,67 @@ class TenantAuthTests(unittest.TestCase):
         bad = self.client.post("/api/v1/auth/logout", headers={**self.csrf_headers(), "Origin": "http://evil.example.com"})
         self.assertEqual(bad.status_code, 403)
 
+    def test_platform_admin_edits_every_create_field(self) -> None:
+        self.login(email="platform@example.com", password="platform admin safe password")
+        url = f"/api/v1/platform/tenants/{self.tenant_id}"
+        edited = self.client.patch(
+            url,
+            json={"slug": "acme-renamed", "region": "eu_west", "admin_name": "New Owner", "admin_email": "NewOwner@Example.com",
+                  "admin_password": "a-brand-new-password"},
+            headers=self.csrf_headers(),
+        )
+        self.assertEqual(edited.status_code, 200, edited.text)
+        body = edited.json()
+        self.assertEqual((body["slug"], body["region"], body["admin_name"], body["admin_email"]), ("acme-renamed", "eu_west", "New Owner", "newowner@example.com"))
+        with self.session_factory() as db:
+            audit = db.scalar(select(AuditEvent).where(AuditEvent.action == "tenant.updated", AuditEvent.tenant_id.is_(None)))
+            self.assertEqual(audit.details["admin_password"], "已重置")
+            self.assertNotIn("a-brand-new-password", str(audit.details))
+        # The administrator signs in with the new address and password; the old password no longer works.
+        self.client.post("/api/v1/auth/logout", headers=self.csrf_headers())
+        old = self.client.post("/api/v1/auth/login", json={"email": "newowner@example.com", "password": "correct horse battery"})
+        self.assertEqual(old.status_code, 401)
+        self.login(email="newowner@example.com", password="a-brand-new-password")
+
+    def test_edit_rejects_taken_slug_taken_email_and_trial_date_outside_trial(self) -> None:
+        self.login(email="platform@example.com", password="platform admin safe password")
+        url = f"/api/v1/platform/tenants/{self.tenant_id}"
+        self.assertEqual(self.client.patch(url, json={"slug": "other"}, headers=self.csrf_headers()).status_code, 409)
+        self.assertEqual(self.client.patch(url, json={"admin_email": "member@example.com"}, headers=self.csrf_headers()).status_code, 409)
+        self.assertEqual(self.client.patch(url, json={"admin_password": "short"}, headers=self.csrf_headers()).status_code, 422)
+        self.assertEqual(self.client.patch(url, json={"slug": "Bad Slug"}, headers=self.csrf_headers()).status_code, 422)
+        late = (datetime.now(UTC) + timedelta(days=30)).isoformat()
+        self.assertEqual(self.client.patch(url, json={"trial_ends_at": late}, headers=self.csrf_headers()).status_code, 409)
+        with self.session_factory.begin() as db:
+            db.execute(update(Tenant).where(Tenant.id == UUID(self.tenant_id)).values(status="trial"))
+        moved = self.client.patch(url, json={"trial_ends_at": late}, headers=self.csrf_headers())
+        self.assertEqual(moved.status_code, 200, moved.text)
+        self.assertTrue(moved.json()["trial_ends_at"].startswith(late[:10]))
+
+    def test_admin_of_a_platform_created_tenant_can_create_a_knowledge_base(self) -> None:
+        self.login(email="platform@example.com", password="platform admin safe password")
+        for slug, provisioning in (("fresh-formal", "formal"), ("fresh-trial", "trial")):
+            created = self.client.post(
+                "/api/v1/platform/tenants",
+                json={"name": slug, "slug": slug, "seat_limit": 5, "admin_email": f"{slug}@example.com", "admin_name": "Fresh Admin",
+                      "admin_password": "a-long-safe-password", "provisioning": provisioning},
+                headers=self.csrf_headers(),
+            )
+            self.assertEqual(created.status_code, 201, created.text)
+            tenant_id = created.json()["id"]
+            self.client.post("/api/v1/auth/logout", headers=self.csrf_headers())
+            self.login(email=f"{slug}@example.com", password="a-long-safe-password")
+            me = self.client.get("/api/v1/auth/me").json()["memberships"][0]
+            self.assertIn("knowledge:edit", me["permissions"], slug)
+            self.assertEqual(me["access_mode"], "full", slug)
+            kb = self.client.post(
+                "/api/v1/knowledge-bases", json={"name": "新库", "kb_type": "standard"},
+                headers=self.csrf_headers() | {"X-Tenant-ID": tenant_id},
+            )
+            self.assertEqual(kb.status_code, 201, f"{slug}: {kb.text}")
+            self.client.post("/api/v1/auth/logout", headers=self.csrf_headers())
+            self.login(email="platform@example.com", password="platform admin safe password")
+
     def csrf_headers(self) -> dict[str, str]:
         csrf_token = self.client.cookies.get("beework_csrf")
         self.assertIsNotNone(csrf_token)

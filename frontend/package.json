@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "i18n:check": "node scripts/check-i18n.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "style:check": "node scripts/check-font-sizes.mjs"
   },
   "dependencies": {
     "@formily/core": "^2.3.7",

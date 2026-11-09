@@ -8,18 +8,54 @@ import { apiRequest } from '../../api'
 import type { PlatformOperation, PlatformTenant } from '../../types'
 import { enumLabel } from '../../i18n'
 
+type TenantForm = {
+  name: string
+  slug: string
+  adminName: string
+  adminEmail: string
+  adminPassword: string
+  seatLimit: number
+  plan: string
+  region: string
+  provisioning: 'formal' | 'trial'
+  trialDays: number
+  trialEndsAt: string
+}
+
+const EMPTY_FORM: TenantForm = {
+  name: '', slug: '', adminName: '', adminEmail: '', adminPassword: '', seatLimit: 10, plan: 'standard',
+  region: 'ap_singapore', provisioning: 'formal', trialDays: 14, trialEndsAt: '',
+}
+
+/** The tenant fields shared by the create form and the edit dialog (the edit dialog leaves the password optional). */
+function TenantFields({ form, onChange, mode, status, memberCount }: {
+  form: TenantForm
+  onChange: (patch: Partial<TenantForm>) => void
+  mode: 'create' | 'edit'
+  status?: string
+  memberCount?: number
+}) {
+  const editing = mode === 'edit'
+  return (
+    <>
+      <label>企业名称<input maxLength={160} minLength={2} onChange={(event) => onChange({ name: event.target.value })} placeholder="例如：Acme 科技" required value={form.name} /></label>
+      <label>工作区标识<input maxLength={80} minLength={3} onChange={(event) => onChange({ slug: event.target.value.toLowerCase() })} pattern="[a-z0-9][a-z0-9-]{1,78}[a-z0-9]" placeholder="例如：acme-tech" required value={form.slug} /><small>小写字母、数字和连字符；用于识别工作区。</small></label>
+      <label>企业管理员姓名<input maxLength={120} onChange={(event) => onChange({ adminName: event.target.value })} placeholder="例如：Alex Chen" required value={form.adminName} /></label>
+      <label>企业管理员邮箱<input autoComplete="off" onChange={(event) => onChange({ adminEmail: event.target.value })} placeholder="admin@company.com" required type="email" value={form.adminEmail} /></label>
+      <label>{editing ? '重置管理员密码' : '初始登录密码'}<input autoComplete="new-password" minLength={12} onChange={(event) => onChange({ adminPassword: event.target.value })} required={!editing} type="password" value={form.adminPassword} /><small>{editing ? '留空则不修改；设置后该管理员的现有登录会话会失效，请通过安全渠道交付新密码。' : '至少 12 位，请通过安全渠道交付给企业管理员。'}</small></label>
+      <label>{editing ? '席位上限' : '初始席位上限'}<input max={100000} min={1} onChange={(event) => onChange({ seatLimit: Number(event.target.value) })} required type="number" value={form.seatLimit} /><small>{editing ? `当前成员与待接受邀请共 ${memberCount ?? 0} 个；不能低于已使用的席位。` : '当前由平台按租户配置；后续套餐权益将接管此上限。'}</small></label>
+      <label>套餐<select onChange={(event) => onChange({ plan: event.target.value })} value={form.plan}><option value="standard">标准版</option><option value="professional">专业版</option><option value="enterprise">企业版</option></select>{editing && <small>保存后立即按新套餐的权益生效。</small>}</label>
+      <label>数据区域<select onChange={(event) => onChange({ region: event.target.value })} value={form.region}><option value="us_east">US-East</option><option value="eu_west">EU-West</option><option value="ap_singapore">AP-Singapore</option><option value="cn_shanghai">CN-Shanghai</option></select><small>模型目录仅显示本区域可用模型{editing ? '；修改区域会改变该企业可见的模型。' : '。'}</small></label>
+      {!editing && <label>开通方式<select onChange={(event) => onChange({ provisioning: event.target.value as 'formal' | 'trial' })} value={form.provisioning}><option value="formal">正式</option><option value="trial">试用</option></select><small>试用到期后自动停用。</small></label>}
+      {!editing && form.provisioning === 'trial' && <label>试用天数<input max={90} min={1} onChange={(event) => onChange({ trialDays: Number(event.target.value) })} type="number" value={form.trialDays} /></label>}
+      {editing && status === 'trial' && <label>试用到期日<input onChange={(event) => onChange({ trialEndsAt: event.target.value })} required type="date" value={form.trialEndsAt} /><small>到期后自动停用。</small></label>}
+    </>
+  )
+}
+
 export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }) {
   const [tenants, setTenants] = useState<PlatformTenant[]>([])
-  const [name, setName] = useState('')
-  const [slug, setSlug] = useState('')
-  const [adminName, setAdminName] = useState('')
-  const [adminEmail, setAdminEmail] = useState('')
-  const [adminPassword, setAdminPassword] = useState('')
-  const [seatLimit, setSeatLimit] = useState(10)
-  const [plan, setPlan] = useState('standard')
-  const [region, setRegion] = useState('ap_singapore')
-  const [provisioning, setProvisioning] = useState<'formal' | 'trial'>('formal')
-  const [trialDays, setTrialDays] = useState(14)
+  const [createForm, setCreateForm] = useState<TenantForm>(EMPTY_FORM)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [operations, setOperations] = useState<PlatformOperation[]>([])
@@ -29,9 +65,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
   const [lifecycleSubmitting, setLifecycleSubmitting] = useState(false)
   const [reviewingOperation, setReviewingOperation] = useState('')
   const [editing, setEditing] = useState<PlatformTenant | null>(null)
-  const [editName, setEditName] = useState('')
-  const [editPlan, setEditPlan] = useState('standard')
-  const [editSeats, setEditSeats] = useState(10)
+  const [editForm, setEditForm] = useState<TenantForm>(EMPTY_FORM)
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editError, setEditError] = useState('')
   const [error, setError] = useState('')
@@ -66,30 +100,21 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
         {
           method: 'POST',
           body: JSON.stringify({
-            name,
-            slug,
-            admin_name: adminName,
-            admin_email: adminEmail,
-            admin_password: adminPassword,
-            seat_limit: seatLimit,
-            plan,
-            region,
-            provisioning,
-            trial_days: provisioning === 'trial' ? trialDays : undefined,
+            name: createForm.name,
+            slug: createForm.slug,
+            admin_name: createForm.adminName,
+            admin_email: createForm.adminEmail,
+            admin_password: createForm.adminPassword,
+            seat_limit: createForm.seatLimit,
+            plan: createForm.plan,
+            region: createForm.region,
+            provisioning: createForm.provisioning,
+            trial_days: createForm.provisioning === 'trial' ? createForm.trialDays : undefined,
           }),
         },
       )
       setTenants((current) => [created, ...current])
-      setName('')
-      setSlug('')
-      setAdminName('')
-      setAdminEmail('')
-      setAdminPassword('')
-      setSeatLimit(10)
-      setPlan('standard')
-      setRegion('ap_singapore')
-      setProvisioning('formal')
-      setTrialDays(14)
+      setCreateForm(EMPTY_FORM)
       setNotice(`已创建 ${created.name}。首位企业管理员为 ${created.admin_email}；平台账号没有加入该企业。`)
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '创建企业失败')
@@ -109,9 +134,11 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
 
   function openEdit(tenant: PlatformTenant) {
     setEditing(tenant)
-    setEditName(tenant.name)
-    setEditPlan(tenant.plan)
-    setEditSeats(tenant.seat_limit)
+    setEditForm({
+      name: tenant.name, slug: tenant.slug, adminName: tenant.admin_name ?? '', adminEmail: tenant.admin_email ?? '',
+      adminPassword: '', seatLimit: tenant.seat_limit, plan: tenant.plan, region: tenant.region, provisioning: 'formal',
+      trialDays: 14, trialEndsAt: tenant.trial_ends_at ? tenant.trial_ends_at.slice(0, 10) : '',
+    })
     setEditError('')
   }
 
@@ -122,9 +149,17 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
     setEditError('')
     try {
       const body: Record<string, unknown> = {}
-      if (editName.trim() !== editing.name) body.name = editName.trim()
-      if (editPlan !== editing.plan) body.plan = editPlan
-      if (editSeats !== editing.seat_limit) body.seat_limit = editSeats
+      if (editForm.name.trim() !== editing.name) body.name = editForm.name.trim()
+      if (editForm.slug !== editing.slug) body.slug = editForm.slug
+      if (editForm.plan !== editing.plan) body.plan = editForm.plan
+      if (editForm.seatLimit !== editing.seat_limit) body.seat_limit = editForm.seatLimit
+      if (editForm.region !== editing.region) body.region = editForm.region
+      if (editForm.adminName.trim() !== (editing.admin_name ?? '')) body.admin_name = editForm.adminName.trim()
+      if (editForm.adminEmail.trim() !== (editing.admin_email ?? '')) body.admin_email = editForm.adminEmail.trim()
+      if (editForm.adminPassword) body.admin_password = editForm.adminPassword
+      if (editing.status === 'trial' && editForm.trialEndsAt && editForm.trialEndsAt !== (editing.trial_ends_at ?? '').slice(0, 10)) {
+        body.trial_ends_at = new Date(`${editForm.trialEndsAt}T23:59:59`).toISOString()
+      }
       if (Object.keys(body).length === 0) {
         setEditing(null)
         return
@@ -206,16 +241,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
         </div>
         <p className="organization-description">初始密码由平台管理员设置，创建后不会再次显示；请先记录并通过安全渠道交付。</p>
         <form className="tenant-create-form" onSubmit={createTenant}>
-          <label>企业名称<input maxLength={160} minLength={2} onChange={(event) => setName(event.target.value)} placeholder="例如：Acme 科技" required value={name} /></label>
-          <label>工作区标识<input maxLength={80} minLength={3} onChange={(event) => setSlug(event.target.value.toLowerCase())} pattern="[a-z0-9][a-z0-9-]{1,78}[a-z0-9]" placeholder="例如：acme-tech" required value={slug} /><small>小写字母、数字和连字符；创建后用于识别工作区。</small></label>
-          <label>企业管理员姓名<input maxLength={120} onChange={(event) => setAdminName(event.target.value)} placeholder="例如：Alex Chen" required value={adminName} /></label>
-          <label>企业管理员邮箱<input autoComplete="off" onChange={(event) => setAdminEmail(event.target.value)} placeholder="admin@company.com" required type="email" value={adminEmail} /></label>
-          <label>初始登录密码<input autoComplete="new-password" minLength={12} onChange={(event) => setAdminPassword(event.target.value)} required type="password" value={adminPassword} /><small>至少 12 位，请通过安全渠道交付给企业管理员。</small></label>
-          <label>初始席位上限<input min={1} max={100000} onChange={(event) => setSeatLimit(Number(event.target.value))} required type="number" value={seatLimit} /><small>当前由平台按租户配置；后续套餐权益将接管此上限。</small></label>
-          <label>套餐<select onChange={(event) => setPlan(event.target.value)} value={plan}><option value="standard">标准版</option><option value="professional">专业版</option><option value="enterprise">企业版</option></select></label>
-          <label>数据区域<select onChange={(event) => setRegion(event.target.value)} value={region}><option value="us_east">US-East</option><option value="eu_west">EU-West</option><option value="ap_singapore">AP-Singapore</option><option value="cn_shanghai">CN-Shanghai</option></select><small>模型目录仅显示本区域可用模型。</small></label>
-          <label>开通方式<select onChange={(event) => setProvisioning(event.target.value as 'formal' | 'trial')} value={provisioning}><option value="formal">正式</option><option value="trial">试用</option></select><small>试用到期后自动停用。</small></label>
-          {provisioning === 'trial' && <label>试用天数<input max={90} min={1} onChange={(event) => setTrialDays(Number(event.target.value))} type="number" value={trialDays} /></label>}
+          <TenantFields form={createForm} mode="create" onChange={(patch) => setCreateForm((current) => ({ ...current, ...patch }))} />
           <button className="primary-button tenant-provision-submit" disabled={submitting} type="submit"><Plus size={16} />{submitting ? '正在创建…' : '创建企业并开通管理员'}</button>
         </form>
       </div>
@@ -280,14 +306,11 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
       </div>
       {editing && (
         <div className="modal-backdrop" role="presentation" onClick={() => !editSubmitting && setEditing(null)}>
-          <form className="create-modal lifecycle-modal" role="dialog" aria-modal="true" aria-labelledby="tenant-edit-title" onClick={(event) => event.stopPropagation()} onSubmit={submitEdit}>
+          <form className="create-modal lifecycle-modal tenant-edit-modal" role="dialog" aria-modal="true" aria-labelledby="tenant-edit-title" onClick={(event) => event.stopPropagation()} onSubmit={submitEdit}>
             <button className="modal-close" type="button" aria-label="关闭" onClick={() => setEditing(null)}><X size={18} /></button>
             <div className="section-kicker">编辑企业</div>
             <h2 id="tenant-edit-title">{editing.name}</h2>
-            <label>企业名称<input maxLength={160} minLength={2} onChange={(event) => setEditName(event.target.value)} required value={editName} /></label>
-            <label>套餐<select onChange={(event) => setEditPlan(event.target.value)} value={editPlan}><option value="standard">标准版</option><option value="professional">专业版</option><option value="enterprise">企业版</option></select><small>保存后立即按新套餐的权益生效。</small></label>
-            <label>席位上限<input max={100000} min={1} onChange={(event) => setEditSeats(Number(event.target.value))} required type="number" value={editSeats} /><small>当前成员与待接受邀请共 {editing.member_count} 个；不能低于已使用的席位。</small></label>
-            <p className="organization-description">工作区标识 {editing.slug} 与数据区域 {enumLabel('region', editing.region)} 创建后不可修改。</p>
+            <TenantFields form={editForm} memberCount={editing.member_count} mode="edit" onChange={(patch) => setEditForm((current) => ({ ...current, ...patch }))} status={editing.status} />
             {editError && <p className="members-error" role="alert">{editError}</p>}
             <button className="primary-button" disabled={editSubmitting} type="submit">{editSubmitting ? '保存中…' : '保存'}</button>
           </form>

@@ -41,7 +41,7 @@ export function KnowledgeDetailPage({ tenant }: { tenant: TenantMembership }) {
     return () => window.clearTimeout(timer)
   }, [kb, load])
 
-  if (error && !kb) return <section className="knowledge-page"><Link className="text-button" to="/knowledge"><ArrowLeft size={14} /> {t('backToAll')}</Link><p className="form-error" role="alert">{error}</p></section>
+  if (error && !kb) return <section className="knowledge-page"><Link className="back-link" to="/knowledge"><ArrowLeft size={14} /> {t('backToAll')}</Link><p className="form-error" role="alert">{error}</p></section>
   if (!kb || !form) return <section className="knowledge-page"><p>{t('loading')}</p></section>
 
   const isFaq = kb.kb_type === 'faq'
@@ -89,10 +89,10 @@ export function KnowledgeDetailPage({ tenant }: { tenant: TenantMembership }) {
 
   return (
     <section className="knowledge-page">
-      <Link className="text-button" to="/knowledge"><ArrowLeft size={14} /> {t('backToAll')}</Link>
+      <Link className="back-link" to="/knowledge"><ArrowLeft size={14} /> {t('backToAll')}</Link>
       <div className="page-heading">
         <div>
-          <small>{isFaq ? 'FAQ KNOWLEDGE BASE' : 'KNOWLEDGE BASE'}</small>
+          <p className="section-kicker">{isFaq ? 'FAQ KNOWLEDGE BASE' : 'KNOWLEDGE BASE'}</p>
           <h1>{kb.name}</h1>
           <p>{kb.description || t('detailDefaultDescription')}</p>
         </div>

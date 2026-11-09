@@ -54,6 +54,7 @@ import { UsagePage } from './pages/settings/UsagePage'
 import { roleLabel } from './roles'
 import type { CurrentUser, TenantEnvironmentName } from './types'
 import './App.css'
+import './design-system.css'
 
 const navigation = [
   { labelKey: 'dashboard', to: '/', icon: LayoutDashboard, end: true, permission: 'dashboard:view' },
@@ -64,6 +65,10 @@ const navigation = [
   { labelKey: 'approvals', to: '/approvals', icon: ClipboardCheck, permission: 'approvals:view' },
   { labelKey: 'channels', to: '/channels', icon: Radio, permission: 'channels:view' },
 ]
+
+// Navigation entries with their own page; every other entry still shows the placeholder (listing them here is what
+// keeps a placeholder route from shadowing the real one at the same path).
+const REAL_PAGES = new Set(['/assistants', '/approvals', '/channels', '/knowledge'])
 
 function App() {
   const { t } = useTranslation(['nav', 'common', 'settings', 'notifications', 'channels'])
@@ -380,7 +385,7 @@ function App() {
           <Routes key={`${activeTenant?.id ?? ''}:${environment}`}>
             <Route path="/" element={hasPermission('dashboard:view') ? <Dashboard user={user} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants" element={hasPermission('assistants:view') && activeTenant ? <AssistantsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            {navigation.slice(1).filter((item) => item.to !== '/assistants' && item.to !== '/approvals' && item.to !== '/channels').map(({ labelKey, to, icon: Icon, permission }) => (
+            {navigation.slice(1).filter((item) => !REAL_PAGES.has(item.to)).map(({ labelKey, to, icon: Icon, permission }) => (
               <Route key={to} path={to} element={hasPermission(permission) ? <SectionPlaceholder title={t(`nav:${labelKey}`)} icon={<Icon size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             ))}
             <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />

@@ -83,12 +83,12 @@ function OrchestrationView({ tenant }: { tenant: TenantMembership }) {
 
   return (
     <section className="detail-page orchestration-page">
-      <button className="text-button" onClick={() => go(`/assistants/${assistantId}`)} type="button"><ArrowLeft size={14} /> {t('back')}</button>
-      <header className="detail-card-head">
+      <button className="back-link" onClick={() => go(`/assistants/${assistantId}`)} type="button"><ArrowLeft size={14} /> {t('back')}</button>
+      <header className="page-heading">
         <div>
-          <small>{header?.name ?? '…'}</small>
+          <p className="section-kicker">{header?.name ?? '…'}</p>
           <h1>{t('title')}</h1>
-          <p className="usage-hint">{t('subtitle')}</p>
+          <p>{t('subtitle')}</p>
         </div>
         <div className="plans-actions">
           {canEdit && <button className="secondary-button" disabled={!dirty || saving} onClick={() => void save()} type="button">{saving ? t('saving') : t('save')}</button>}

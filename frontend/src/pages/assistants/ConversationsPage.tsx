@@ -45,7 +45,7 @@ export function ConversationsPage({ tenantId }: { tenantId: string }) {
 
   return (
     <section className="settings-page conversations-page">
-      <Link className="text-button" to="/assistants"><ArrowLeft size={14} /> {t('back')}</Link>
+      <Link className="back-link" to="/assistants"><ArrowLeft size={14} /> {t('back')}</Link>
       <div className="page-heading"><div><p className="section-kicker">{t('title')}</p><h1>{t('title')}</h1><p>{t('subtitle')}</p></div></div>
       <div className="assistants-toolbar">
         <select aria-label={t('filter.status')} onChange={(event) => { setPage(null); setStatus(event.target.value) }} value={status}>
@@ -59,7 +59,7 @@ export function ConversationsPage({ tenantId }: { tenantId: string }) {
       {page && page.items.length === 0 && <p className="assistants-empty-filtered">{status ? t('emptyFiltered') : t('empty')}</p>}
       {page && page.items.length > 0 && (
         <div className="table-wrap">
-          <table>
+          <table className="data-table">
             <thead><tr><th>{t('cols.id')}</th><th>{t('cols.user')}</th><th>{t('cols.channel')}</th><th>{t('cols.turns')}</th><th>{t('cols.csat')}</th><th>{t('cols.status')}</th><th>{t('cols.active')}</th></tr></thead>
             <tbody>
               {page.items.map((item) => (

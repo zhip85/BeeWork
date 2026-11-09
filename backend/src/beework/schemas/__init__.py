@@ -36,20 +36,27 @@ class CreateTenantRequest(BaseModel):
 
 
 class UpdateTenantRequest(BaseModel):
-    """Platform admin edit of a tenant: any subset of name, plan and seat limit. The slug and the data region stay fixed."""
+    """Platform admin edit of a tenant: any subset of the fields the create form has. ``admin_*`` edit the first tenant
+    administrator's account; ``admin_password`` resets it (their sessions end)."""
 
     name: str | None = Field(default=None, min_length=2, max_length=160)
+    slug: str | None = Field(default=None, pattern="^[a-z0-9][a-z0-9-]{1,78}[a-z0-9]$")
     plan: Literal["standard", "professional", "enterprise"] | None = None
     seat_limit: int | None = Field(default=None, ge=1, le=100000)
+    region: Literal["us_east", "eu_west", "ap_singapore", "cn_shanghai"] | None = None
+    admin_name: str | None = Field(default=None, min_length=1, max_length=120)
+    admin_email: EmailStr | None = None
+    admin_password: str | None = Field(default=None, min_length=12, max_length=256)
+    trial_ends_at: datetime | None = None  # only while the workspace is in trial
 
-    @field_validator("name")
+    @field_validator("name", "admin_name")
     @classmethod
-    def strip_name(cls, value: str | None) -> str | None:
+    def strip_text(cls, value: str | None) -> str | None:
         if value is None:
             return None
         value = value.strip()
-        if len(value) < 2:
-            raise ValueError("企业名称至少 2 个字符")
+        if not value:
+            raise ValueError("不能为空")
         return value
 
 

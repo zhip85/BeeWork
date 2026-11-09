@@ -181,7 +181,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
 
       {items.length > 0 && view === 'list' && (
         <div className="table-wrap">
-          <table>
+          <table className="data-table">
             <thead><tr><th>{t('list.assistant')}</th><th>{t('list.status')}</th><th>{t('list.organization')}</th><th>{t('list.updated')}</th><th /></tr></thead>
             <tbody>
               {items.map((assistant) => (

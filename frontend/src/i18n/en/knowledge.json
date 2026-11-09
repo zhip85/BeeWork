@@ -219,5 +219,18 @@
     "importConfirm": "Import {{count}}",
     "imported": "Imported {{count}} FAQs",
     "close": "Close"
+  },
+  "basicsTitle": "Basic information",
+  "basicsSubtitle": "Define how this knowledge base appears and its default indexing language.",
+  "required": "required",
+  "createNote": {
+    "standard": {
+      "title": "Documents and FAQs come next",
+      "body": "After creation, documents and FAQs are managed inside this knowledge base."
+    },
+    "faq": {
+      "title": "FAQs only",
+      "body": "This type does not provide document upload or document retrieval."
+    }
   }
 }
