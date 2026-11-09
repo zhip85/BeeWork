@@ -7,6 +7,8 @@ import {
   LayoutDashboard,
   LogOut,
   ListRestart,
+  ScanEye,
+  ShieldAlert,
   ShieldCheck,
 } from 'lucide-react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
@@ -18,6 +20,8 @@ import { PlatformOverviewPage } from './PlatformOverviewPage'
 import { PlatformTenantsPage } from './PlatformTenantsPage'
 import { PlatformJobsPage } from './PlatformJobsPage'
 import { PlatformPlansPage } from './PlatformPlansPage'
+import { PlatformBaselinePage } from './governance/PlatformBaselinePage'
+import { PlatformPiiRulesPage } from './governance/PlatformPiiRulesPage'
 import type { CurrentUser } from '../../types'
 
 export function PlatformConsole({
@@ -34,6 +38,8 @@ export function PlatformConsole({
   const isModelPage = location.pathname === '/platform/models'
   const isJobsPage = location.pathname === '/platform/jobs'
   const isPlansPage = location.pathname === '/platform/plans'
+  const isPiiPage = location.pathname === '/platform/pii-rules'
+  const isBaselinePage = location.pathname === '/platform/baseline'
 
   return (
     <div className="platform-shell">
@@ -67,6 +73,12 @@ export function PlatformConsole({
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/plans">
           <Layers size={18} strokeWidth={1.8} /><span>{t('plans.nav')}</span>
         </NavLink>
+        <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/pii-rules">
+          <ScanEye size={18} strokeWidth={1.8} /><span>{t('piiRules')}</span>
+        </NavLink>
+        <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/baseline">
+          <ShieldAlert size={18} strokeWidth={1.8} /><span>{t('baseline')}</span>
+        </NavLink>
         <div className="nav-caption">{t('auditSection')}</div>
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/audit">
           <FileText size={18} strokeWidth={1.8} /><span>{t('auditPage')}</span>
@@ -84,7 +96,7 @@ export function PlatformConsole({
       </aside>
       <main className="main-area platform-main">
         <header className="topbar">
-          <div className="breadcrumbs"><span>{t('breadcrumbRoot')}</span><span className="crumb-slash">/</span><strong>{isTenantPage ? t('tenants') : isAuditPage ? t('auditPage') : isModelPage ? t('models') : isJobsPage ? t('jobs') : isPlansPage ? t('plans.nav') : t('overviewPage')}</strong></div>
+          <div className="breadcrumbs"><span>{t('breadcrumbRoot')}</span><span className="crumb-slash">/</span><strong>{isTenantPage ? t('tenants') : isAuditPage ? t('auditPage') : isModelPage ? t('models') : isJobsPage ? t('jobs') : isPlansPage ? t('plans.nav') : isPiiPage ? t('piiRules') : isBaselinePage ? t('baseline') : t('overviewPage')}</strong></div>
           <div className="topbar-actions">
             <LanguageSwitch persist /><span className="platform-admin-badge"><i />{t('adminBadge')}</span>
             {user.memberships.length > 0 && <Link className="platform-tenant-link" to="/">{t('enterWorkspace')}</Link>}
@@ -97,6 +109,10 @@ export function PlatformConsole({
               ? <PlatformModelsPage />
               : isPlansPage
                 ? <PlatformPlansPage />
+              : isPiiPage
+                ? <PlatformPiiRulesPage currentUserId={user.id} />
+              : isBaselinePage
+                ? <PlatformBaselinePage currentUserId={user.id} />
               : isJobsPage
                 ? <PlatformJobsPage />
               : isTenantPage

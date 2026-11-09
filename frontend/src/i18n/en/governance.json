@@ -1,0 +1,138 @@
+{
+  "loadFailed": "Could not load",
+  "actionFailed": "Action failed",
+  "cancel": "Cancel",
+  "save": "Save",
+  "saving": "Saving…",
+  "edit": "Edit",
+  "delete": "Delete",
+  "enforced": "Enforced",
+  "ruleSaved": "Rule saved",
+  "ruleDeleted": "Rule deleted",
+  "submittedForReview": "Submitted; it takes effect after a second platform administrator approves it",
+  "pendingReview": "Change awaiting review",
+  "defaultBlockMessage": "default message",
+  "deleteTitle": "Delete this rule?",
+  "deleteBody": "“{{name}}” will be deleted for every inheriting tenant at once.",
+  "deleteEnforcedBody": "“{{name}}” is enforced; deleting it needs a second platform administrator to approve.",
+  "pii": {
+    "title": "Platform PII rules",
+    "subtitle": "PII baseline rules every tenant inherits; tenant changes never alter platform rules.",
+    "new": "New platform rule",
+    "editTitle": "Edit platform rule",
+    "table": "Platform rules",
+    "counts": "{{total}} rules · {{enforced}} enforced · {{enabled}} enabled",
+    "empty": "No platform rules yet."
+  },
+  "col": {
+    "rule": "Rule",
+    "pattern": "Pattern",
+    "stage": "Stage",
+    "action": "Action",
+    "enabled": "Enabled",
+    "category": "Category",
+    "level": "Level",
+    "scope": "Scope",
+    "status": "Status"
+  },
+  "field": {
+    "name": "Rule name",
+    "matchType": "Match type",
+    "stage": "Stage",
+    "pattern": "Pattern",
+    "action": "Action",
+    "blockMessage": "Block message",
+    "blockMessagePlaceholder": "Shown to the user when blocked; leave empty for the default message.",
+    "enforced": "Enforced",
+    "enforcedHint": "Tenants and assistants cannot switch an enforced rule off (they may edit its content). Adding, switching off or retiring one needs a second platform administrator.",
+    "enabled": "Enabled",
+    "reason": "Reason",
+    "reasonHint": "Shown to the reviewer.",
+    "ruleset": "Rule set reference",
+    "retentionDays": "Retention days"
+  },
+  "matchType": {
+    "regex": "Regex",
+    "keyword": "Keyword",
+    "classifier": "Classifier",
+    "llm_judge": "LLM judge"
+  },
+  "patternHint": {
+    "regex": "Must be a valid regular expression.",
+    "keyword": "Separate keywords with commas or new lines.",
+    "classifier": "Enter a category name.",
+    "llm_judge": "Describe what to judge."
+  },
+  "stage": {
+    "both": "Input & output",
+    "input": "Input",
+    "output": "Output",
+    "data": "Data"
+  },
+  "action": {
+    "mask": "Mask",
+    "block": "Block",
+    "flag": "Flag"
+  },
+  "changes": {
+    "kicker": "Two-person review",
+    "title": "Enforced-rule changes awaiting review",
+    "hint": "The reviewer cannot be the requester · expires after 72 hours",
+    "by": "Requested by {{name}}",
+    "expires": "expires {{time}}",
+    "waiting": "Waiting for another reviewer",
+    "approve": "Approve and apply",
+    "reject": "Reject",
+    "approved": "Approved: {{name}}",
+    "rejected": "Rejected: {{name}}",
+    "rejectTitle": "Reject change",
+    "rejectReason": "Reason for rejection"
+  },
+  "baseline": {
+    "title": "Security baseline",
+    "subtitle": "Platform rules distributed to tenants by plan, region and industry; drafts are not distributed.",
+    "new": "New baseline rule",
+    "editTitle": "Edit baseline rule",
+    "search": "Search baseline rules…",
+    "empty": "No baseline rules match.",
+    "status": {
+      "all": "All",
+      "enabled": "Enabled",
+      "draft": "Draft"
+    }
+  },
+  "category": {
+    "pii": "PII",
+    "prompt_attack": "Prompt attack",
+    "content_safety": "Content safety",
+    "data_retention": "Data retention"
+  },
+  "level": {
+    "enforced": "Enforced",
+    "recommended": "Recommended"
+  },
+  "levelHint": {
+    "enforced": "Tenants and assistants cannot disable or relax it.",
+    "recommended": "On by default; tenants may switch it off."
+  },
+  "scope": {
+    "all": "All tenants",
+    "enterprise": "Enterprise plan only",
+    "region_cn": "China-region tenants",
+    "industry_finance": "Finance (banking, insurance)"
+  },
+  "statusHint": "Drafts are not distributed to any tenant.",
+  "ruleset": {
+    "all": "References all platform PII rules",
+    "enforced": "References enforced platform PII rules",
+    "rules": "References {{count}} platform PII rules"
+  },
+  "rulesetKind": {
+    "all": "All platform PII rules",
+    "enforced": "Enforced rules only",
+    "rules": "Selected rules"
+  },
+  "rulesetHint": "PII baseline rows only reference rules from the Platform PII rules page; they store no pattern of their own.",
+  "retentionDays": "Keep {{days}} days",
+  "retentionHint": "An enforced rule caps the retention a tenant can choose; a recommended rule sets the default."
+}

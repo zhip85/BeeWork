@@ -1,0 +1,138 @@
+{
+  "loadFailed": "无法加载",
+  "actionFailed": "操作失败",
+  "cancel": "取消",
+  "save": "保存",
+  "saving": "保存中…",
+  "edit": "编辑",
+  "delete": "删除",
+  "enforced": "强制",
+  "ruleSaved": "规则已保存",
+  "ruleDeleted": "规则已删除",
+  "submittedForReview": "已提交，等待第二名平台管理员复核后生效",
+  "pendingReview": "有待复核的变更",
+  "defaultBlockMessage": "使用默认提示",
+  "deleteTitle": "删除此规则？",
+  "deleteBody": "“{{name}}”将被删除，对所有继承的租户立即生效。",
+  "deleteEnforcedBody": "“{{name}}”是强制规则，删除需要第二名平台管理员复核后才会生效。",
+  "pii": {
+    "title": "平台 PII 规则",
+    "subtitle": "所有租户继承的 PII 基线规则；租户的修改不会改变平台规则。",
+    "new": "新增平台规则",
+    "editTitle": "编辑平台规则",
+    "table": "平台规则",
+    "counts": "共 {{total}} 条 · {{enforced}} 条强制 · {{enabled}} 条启用",
+    "empty": "还没有平台规则。"
+  },
+  "col": {
+    "rule": "规则",
+    "pattern": "匹配内容",
+    "stage": "检测阶段",
+    "action": "命中动作",
+    "enabled": "启用",
+    "category": "分类",
+    "level": "执行级别",
+    "scope": "下发范围",
+    "status": "状态"
+  },
+  "field": {
+    "name": "规则名称",
+    "matchType": "匹配方式",
+    "stage": "检测阶段",
+    "pattern": "匹配内容",
+    "action": "命中动作",
+    "blockMessage": "拦截提示信息",
+    "blockMessagePlaceholder": "命中拦截时向用户展示的提示，留空则使用默认提示。",
+    "enforced": "强制执行",
+    "enforcedHint": "租户与助手不可停用强制规则（可修改内容）。新增、停用或下线强制规则需第二名平台管理员复核。",
+    "enabled": "启用",
+    "reason": "变更原因",
+    "reasonHint": "复核人会看到这段说明。",
+    "ruleset": "规则集引用",
+    "retentionDays": "保留天数"
+  },
+  "matchType": {
+    "regex": "正则 Regex",
+    "keyword": "关键词 Keyword",
+    "classifier": "分类器 Classifier",
+    "llm_judge": "大模型判定 LLM judge"
+  },
+  "patternHint": {
+    "regex": "须是可编译的正则表达式。",
+    "keyword": "以逗号或换行分隔多个关键词。",
+    "classifier": "填写类别名。",
+    "llm_judge": "填写判定说明。"
+  },
+  "stage": {
+    "both": "输入与输出",
+    "input": "输入",
+    "output": "输出",
+    "data": "数据"
+  },
+  "action": {
+    "mask": "脱敏改写",
+    "block": "拦截",
+    "flag": "标记"
+  },
+  "changes": {
+    "kicker": "双人复核",
+    "title": "待复核的强制规则变更",
+    "hint": "复核人不能是发起人 · 72 小时未处理自动失效",
+    "by": "发起人：{{name}}",
+    "expires": "截止 {{time}}",
+    "waiting": "等待他人复核",
+    "approve": "通过并执行",
+    "reject": "驳回",
+    "approved": "已复核通过：{{name}}",
+    "rejected": "已驳回：{{name}}",
+    "rejectTitle": "驳回变更",
+    "rejectReason": "驳回原因"
+  },
+  "baseline": {
+    "title": "安全基线",
+    "subtitle": "按套餐、区域和行业下发给租户的平台规则；草稿不下发。",
+    "new": "新增基线规则",
+    "editTitle": "编辑基线规则",
+    "search": "搜索基线规则…",
+    "empty": "没有符合条件的基线规则。",
+    "status": {
+      "all": "全部",
+      "enabled": "启用",
+      "draft": "草稿"
+    }
+  },
+  "category": {
+    "pii": "PII",
+    "prompt_attack": "提示词攻击",
+    "content_safety": "内容安全",
+    "data_retention": "数据保留"
+  },
+  "level": {
+    "enforced": "强制",
+    "recommended": "推荐"
+  },
+  "levelHint": {
+    "enforced": "租户与助手不可停用或放宽。",
+    "recommended": "默认生效，租户可停用。"
+  },
+  "scope": {
+    "all": "全部租户",
+    "enterprise": "仅企业版",
+    "region_cn": "中国区域租户",
+    "industry_finance": "金融行业（银行、保险）"
+  },
+  "statusHint": "草稿不会下发给任何租户。",
+  "ruleset": {
+    "all": "引用全部平台 PII 规则",
+    "enforced": "引用平台强制 PII 规则",
+    "rules": "引用 {{count}} 条平台 PII 规则"
+  },
+  "rulesetKind": {
+    "all": "全部平台 PII 规则",
+    "enforced": "仅强制规则",
+    "rules": "指定规则"
+  },
+  "rulesetHint": "PII 类基线只引用“平台 PII 规则”页的规则，不重复存储匹配内容。",
+  "retentionDays": "保留 {{days}} 天",
+  "retentionHint": "强制规则限制租户可选的会话保留期上限；推荐规则作为默认值。"
+}

@@ -19,13 +19,13 @@ export class ApiRequestError extends Error {
   }
 }
 
-export async function apiRequest<T>(
+export async function apiRequestWithStatus<T>(
   path: string,
   options: RequestInit = {},
   tenantId?: string,
   // Polling that must not count as user activity for the session idle timeout (T-004).
   background = false,
-): Promise<T> {
+): Promise<{ status: number; data: T }> {
   const headers = new Headers(options.headers)
   if (options.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
@@ -48,7 +48,7 @@ export async function apiRequest<T>(
     headers,
     credentials: 'same-origin',
   })
-  if (response.status === 204) return undefined as T
+  if (response.status === 204) return { status: 204, data: undefined as T }
   const payload = await response.json().catch(() => ({}))
   if (response.status === 401 && !path.startsWith('/api/v1/auth/login')) {
     // The session ended (idle timeout or expiry): let the shell return to the sign-in page.
@@ -58,5 +58,14 @@ export async function apiRequest<T>(
     const message = typeof payload.detail === 'string' ? payload.detail : i18n.t('requestFailed')
     throw new ApiRequestError(message, typeof payload.code === 'string' ? payload.code : 'error', response.status)
   }
-  return payload as T
+  return { status: response.status, data: payload as T }
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: RequestInit = {},
+  tenantId?: string,
+  background = false,
+): Promise<T> {
+  return (await apiRequestWithStatus<T>(path, options, tenantId, background)).data
 }

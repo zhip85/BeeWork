@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     # PRD PLT-052 asks for a second platform admin to review suspend / delete. Switched off by decision (2026-11-09):
     # lifecycle changes apply directly. Set TENANT_LIFECYCLE_REVIEW=true to bring the review back.
     tenant_lifecycle_review: bool = False
+    # PLT-071: adding, switching off or retiring an enforced platform PII / baseline rule needs a second administrator.
+    platform_rule_review: bool = True
     app_origin: str = "http://localhost:5173"
     bootstrap_tenant_name: str = "Acme 科技"
     bootstrap_tenant_slug: str = "acme"
