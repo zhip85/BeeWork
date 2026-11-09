@@ -4,7 +4,8 @@
     "privacy": "Data & privacy",
     "approvals": "Approval policies",
     "usage": "Subscription & usage",
-    "api": "API keys"
+    "api": "API keys",
+    "rules": "Rule library"
   },
   "privacy": {
     "title": "Data & privacy",

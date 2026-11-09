@@ -33,7 +33,8 @@
     "category": "Category",
     "level": "Level",
     "scope": "Scope",
-    "status": "Status"
+    "status": "Status",
+    "layer": "Layer"
   },
   "field": {
     "name": "Rule name",
@@ -134,5 +135,52 @@
   },
   "rulesetHint": "PII baseline rows only reference rules from the Platform PII rules page; they store no pattern of their own.",
   "retentionDays": "Keep {{days}} days",
-  "retentionHint": "An enforced rule caps the retention a tenant can choose; a recommended rule sets the default."
+  "retentionHint": "An enforced rule caps the retention a tenant can choose; a recommended rule sets the default.",
+  "restore": "Restore inherited rule",
+  "viewApproval": "View approval",
+  "detectionOffNote": "PII detection is off",
+  "layer": {
+    "platform_inherited": "Inherited from platform",
+    "tenant": "Tenant",
+    "tenant_modified": "Tenant · modified",
+    "assistant": "Assistant",
+    "assistant_modified": "Assistant · modified"
+  },
+  "inheritedNotice": {
+    "platform": "",
+    "tenant": "This rule is inherited from the platform. Saving makes it a tenant rule; the platform rule does not change.",
+    "assistant": "This rule is inherited. Saving makes it an assistant rule; the upper rule does not change."
+  },
+  "tenant": {
+    "kicker": "Settings · Rule library",
+    "title": "Tenant PII rules",
+    "subtitle": "Maintain this tenant's PII rules on top of the platform baseline; they apply to every assistant that references the global rules.",
+    "new": "New tenant rule",
+    "editTitle": "Edit rule",
+    "chainLabel": "Inheritance chain",
+    "chainPlatform": "Platform security baseline · read-only",
+    "chainPlatformCounts": "{{total}} PII rules · {{enforced}} enforced",
+    "chainTenant": "{{name}} rule library",
+    "chainTenantCounts": "{{inherited}} inherited · {{own}} tenant-level · {{total}} total · {{effective}} in force",
+    "inherit": "Inherit platform PII rules",
+    "inheritHint": "Enforced platform rules always apply; every rule can be edited and becomes a tenant rule when edited. When off, only enforced platform rules remain.",
+    "scope": {
+      "all": "All rules in force",
+      "tenant": "Tenant level only"
+    },
+    "table": "Tenant rules",
+    "priority": "Priority: assistant > tenant > platform; a lock marks an enforced platform rule that cannot be switched off.",
+    "empty": "No rules match.",
+    "submittedForApproval": "Submitted for approval; it takes effect once approved.",
+    "approvalHint": "Rule changes need approval in this tenant: they take effect only after approval.",
+    "toast": {
+      "savedAsTenant": "Saved as a tenant rule; the platform rule is unchanged",
+      "toggled": "A tenant-level rule was created",
+      "created": "Rule saved",
+      "updated": "Rule saved",
+      "restored": "Restored to the inherited rule",
+      "deleted": "Rule deleted",
+      "settings": "Settings saved"
+    }
+  }
 }
