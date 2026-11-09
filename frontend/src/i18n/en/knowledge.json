@@ -50,7 +50,7 @@
     "pending": "Syncing the knowledge base to the knowledge engine; this updates automatically.",
     "synced": "",
     "failed": "Syncing to the knowledge engine failed; it retries automatically, or retry now",
-    "not_configured": "The knowledge engine (RAGFlow or Dify) is not configured. An administrator needs to configure it and retry the sync; content cannot be indexed meanwhile."
+    "not_configured": "The knowledge engine (Dify) is not configured. An administrator needs to configure it and retry the sync; content cannot be indexed meanwhile."
   },
   "retrySync": "Retry sync",
   "retryQueued": "Sync queued again",

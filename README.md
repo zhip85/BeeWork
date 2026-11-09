@@ -1,6 +1,6 @@
 # BeeWork
 
-BeeWork 企业级 AI SaaS 平台。当前处于基础建设阶段：Docker Compose 提供 React/TypeScript、FastAPI、PostgreSQL、Valkey 和 LiteLLM（AI 网关）本地环境；RAGFlow（知识引擎）与 Langfuse（调用追踪）按地址和密钥接入独立部署的实例；已实现租户/组织/角色管理、审计首版和平台模型目录首版，但尚未形成助理构建、审批、发布、知识检索和真实模型运行的业务闭环。最小 LangGraph 示例仅用于验证依赖，不是产品运行时。
+BeeWork 企业级 AI SaaS 平台。当前处于基础建设阶段：Docker Compose 提供 React/TypeScript、FastAPI、PostgreSQL、Valkey 和 LiteLLM（AI 网关）本地环境；Dify（知识引擎）与 Langfuse（调用追踪）按地址和密钥接入独立部署的实例；已实现租户/组织/角色管理、审计首版和平台模型目录首版，但尚未形成助理构建、审批、发布、知识检索和真实模型运行的业务闭环。最小 LangGraph 示例仅用于验证依赖，不是产品运行时。
 
 参与开发先读 [`AGENTS.md`](./AGENTS.md)。文档分工：[工程规范](./docs/architecture.md)、[任务看板](./docs/tasks/README.md)、[路线图与决策](./docs/technical-plan.md)、[开发进度](./docs/development-status.md)、[PRD](./docs/BeeWork-PRD.md)。
 
@@ -90,7 +90,7 @@ CI（`.github/workflows/ci.yml`）在 push/PR 时执行同样的检查。
 - `GET/POST /api/v1/platform/tenants`：平台管理员查看/创建企业；创建时同时设置独立的首位企业管理员
 - `POST /api/v1/platform/tenants/{tenant_id}/lifecycle`：按 PRD 3.12.6 执行生命周期操作（转正式、延长试用、标记欠费、登记回款、转只读、停用、恢复、进入待删除、永久删除）；停用/待删除/永久删除须填写原因并返回 202，等待另一名平台管理员复核
 - `GET /api/v1/platform/operations`、`POST /api/v1/platform/operations/{id}/approve|reject`：待复核高危操作；复核人不能是发起人，72 小时未处理自动驳回
-- `GET /api/v1/platform/integrations`：LiteLLM / RAGFlow / Langfuse 的配置与连通状态
+- `GET /api/v1/platform/integrations`：LiteLLM / Dify（及可选的 RAGFlow）/ Langfuse 的配置与连通状态
 - `GET /api/v1/platform/audit/events`、`GET /api/v1/platform/audit/events/export`：平台管理员独立查询/导出平台操作日志，不包含租户业务审计
 - `GET /api/v1/platform/audit/integrity`：平台管理员验证平台审计链；可传 `tenant_id` 验证指定租户链
 - `GET /api/v1/platform/models`：平台管理员查询模型目录，支持 `search` 和 `status` 筛选
@@ -124,7 +124,8 @@ BeeWork 自研控制面和 LangGraph 运行时；模型网关、知识引擎和�
 | 引擎 | 作用 | 部署 | 配置 |
 |---|---|---|---|
 | LiteLLM 1.106.0 | AI 网关：模型路由、租户虚拟 Key、限流、花费记录 | 本地 Compose 服务 `litellm`（<http://localhost:4000>，镜像按 digest 固定），数据存在同一 PostgreSQL 的 `litellm` 库 | `LITELLM_BASE_URL`、`LITELLM_MASTER_KEY`、`LITELLM_SALT_KEY` |
-| RAGFlow | 知识引擎：解析、切片、向量化、检索 | RAGFlow Cloud（付费版才提供 API Key）；本机内存不足以自托管 | `RAGFLOW_BASE_URL`、`RAGFLOW_API_KEY` |
+| Dify | 知识引擎：解析、切片、向量化、检索 | Dify Cloud（`https://api.dify.ai/v1`，工作区“知识库 API”密钥）或自托管 | `KNOWLEDGE_ENGINE=dify`、`DIFY_BASE_URL`、`DIFY_API_KEY` |
+| RAGFlow（可选） | 另一种知识引擎实现，未对接真实实例 | RAGFlow Cloud（付费版才有 API Key）或自托管 | `RAGFLOW_BASE_URL`、`RAGFLOW_API_KEY` |
 | Langfuse | 调用追踪与评测 | Langfuse Cloud（只用 OpenTelemetry 写入与 `/api/public/v2/*` 读取；旧接口 2026-11-16 下线） | `LANGFUSE_HOST`、`LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY` |
 
 平台总览页显示三者的连接状态。模型目录保存后自动同步到 LiteLLM；“链路检查”用平台或租户的网关凭证请求 LiteLLM `/v1/models`，只校验凭证与模型权限、不调用供应商；“真实调用”需要在模型目录中填写有效的供应商 API Key。整条链路可用 `docker compose exec api python /app/scripts/check_gateway_e2e.py` 验证（会在模型目录留下已停用的 `E2E Mock Chat` 测试条目）。

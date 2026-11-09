@@ -39,7 +39,7 @@ docker compose exec api python /app/scripts/check_gateway_e2e.py   # 涉及模�
 - 新迁移 revision ID ≤ 32 字符，必须可降级；不改已有迁移。
 - 新领域代码放在自己的文件：`backend/src/beework/models/<domain>.py`（在 `models/__init__.py` 末尾注册）、`schemas/<domain>.py`、`api/<domain>.py`（在 `api/__init__.py` 注册）、`frontend/src/pages/<domain>/`。
 - 锁租户行用 `api.common.lock_tenant`，不要对 `tenants` 用裸 `with_for_update()`。
-- 模型调用只经 LiteLLM，知识检索只经 RAGFlow，追踪只经 Langfuse；不要在 BeeWork 里自建这些能力，也不要读写它们的内部存储。
+- 模型调用只经 LiteLLM，知识检索只经知识引擎（Dify；RAGFlow 为可选实现，未验证），追踪只经 Langfuse；不要在 BeeWork 里自建这些能力，也不要读写它们的内部存储。
 - 不提交任何真实密钥；不修改 `.env`。
 - 不顺手重构与任务无关的代码；发现问题写进完成记录的“遗留问题”。
 

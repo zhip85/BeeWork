@@ -38,7 +38,7 @@ services:
       BOOTSTRAP_PLATFORM_ADMIN_PASSWORD: ${BOOTSTRAP_PLATFORM_ADMIN_PASSWORD:-BeeWork-Platform-2026!}
       LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-beework-local-only-master}
-      KNOWLEDGE_ENGINE: ${KNOWLEDGE_ENGINE:-ragflow}
+      KNOWLEDGE_ENGINE: ${KNOWLEDGE_ENGINE:-dify}
       RAGFLOW_BASE_URL: ${RAGFLOW_BASE_URL:-}
       RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:-}
       DIFY_BASE_URL: ${DIFY_BASE_URL:-}
@@ -84,7 +84,7 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-beework-local-only-master}
-      KNOWLEDGE_ENGINE: ${KNOWLEDGE_ENGINE:-ragflow}
+      KNOWLEDGE_ENGINE: ${KNOWLEDGE_ENGINE:-dify}
       RAGFLOW_BASE_URL: ${RAGFLOW_BASE_URL:-}
       RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:-}
       DIFY_BASE_URL: ${DIFY_BASE_URL:-}
@@ -104,7 +104,8 @@ services:
       valkey:
         condition: service_healthy
 
-  # Stand-in for RAGFlow (dataset endpoints only) for development without a real RAGFlow; see scripts/fake_ragflow.py.
+  # Stand-in for the knowledge engine (RAGFlow's and Dify's dataset / document / retrieval endpoints) for development
+  # without a real instance; see scripts/fake_ragflow.py. For Dify: KNOWLEDGE_ENGINE=dify DIFY_BASE_URL=http://ragflow-fake:9380/v1.
   #   RAGFLOW_BASE_URL=http://ragflow-fake:9380 RAGFLOW_API_KEY=fake-ragflow-key \
   #     docker compose --profile fake-ragflow up -d ragflow-fake api worker
   ragflow-fake:

@@ -31,8 +31,8 @@ def _dify_health() -> bool:
 
 INTEGRATIONS: list[tuple[str, str, str, Callable[[], bool], Callable[[], bool]]] = [
     ("litellm", "LiteLLM", "AI 网关：模型路由、租户密钥、限流与用量", gateway_configured, _litellm_health),
-    ("ragflow", "RAGFlow", "知识引擎：文档解析、切片、向量化与检索", lambda: engine_configured("ragflow"), _ragflow_health),
-    ("dify", "Dify", "知识引擎（可选）：Dify 知识库 API", lambda: engine_configured("dify"), _dify_health),
+    ("dify", "Dify", "知识引擎：文档解析、切片、向量化与检索（Dify 知识库 API）", lambda: engine_configured("dify"), _dify_health),
+    ("ragflow", "RAGFlow", "知识引擎（可选，未验证）：RAGFlow", lambda: engine_configured("ragflow"), _ragflow_health),
     ("langfuse", "Langfuse", "调用追踪：模型与智能体运行轨迹", langfuse_configured, check_langfuse),
 ]
 

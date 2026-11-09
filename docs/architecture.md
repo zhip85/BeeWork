@@ -18,7 +18,7 @@ flowchart LR
   end
   subgraph ENG["第三方引擎（官方镜像，HTTP API 接入）"]
     LL["LiteLLM Proxy<br/>AI 网关"]
-    RF["RAGFlow<br/>知识引擎"]
+    RF["Dify<br/>知识引擎"]
     LF["Langfuse<br/>调用追踪"]
   end
   CON --> API
@@ -33,13 +33,13 @@ flowchart LR
   WK -- trace --> LF
   API -- "目录/团队/Key 同步" --> LL
   API -- "dataset/document 同步" --> RF
-  RF -. "Embedding（仅自托管 RAGFlow 时经网关）" .-> LL
+  RF -. "Embedding（仅自托管知识引擎时经网关）" .-> LL
 ```
 
 **核心原则**
 
-1. **BeeWork 自研控制面与 LangGraph 运行时**；模型网关、知识解析检索、调用追踪用 LiteLLM / RAGFlow / Langfuse，只调用其 HTTP API，不读写其内部存储，不在 BeeWork 内重复实现其能力。
-2. **PostgreSQL 是业务事实源**。引擎中的对象（LiteLLM deployment/team/key、RAGFlow dataset/document、Langfuse trace）都是 BeeWork 数据的投影，丢失后可以从 BeeWork 重建。
+1. **BeeWork 自研控制面与 LangGraph 运行时**；模型网关、知识解析检索、调用追踪用 LiteLLM / Dify（知识引擎）/ Langfuse，只调用其 HTTP API，不读写其内部存储，不在 BeeWork 内重复实现其能力。
+2. **PostgreSQL 是业务事实源**。引擎中的对象（LiteLLM deployment/team/key、知识引擎 dataset/document、Langfuse trace）都是 BeeWork 数据的投影，丢失后可以从 BeeWork 重建。
 3. **租户隔离由 BeeWork 保证**。引擎都用平台服务账号访问；BeeWork 只把属于当前租户（及环境）的对象 ID 交给引擎。
 4. **控制面不跑长任务**。模型调用、文档同步、用量汇总、Webhook、定时流转都进 Worker。
 5. **线上只执行不可变的发布版本**；草稿与调试不影响线上。
@@ -55,7 +55,7 @@ backend/
     models/<domain>.py   # 新领域的 ORM 模型；必须在 models/__init__.py 末尾注册导入
     schemas/__init__.py  # 现有 Pydantic 模型
     schemas/<domain>.py  # 新领域的请求/响应模型
-    integrations/        # 第三方引擎客户端：litellm.py、ragflow.py、langfuse.py
+    integrations/        # 第三方引擎客户端：litellm.py、knowledge_engine.py（统一接口）、dify.py（默认）、ragflow.py（可选）、langfuse.py
     runtime/             # LangGraph 运行时（DSL、编译器、节点实现）
     worker/              # 任务队列与 Worker 入口（T-002 建立）
     <domain 服务>.py     # 领域服务，如 tenant_lifecycle.py、gateway_sync.py
@@ -203,8 +203,8 @@ def update_note(note_id: UUID, payload: NoteWriteRequest,
 | 平台模型目录项 | LiteLLM deployment，别名 `bw-{model_id}` | 停用即从网关删除 |
 | 租户 × 环境 | LiteLLM team（`beework:{tenant}:{env}`）+ 虚拟 Key | team 只放行该环境启用的模型；Key 加密存于 `tenant_model_environments` |
 | 用量/点数 | LiteLLM spend logs（按 team 汇总） | Worker 定期拉取汇总为点数（T-011） |
-| 知识库 | RAGFlow dataset（普通库：文档 dataset + FAQ dataset；FAQ 库：仅 FAQ dataset） | `knowledge_bases.engine_dataset_id` / `engine_faq_dataset_id`；dataset 名用 `bw-{tenant}-{kb_id}` |
-| 文档 | RAGFlow document | 上传后触发解析，Worker 轮询状态 |
+| 知识库 | 知识引擎 dataset（Dify 知识库 / RAGFlow dataset；普通库：文档 dataset + FAQ dataset；FAQ 库：仅 FAQ dataset） | `knowledge_bases.engine_dataset_id` / `engine_faq_dataset_id`；dataset 名用 `bw-{tenant}-{kb_id}` |
+| 文档 | 知识引擎 document | 上传后触发解析，Worker 轮询状态 |
 | FAQ | FAQ dataset（`qa` 方法）中的问答对 | BeeWork 为事实源，只推送已发布 FAQ |
 | 运行 run | Langfuse trace（`trace_id = run_id`） | 运营页按 run_id 跳转 |
 
@@ -256,5 +256,5 @@ def update_note(note_id: UUID, payload: NoteWriteRequest,
 
 - 不提交任何真实密钥；`.env` 不入库。
 - 用户可控的 URL（模型接口、MCP、API 插件、Webhook、文档 URL）必须是 HTTPS 且禁止内网地址（NFR-009，统一 SSRF 校验由 T-001 提供）。
-- 上传文件校验类型与大小后再转交 RAGFlow。
+- 上传文件校验类型与大小后再转交知识引擎。
 - 渲染用户内容一律走 React 转义，不使用 `dangerouslySetInnerHTML`。
