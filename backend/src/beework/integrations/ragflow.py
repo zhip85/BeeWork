@@ -136,6 +136,16 @@ class RAGFlowClient:
         self.start_parsing(dataset_id, [document_id])
         return DocumentRef(document_id)
 
+    def add_faq(self, dataset_id: str, question: str, similar_questions: list[str], answer: str) -> DocumentRef:
+        """RAGFlow's ``qa`` chunk method reads ``question<TAB>answer`` lines; every phrasing gets its own line."""
+
+        def flat(text: str) -> str:  # a tab or newline would break the line format
+            return " ".join(text.split())
+
+        lines = [f"{flat(phrase)}\t{flat(answer)}" for phrase in [question, *similar_questions]]
+        name = f"faq-{abs(hash(question)) % 10**8}.txt"
+        return self.add_document(dataset_id, name, "\n".join(lines).encode(), chunking="semantic")
+
     def document_state(self, dataset_id: str, ref: DocumentRef) -> DocumentState:
         info = self.document_status(dataset_id, ref.document_id)
         run = str(info.get("run") or "").upper()
@@ -223,6 +233,7 @@ class RAGFlowClient:
         chunks = [
             EngineChunk(
                 dataset_id=str(item.get("dataset_id") or (dataset_ids[0] if len(dataset_ids) == 1 else "")),
+                document_id=str(item.get("document_id") or ""),
                 chunk_id=str(item.get("chunk_id") or ""),
                 document_name=str(item.get("document_name") or ""),
                 text=str(item.get("content") or ""),

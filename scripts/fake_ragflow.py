@@ -58,7 +58,7 @@ def new_document(engine: str, dataset_id: str, filename: str, data: bytes) -> di
     document = {
         "id": uuid.uuid4().hex if engine == "ragflow" else str(uuid.uuid4()), "engine": engine, "dataset": dataset_id,
         "name": filename, "text": text, "size": len(data), "started": None, "batch": str(uuid.uuid4()),
-        "fail": "fail" in filename.lower(),
+        "fail": "fail" in filename.lower() or "INDEX-FAIL" in text,
     }
     documents[document["id"]] = document
     return document
@@ -201,6 +201,13 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
                     return self._send({"query": {"content": body.get("query")}, "records": [
                         {"segment": {"id": h["id"], "content": h["content"], "document": {"id": h["document"]["id"], "name": h["document"]["name"]}},
                          "score": h["score"]} for h in hits]})
+                if parts[3:] == ["document", "create-by-text"] and method == "POST":
+                    body = self._body()
+                    if not body.get("name") or not body.get("text"):
+                        return self._send({"code": "invalid_param", "message": "name and text are required", "status": 400}, 400)
+                    document = new_document("dify", dataset_id, str(body["name"]), str(body["text"]).encode())
+                    document["started"] = time.monotonic()  # Dify starts indexing on its own
+                    return self._send({"document": {"id": document["id"], "name": document["name"]}, "batch": document["batch"]})
                 if parts[3:] == ["document", "create-by-file"] and method == "POST":
                     length = int(self.headers.get("Content-Length") or 0)
                     files = parse_multipart(self.headers.get("Content-Type", ""), self.rfile.read(length))

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from beework.compliance import get_policy
 from beework.conversations import append_message, history_for_run
+from beework.faqs import record_hits as record_faq_hits
 from beework.gateway_sync import tenant_gateway_key
 from beework.integrations.knowledge_engine import KnowledgeEngineError
 from beework.integrations.litellm import GatewayError
@@ -319,6 +320,7 @@ def _execute_run(
         for c in final.get("context", [])
     ]
     retrieval = {"mode": final.get("retrieval_mode", "none"), "citations": citations}
+    faq_documents = [c.get("document_id", "") for c in final.get("context", []) if c.get("kind") == "faq"]
     run.tokens_in, run.tokens_out = usage.get("input"), usage.get("output")
     run.retrieval_mode = retrieval["mode"]
     text = final.get("text", "")
@@ -333,6 +335,8 @@ def _execute_run(
                 run_id=run.id, trace_id=trace_url.rsplit("/", 1)[-1] if trace_url else None, citations=citations,
             )
             conversation.tokens += (usage.get("input") or 0) + (usage.get("output") or 0)
+    if faq_documents:
+        record_faq_hits(db, run.tenant_id, run.id, faq_documents)
     _finish(
         db, run, "succeeded", "done",
         {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url},

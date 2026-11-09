@@ -22,6 +22,7 @@ class RetrievedChunk:
     score: float
     kind: str = "document"  # "faq": a standard answer; "document": a passage
     kb_name: str = ""
+    document_id: str = ""  # the engine document it came from (an FAQ is one document)
 
 
 @dataclass(frozen=True)
@@ -80,7 +81,7 @@ class EngineRetriever:
         return [
             RetrievedChunk(
                 document_name=chunk.document_name, chunk_id=chunk.chunk_id, text=chunk.text,
-                score=chunk.score, kind=kind, kb_name=base.name,
+                score=chunk.score, kind=kind, kb_name=base.name, document_id=chunk.document_id,
             )
             for chunk in found
         ]

@@ -255,6 +255,13 @@
 - **真实 Dify Cloud 验证（2026-11-09）**：`check_retrieval_e2e.py`（`E2E_ENGINE=dify`）在真实 Dify 上通过——上传 Markdown、Dify 真实索引（高质量嵌入）、挂载、提问、语义检索得到带引用的上下文（直接调用 `search` 得分 0.814，阈值 0.62 通过）、删除知识库后不再检索；回答仍由 LiteLLM `mock_response` 模型产生。验证中发现并修复两个只有真实引擎才暴露的问题：Dify 对**没有任何已索引内容的 dataset** 检索会返回 `400 … 404 Not Found`（标准知识库总有一个空的 FAQ dataset），现在只检索有已索引文档 / 已发布 FAQ 的 dataset；以及 Dify 套餐有 API 速率限制（403 “request rate limit of your subscription”），触发时检索按 `runtime.knowledge_error` 失败。
 - **仍未验证**：RAGFlow（没有可用的实例）、真实模型下的回答质量、阈值是否合适（默认 0.62 在这份短文档上够用，但只试了一份）、更大的文档与多知识库挂载下的延迟，以及 Dify 速率限制下的表现（每次提问 1 次检索，运行时没有重试）。
 
+### FAQ 生命周期与推送（T-032，已验收，有条件）
+
+- FAQ 表（`faqs`，迁移 0033）与命中记录（`faq_hits`）；状态机 草稿 → 已发布 → 已过期，可取消发布、改日期后重新发布；发布才推送到该库的 FAQ dataset，取消发布 / 过期 / 删除 / 知识库删除时从引擎移除，知识库复制与重建会带上已发布的 FAQ。Dify 上一条 FAQ 是一个单分段文档（分段 API 为付费功能）。
+- 每小时任务 `knowledge.expire_faqs`：到期置为已过期（幂等）、卡住的推送标记失败、清理旧命中；运行时检索到的 FAQ 写入命中，列表显示近 30 天命中数。
+- 接口 `/knowledge-bases/{id}/faqs`（列表/搜索/筛选、增改删、复制、发布/取消发布、重试、CSV 导入预览与逐行错误）；运营可编辑草稿与导入，发布与删除需要 `faq:publish` / `faq:delete`。前端知识库详情页 FAQ 页签已实现。
+- 验证：ruff、迁移升降级 + `alembic check`、全量 507 项、前端检查通过；假 Dify / 假 RAGFlow 覆盖“草稿检索不到、发布后以 FAQ 引用作答”。**未做真实 Dify 端到端、未在浏览器目视验收；审批未接入；FAQ 检索阈值待调。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

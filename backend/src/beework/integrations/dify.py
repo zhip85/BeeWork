@@ -15,6 +15,7 @@ from beework.integrations.knowledge_engine import (
     DocumentState,
     EngineChunk,
     KnowledgeEngineError,
+    faq_text,
 )
 
 # Dify limits a knowledge base name to 40 characters.
@@ -133,6 +134,28 @@ class DifyClient:
         )
         return DocumentRef(created["document"]["id"], created.get("batch"))
 
+    def add_faq(self, dataset_id: str, question: str, similar_questions: list[str], answer: str) -> DocumentRef:
+        """One FAQ = one single-segment document (the separator never occurs, the limit is far above an FAQ's size)."""
+        created = self._request(
+            "POST",
+            f"/datasets/{dataset_id}/document/create-by-text",
+            json={
+                "name": f"FAQ · {question}"[:100],
+                "text": faq_text(question, similar_questions, answer),
+                "indexing_technique": "high_quality",
+                "doc_form": "text_model",
+                "doc_language": "Chinese Simplified",
+                "process_rule": {
+                    "mode": "custom",
+                    "rules": {
+                        "pre_processing_rules": [{"id": "remove_extra_spaces", "enabled": False}],
+                        "segmentation": {"separator": "\n\n\n\n", "max_tokens": 1000},
+                    },
+                },
+            },
+        )
+        return DocumentRef(created["document"]["id"], created.get("batch"))
+
     def document_state(self, dataset_id: str, ref: DocumentRef) -> DocumentState:
         if not ref.batch_id:
             raise KnowledgeEngineError("缺少 Dify 的索引批次，无法查询文档状态")
@@ -191,6 +214,7 @@ class DifyClient:
                         dataset_id=dataset_id,
                         chunk_id=str(segment.get("id") or ""),
                         document_name=str((segment.get("document") or {}).get("name") or ""),
+                        document_id=str((segment.get("document") or {}).get("id") or ""),
                         text=str(segment.get("content") or ""),
                         score=score,
                     )

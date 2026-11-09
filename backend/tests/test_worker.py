@@ -167,13 +167,13 @@ class WorkerQueueTests(unittest.TestCase):
     def test_worker_loop_step_runs_jobs_and_schedules_once_per_day(self):
         with self.sessions.begin() as db:
             enqueue(db, "noop.echo", {"message": "hello"}, tenant_id=self.tenant_id)
-        self.assertEqual(run_once("worker-1", self.sessions, batch_size=20), 13)  # noop.echo + the 12 scheduled jobs
+        self.assertEqual(run_once("worker-1", self.sessions, batch_size=20), 14)  # noop.echo + the 13 scheduled jobs
         self.assertEqual(run_once("worker-2", self.sessions), 0)  # nothing new, no duplicate schedule
         with self.sessions() as db:
             jobs = list(db.scalars(select(Job)))
             self.assertEqual(
                 sorted(job.kind for job in jobs),
-                ["approvals.sweep", "audit.retention", "auth.release_locks", "conversations.end_inactive", "conversations.retention", "gateway.reconcile_access", "knowledge.reconcile", "knowledge.sweep_documents", "memory.retention", "noop.echo", "tenants.auto_lifecycle", "usage.month_rollover", "usage.sync"],
+                ["approvals.sweep", "audit.retention", "auth.release_locks", "conversations.end_inactive", "conversations.retention", "gateway.reconcile_access", "knowledge.expire_faqs", "knowledge.reconcile", "knowledge.sweep_documents", "memory.retention", "noop.echo", "tenants.auto_lifecycle", "usage.month_rollover", "usage.sync"],
             )
             self.assertTrue(all(job.status == "succeeded" for job in jobs), [(j.kind, j.status, j.last_error) for j in jobs])
 
@@ -201,6 +201,8 @@ class WorkerQueueTests(unittest.TestCase):
                 "conversations.retention:2026-10-23",
                 "gateway.reconcile_access:2026-10-22T08",
                 "gateway.reconcile_access:2026-10-23T08",
+                "knowledge.expire_faqs:2026-10-22T08",
+                "knowledge.expire_faqs:2026-10-23T08",
                 "knowledge.reconcile:2026-10-22T08",
                 "knowledge.reconcile:2026-10-23T08",
                 "knowledge.sweep_documents:2026-10-22T08:00",
