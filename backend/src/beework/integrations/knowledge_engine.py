@@ -85,7 +85,7 @@ class KnowledgeEngine(Protocol):
 
 
 def default_engine() -> str:
-    return settings.knowledge_engine if settings.knowledge_engine in ENGINES else "ragflow"
+    return settings.knowledge_engine if settings.knowledge_engine in ENGINES else "dify"
 
 
 def engine_configured(engine: str | None = None) -> bool:

@@ -2,7 +2,7 @@
 
 Retrieval is behind ``MemoryRetriever``. v1 ranks PostgreSQL-filtered candidates by keyword overlap
 (word + CJK character bigrams) times a time decay, in the application: PostgreSQL's built-in full-text
-search cannot segment Chinese. It never uses a vector store and nothing is written to RAGFlow.
+search cannot segment Chinese. It never uses a vector store and nothing is written to the knowledge engine.
 Everything is keyed by tenant + end user, so memory never crosses tenants or users.
 """
 

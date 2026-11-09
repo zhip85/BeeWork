@@ -125,7 +125,7 @@ class EngineRetrieverTests(unittest.TestCase):
         retriever, _, _ = self.retriever(hits)
         result = retriever.retrieve(tenant_id=uuid4(), query="q", bases=[self.base()], top_k=3)
         self.assertEqual([(c.kind, c.chunk_id) for c in result.chunks], [("faq", "f1")])
-        self.assertEqual(result.mode, "ragflow")
+        self.assertEqual(result.mode, "dify")  # the default engine of a knowledge base reference
 
     def test_documents_are_the_fallback_when_no_faq_matches(self) -> None:
         retriever, log, _ = self.retriever({"docs": [

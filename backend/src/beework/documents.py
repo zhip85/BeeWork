@@ -27,6 +27,7 @@ from beework.errors import ApiError
 from beework.integrations.knowledge_engine import (
     DocumentRef,
     KnowledgeEngineError,
+    default_engine,
     engine_configured,
     open_engine,
 )
@@ -222,7 +223,7 @@ def _queue_engine_removal(db: Session, document: KnowledgeDocument, kb: Knowledg
     kb = kb or db.get(KnowledgeBase, document.kb_id)
     enqueue(
         db, "knowledge.delete_engine_documents",
-        {"engine": kb.engine if kb else "ragflow", "dataset_id": document.engine_dataset_id,
+        {"engine": kb.engine if kb else default_engine(), "dataset_id": document.engine_dataset_id,
          "document_ids": [document.engine_document_id]},
         tenant_id=document.tenant_id, idempotency_key=f"knowledge.delete_doc:{document.engine_document_id}:{uuid4().hex}",
         max_attempts=JOB_ATTEMPTS,
@@ -406,7 +407,7 @@ def _read_capped(response: httpx.Response) -> bytes:
 
 @job_handler("knowledge.delete_engine_documents")
 def delete_engine_documents_job(_db: Session, payload: dict[str, Any]) -> None:
-    with open_engine(payload.get("engine") or "ragflow") as engine:
+    with open_engine(payload.get("engine") or default_engine()) as engine:
         engine.delete_documents(payload["dataset_id"], list(payload["document_ids"]))
 
 

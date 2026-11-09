@@ -25,7 +25,7 @@ class KnowledgeBaseRef(BaseModel):
     kb_id: UUID
     name: str = ""
     kb_type: Literal["standard", "faq"] = "standard"
-    engine: str = "ragflow"
+    engine: str = "dify"
     dataset_id: str | None = None
     faq_dataset_id: str | None = None
     threshold: float = Field(default=0.62, ge=0, le=1)

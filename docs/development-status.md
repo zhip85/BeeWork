@@ -22,7 +22,7 @@
 | 1 | 租户、组织、角色权限与审计 | 收尾中 | 缺：i18n 框架、登录失败锁定、邀请邮件、生产清理调度/告警、外部存证。 |
 | 2 | 平台定义、套餐权益与模型配置 | 进行中 | 已完成：模型目录、环境配置（非企业版仅生产）、租户生命周期 7 态 + 双人复核、LiteLLM 同步与连通测试。缺：套餐版本/权益/配额、BYOK、跨环境发布、真实供应商调用验收（缺供应商 Key）。 |
 | 3 | 助理构建、审批、版本与最小运行闭环 | 未开始 | 前置：Worker/队列、首发模型供应商。 |
-| 4 | 知识库（RAGFlow） | 未开始 | 已有 RAGFlow API 客户端（仅契约测试，未对接真实实例）；需先部署 RAGFlow。 |
+| 4 | 知识库（Dify） | 已完成（有条件） | T-030/T-031/T-033 已完成：知识库、文档、挂载与运行时检索，Dify 已用真实环境验证；FAQ（T-032）未做。 |
 | 5 | OC、能力目录与智能体运行 | 未开始 | 前置：平台 PII/术语/基线最小版。 |
 | 6 | 渠道、Widget 与端到端发布 | 未开始 | |
 | 7 | 运营、审批中心、评测与可观测 | 未开始 | Langfuse 仅有连通性检查。 |
@@ -39,7 +39,7 @@
 | 工作台（3.1） | 未开始 | |
 | 助理（3.2） | 未开始 | |
 | 智能体（3.3） | 未开始 | |
-| 知识（3.4） | 未开始 | RAGFlow 客户端已就绪，业务模块未建。 |
+| 知识（3.4） | 部分 | 知识库、文档、挂载与检索已做（Dify）；FAQ 未做。 |
 | 能力（3.5） | 未开始 | |
 | 编排 OC（3.6） | 未开始 | |
 | 渠道（3.7） | 未开始 | |
@@ -85,13 +85,13 @@
 - 平台模型保存后同步为 LiteLLM deployment（别名 `bw-{模型ID}`，停用则删除）；同步结果记录在 `gateway_sync_status / gateway_error`，可重试。
 - 租户环境保存后在 LiteLLM 中建立/更新 team（只放行该环境启用的模型；无模型时放入不可匹配的别名，避免 LiteLLM 把空列表当作“全部模型”）并签发虚拟 Key（加密存于 BeeWork）。
 - 连通性测试：“链路检查”用网关凭证请求 `/v1/models`，验证 BeeWork → 网关 → 租户 Key → 模型权限，不调用供应商；“真实调用”需要有效的供应商 Key。
-- 平台总览显示 LiteLLM / RAGFlow / Langfuse 的连接状态。
+- 平台总览显示 LiteLLM / Dify（及可选的 RAGFlow）/ Langfuse 的连接状态。
 - **未完成**：真实供应商调用验收（缺 Key）；LiteLLM 花费数据汇总为点数；BYOK；跨环境发布与审批；套餐权益与配额。
 
-### RAGFlow 与 Langfuse
+### 知识引擎（Dify）与 Langfuse
 
-- `backend/src/beework/integrations/ragflow.py`：数据集、文档上传、解析、状态、删除、检索的 API 客户端；`langfuse.py`：连通性检查。
-- RAGFlow：**只有契约测试，尚未对接真实实例**。已决定使用 RAGFlow Cloud（需付费版才有 API Key）；Cloud API 与自托管版的兼容性在 T-030 第 0 步实测。
+- `backend/src/beework/integrations/`：`knowledge_engine.py`（统一接口）、`dify.py`（默认）、`ragflow.py`（可选）——数据集、文档上传、解析状态、删除、检索；`langfuse.py`：连通性检查。
+- **知识引擎决定（2026-11-09）：依赖知识引擎的任务一律使用 Dify**（Dify Cloud 已在真实环境验证上传、索引、检索与删除）。`KNOWLEDGE_ENGINE` 默认 `dify`；RAGFlow 客户端与假服务保留为可选实现，**不再验证**，已有的 RAGFlow 知识库仍按其引擎访问。
 - Langfuse：**已对接 Langfuse Cloud**（`cloud.langfuse.com`，密钥在本地 `.env`，不入库）。平台集成状态显示已连接；用 OpenTelemetry 接口写入测试 span，16 秒后可通过 `GET /api/public/v2/observations` 读到。
 - **Langfuse Cloud 旧接口将于 2026-11-16 下线**：`POST /api/public/ingestion` 只剩 score 事件，`GET /api/public/traces/*` 已返回 410。规范已要求只用 SDK ≥3（OpenTelemetry）写入、v2 接口读取，LiteLLM 侧用 `langfuse_otel` 回调。
 
@@ -262,7 +262,7 @@
 开发任务已全部拆分到 [`tasks/README.md`](./tasks/README.md)：试点版 V0.1 共 22 个任务，V0.2 / V0.3 / V1.0 共 70 个任务（含依赖、外部条件、推荐并行批次、开发负责人的可逆决定与待产品确认事项）；其中 T-106（平台角色分权）等待产品决策；多租户已决定 V1.0 只做共享隔离，T-127（增强/独享隔离与多区域）延后到 V1.0 之后。需要用户提供的外部条件：
 
 1. 首发模型供应商 API Key（至少 1 个对话模型；T-025/T-027/T-028 的真实调用验收需要）。
-2. RAGFlow Cloud 付费版 API Key（T-030 起）。
+2. （已提供）Dify Cloud 知识库 API 密钥，已写入 `.env`；RAGFlow 不再作为依赖。
 
 ## 5. 交接记录
 

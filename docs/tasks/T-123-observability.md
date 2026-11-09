@@ -6,7 +6,7 @@
 
 （Langfuse 只负责 LLM 调用追踪；本任务负责平台自身的运行监控，两者用 trace_id 关联。）
 
-1. 指标：API 与 Worker 通过 OpenTelemetry 导出 Prometheus 指标——请求 QPS、延迟分位、错误率（按路由、租户）、队列堆积与任务失败率、外部依赖（LiteLLM、RAGFlow、Langfuse）调用延迟与错误、模型首 token 耗时。租户维度用低基数标签（租户 ID 作为标签需评估基数，超过阈值时只在日志中记录）。
+1. 指标：API 与 Worker 通过 OpenTelemetry 导出 Prometheus 指标——请求 QPS、延迟分位、错误率（按路由、租户）、队列堆积与任务失败率、外部依赖（LiteLLM、Dify、Langfuse）调用延迟与错误、模型首 token 耗时。租户维度用低基数标签（租户 ID 作为标签需评估基数，超过阈值时只在日志中记录）。
 2. 日志：结构化 JSON，固定字段 `tenant_id`、`run_id`、`trace_id`、`request_id`，默认不输出消息正文与密钥（日志过滤器 + 测试）。
 3. 告警与 SLO：可用性 SLO（按套餐 99.5 / 99.9 / 99.95%）、错误预算、关键告警规则（API 5xx、队列堆积、外部依赖故障、证书到期）。
 4. 健康探测：每区域合成探测（登录、发送一条消息到测试助理），结果存库供 T-103 平台可用率与顶栏区域状态使用。
