@@ -90,5 +90,7 @@
     "applying": "Applying…",
     "applied": "Subscription change applied",
     "applyFailed": "Could not apply the change"
-  }
+  },
+  "piiRules": "PII rules",
+  "baseline": "Security baseline"
 }

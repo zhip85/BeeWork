@@ -354,3 +354,30 @@ table { border-collapse: collapse; }
 
 /* Plain data tables get a card frame. */
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-card); }
+
+/* Platform governance (PII rules, security baseline) */
+.platform-governance-page { display: grid; gap: 16px; align-content: start; }
+.governance-name { display: inline-flex; align-items: center; gap: 6px; }
+.governance-name svg { color: var(--warn); flex: none; }
+.governance-pattern { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-xs); color: var(--ink-soft); word-break: break-all; }
+.governance-off td:not(.member-actions-cell) { opacity: 0.55; }
+.governance-switch { display: inline-flex; align-items: center; gap: 8px; }
+.governance-modal { display: grid; gap: 12px; width: min(560px, 94vw); max-height: 90vh; overflow-y: auto; }
+.governance-modal label { display: grid; gap: 4px; }
+.governance-modal .governance-check { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.governance-modal .governance-check small { flex-basis: 100%; }
+.governance-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.governance-ruleset { display: grid; gap: 6px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-md); }
+.governance-ruleset legend { padding: 0 6px; font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
+.governance-rule-picker { display: grid; gap: 4px; padding-left: 22px; }
+.governance-change-list { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.governance-change-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); }
+.governance-change-list small { display: block; color: var(--muted); font-size: var(--fs-xs); }
+.governance-changes { border-color: #efd9a8; background: #fffaf0; }
+.governance-switch input[type=checkbox] { appearance: none; position: relative; width: 34px; height: 20px; margin: 0; border-radius: 999px; background: #cfd8d3; cursor: pointer; transition: background 120ms ease; }
+.governance-switch input[type=checkbox]::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 120ms ease; }
+.governance-switch input[type=checkbox]:checked { background: var(--forest); }
+.governance-switch input[type=checkbox]:checked::after { transform: translateX(14px); }
+.governance-switch input[type=checkbox]:disabled { opacity: 0.5; cursor: not-allowed; }
+.platform-governance-page .knowledge-status-bar { margin-bottom: 12px; }
+.governance-modal .plans-actions, .governance-changes .plans-actions { justify-content: flex-end; }

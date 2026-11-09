@@ -7,6 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from beework.entitlements import entitlement_value
+from beework.governance import retention_limit_for_tenant
+from beework.models import Tenant
 from beework.models.conversations import TenantCompliancePolicy
 
 RETENTION_CHOICES = (30, 90, 180, 365)
@@ -23,9 +25,12 @@ class CompliancePolicy:
 
 
 def max_retention_days(db: Session, tenant_id: UUID) -> int | None:
-    """Retention can never exceed the plan's log retention; a "custom" plan has no cap."""
+    """Retention can never exceed the plan's log retention (a "custom" plan has no cap) nor an enforced baseline rule (PLT-142)."""
     cap = entitlement_value(db, tenant_id, "log_retention_days")
-    return cap if isinstance(cap, int) and not isinstance(cap, bool) else None
+    cap = cap if isinstance(cap, int) and not isinstance(cap, bool) else None
+    baseline = retention_limit_for_tenant(db, db.get(Tenant, tenant_id)).max_days
+    caps = [value for value in (cap, baseline) if value is not None]
+    return min(caps) if caps else None
 
 
 def allowed_retention_choices(cap: int | None) -> list[int]:
@@ -38,8 +43,10 @@ def get_policy(db: Session, tenant_id: UUID) -> CompliancePolicy:
     row = db.scalar(select(TenantCompliancePolicy).where(TenantCompliancePolicy.tenant_id == tenant_id))
     choices = allowed_retention_choices(cap) or [min(RETENTION_CHOICES)]
     if row is None:
-        retention = max(days for days in choices if days <= DEFAULT_RETENTION_DAYS) if any(
-            days <= DEFAULT_RETENTION_DAYS for days in choices
+        # A recommended baseline rule suggests the default (PLT-142).
+        target = retention_limit_for_tenant(db, db.get(Tenant, tenant_id)).default_days or DEFAULT_RETENTION_DAYS
+        retention = max(days for days in choices if days <= target) if any(
+            days <= target for days in choices
         ) else choices[0]
         return CompliancePolicy(retention, True, True, 0, cap)
     # A plan downgrade can leave a stored value above the new cap; the cap wins.

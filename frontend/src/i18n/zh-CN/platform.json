@@ -90,5 +90,7 @@
     "applying": "应用中…",
     "applied": "订阅变更已应用",
     "applyFailed": "应用订阅变更失败"
-  }
+  },
+  "piiRules": "PII 规则",
+  "baseline": "安全基线"
 }
