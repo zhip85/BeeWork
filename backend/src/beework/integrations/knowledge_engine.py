@@ -33,6 +33,17 @@ class DocumentState:
     message: str | None = None
 
 
+@dataclass(frozen=True)
+class EngineChunk:
+    """One retrieved passage; ``score`` is the engine's similarity in 0..1."""
+
+    dataset_id: str
+    chunk_id: str
+    document_name: str
+    text: str
+    score: float
+
+
 class KnowledgeEngine(Protocol):
     """What knowledge bases need from an engine. Every method raises ``KnowledgeEngineError`` on failure."""
 
@@ -66,6 +77,10 @@ class KnowledgeEngine(Protocol):
 
     def list_chunks(self, dataset_id: str, document_id: str, *, page: int, size: int) -> tuple[list[str], int]:
         """One page of a document's chunk texts and the total chunk count (for the chunk preview)."""
+        ...
+
+    def search(self, dataset_ids: list[str], query: str, *, top_k: int, threshold: float) -> list[EngineChunk]:
+        """Passages of the given datasets most similar to ``query`` with ``score >= threshold``, best first."""
         ...
 
 

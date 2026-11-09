@@ -185,5 +185,26 @@
       "modelRequired": "请选择模型",
       "saveFailed": "保存失败"
     }
+  },
+  "picker": {
+    "title": "挂载能力",
+    "kinds": "能力类型",
+    "search": "搜索{{kind}}",
+    "noMatch": "无匹配项",
+    "empty": "还没有已索引的知识库。请先在知识库中上传文档并等待索引完成。",
+    "selectAll": "全选",
+    "clear": "清空",
+    "selected": "已选 {{count}}",
+    "remove": "移除",
+    "typeStandard": "普通 KB",
+    "typeFaq": "FAQ KB",
+    "docs": "{{count}} 篇文档",
+    "faqs": "{{count}} 条 FAQ",
+    "loadFailed": "无法加载可挂载的能力",
+    "save": "保存",
+    "saving": "保存中…",
+    "cancel": "取消",
+    "saved": "挂载已保存到草稿",
+    "unknown": "（已失效）"
   }
 }

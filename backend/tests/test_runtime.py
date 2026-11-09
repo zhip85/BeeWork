@@ -39,7 +39,7 @@ from beework.runtime.compiler import (
     compile_assistant,
     register_stage,
 )
-from beework.runtime.dsl import AssistantDSLv1, dsl_from_draft
+from beework.runtime.dsl import AssistantDSLv1, KnowledgeBaseRef, dsl_from_draft
 from beework.runtime.errors import RuntimeFailure
 from beework.runtime.executor import execute_run
 from beework.runtime.llm import build_chat_model
@@ -92,9 +92,9 @@ class RecordingRetriever:
         self.calls: list[dict] = []
         self.chunks = chunks or []
 
-    def retrieve(self, *, tenant_id, query, dataset_ids, top_k) -> RetrievalResult:
-        self.calls.append({"tenant_id": tenant_id, "query": query, "dataset_ids": list(dataset_ids), "top_k": top_k})
-        return RetrievalResult(chunks=self.chunks, mode="ragflow" if self.chunks else "stub")
+    def retrieve(self, *, tenant_id, query, bases, top_k) -> RetrievalResult:
+        self.calls.append({"tenant_id": tenant_id, "query": query, "kb_ids": [b.kb_id for b in bases], "top_k": top_k})
+        return RetrievalResult(chunks=self.chunks, mode="ragflow" if self.chunks else "none")
 
 
 def make_model(name: str) -> PlatformModel:
@@ -224,7 +224,7 @@ class RuntimeTests(unittest.TestCase):
             assistant = db.get(Assistant, self.ids["assistant"])
             dsl = dsl_from_draft(assistant)
             self.assertEqual(dsl.model_alias, f"bw-{self.ids['chat']}")
-            self.assertEqual((dsl.dsl_version, dsl.knowledge.dataset_ids), (1, []))
+            self.assertEqual((dsl.dsl_version, dsl.knowledge.bases), (1, []))
             assistant.draft_config = {"prompt": "x"}
             with self.assertRaises(RuntimeFailure) as caught:
                 dsl_from_draft(assistant)
@@ -241,7 +241,7 @@ class RuntimeTests(unittest.TestCase):
             dsl,
             RuntimeDeps(
                 llm=ScriptedChat(chunks=["ok"]), retriever=StubRetriever(), tenant_id=uuid4(),
-                allowed_dataset_ids=lambda ids: [],
+                resolve_bases=lambda ids: [],
             ),
         )
         self.assertEqual(
@@ -259,45 +259,60 @@ class RuntimeTests(unittest.TestCase):
         dsl = AssistantDSLv1(prompt="p", model_alias="bw-x", limits={"max_input_chars": 5})
         graph = compile_assistant(
             dsl,
-            RuntimeDeps(llm=ScriptedChat(chunks=["ok"]), retriever=StubRetriever(), tenant_id=uuid4(), allowed_dataset_ids=lambda ids: []),
+            RuntimeDeps(llm=ScriptedChat(chunks=["ok"]), retriever=StubRetriever(), tenant_id=uuid4(), resolve_bases=lambda ids: []),
         )
         for message in ("   ", "123456"):
             with self.assertRaises(RuntimeFailure) as caught:
                 graph.invoke({"input": message, "history": []})
             self.assertEqual(caught.exception.code, "runtime.input_rejected")
 
-    def test_retrieve_only_passes_tenant_owned_dataset_ids_and_injects_context(self) -> None:
-        retriever = RecordingRetriever([
-            RetrievedChunk("Handbook.pdf", "c1", "Refunds take 5 days.", 0.9),
-            RetrievedChunk("Handbook.pdf", "c2", "low score", 0.1),
-        ])
+    def test_retrieve_searches_only_the_resolved_bases_and_injects_context(self) -> None:
+        retriever = RecordingRetriever([RetrievedChunk("Handbook.pdf", "c1", "Refunds take 5 days.", 0.9)])
         llm = ScriptedChat(chunks=["ok"])
-        dsl = AssistantDSLv1(prompt="p", model_alias="bw-x", knowledge={"dataset_ids": ["ds-mine", "ds-forged"]})
+        mine, forged = uuid4(), uuid4()
+        dsl = AssistantDSLv1(
+            prompt="p", model_alias="bw-x",
+            knowledge={"bases": [{"kb_id": str(mine), "dataset_id": "ds-mine"}, {"kb_id": str(forged), "dataset_id": "ds-forged"}]},
+        )
         tenant_id = uuid4()
         graph = compile_assistant(
             dsl,
             RuntimeDeps(
                 llm=llm, retriever=retriever, tenant_id=tenant_id,
-                allowed_dataset_ids=lambda requested: [d for d in requested if d == "ds-mine"],
+                # The tenant owns only `mine`: whatever else the DSL names never reaches the retriever.
+                resolve_bases=lambda requested: [KnowledgeBaseRef(kb_id=i, dataset_id="ds-mine") for i in requested if i == mine],
             ),
         )
         state = graph.invoke({"input": "refund?", "history": []})
-        self.assertEqual(retriever.calls[0]["dataset_ids"], ["ds-mine"])
+        self.assertEqual(retriever.calls[0]["kb_ids"], [mine])
         self.assertEqual(retriever.calls[0]["tenant_id"], tenant_id)
-        self.assertEqual([c["chunk_id"] for c in state["context"]], ["c1"])  # below min_score is dropped
-        system_prompt = llm.seen_messages[0][0].content
-        self.assertIn("Refunds take 5 days.", system_prompt)
-        self.assertNotIn("low score", system_prompt)
+        self.assertEqual([c["chunk_id"] for c in state["context"]], ["c1"])
+        self.assertIn("Refunds take 5 days.", llm.seen_messages[0][0].content)
 
-    def test_forged_dataset_ids_never_reach_the_retriever_through_the_executor(self) -> None:
+    def test_faq_answers_are_marked_as_standard_answers(self) -> None:
+        retriever = RecordingRetriever([RetrievedChunk("FAQ", "q1", "Q: refunds\nA: 5 days", 0.95, kind="faq", kb_name="Support")])
+        llm = ScriptedChat(chunks=["ok"])
+        graph = compile_assistant(
+            AssistantDSLv1(prompt="p", model_alias="bw-x", knowledge={"bases": [{"kb_id": str(uuid4())}]}),
+            RuntimeDeps(llm=llm, retriever=retriever, tenant_id=uuid4(),
+                        resolve_bases=lambda ids: [KnowledgeBaseRef(kb_id=i) for i in ids]),
+        )
+        state = graph.invoke({"input": "refund?", "history": []})
+        system = llm.seen_messages[0][0].content
+        self.assertIn("标准答案", system)
+        self.assertIn("A: 5 days", system)
+        self.assertEqual((state["context"][0]["kind"], state["context"][0]["kb_name"]), ("faq", "Support"))
+
+    def test_forged_knowledge_base_ids_never_reach_the_retriever_through_the_executor(self) -> None:
         headers = self.login("admin@example.com")
         run_id = self.start_run(headers).json()["run_id"]
+        forged = str(uuid4())
         with self.session_factory.begin() as db:
             run = db.get(Run, UUID(run_id))
-            run.config = {**run.config, "knowledge": {"dataset_ids": ["other-tenants-dataset"]}}
+            run.config = {**run.config, "knowledge": {"bases": [{"kb_id": forged, "dataset_id": "other-tenants-dataset", "engine": "ragflow"}]}}
         retriever = RecordingRetriever()
         self.run_in_worker(run_id, retriever=retriever)
-        self.assertEqual(retriever.calls[0]["dataset_ids"], [])  # no knowledge base can be proven to be the tenant's yet
+        self.assertEqual(retriever.calls[0]["kb_ids"], [])  # the tenant has no such knowledge base: nothing is searched
         self.assertEqual(self.run_row(run_id).status, "succeeded")
 
     def test_chat_model_targets_litellm_with_virtual_key_and_metadata(self) -> None:
@@ -398,13 +413,13 @@ class RuntimeTests(unittest.TestCase):
         seqs = [e.seq for e in events]
         self.assertEqual(seqs, sorted(set(seqs)))  # strictly increasing (dropped token events leave gaps)
         done = events[-1].data
-        self.assertEqual((done["text"], done["usage"], done["retrieval"]["mode"]), ("Hello world", {"input": 11, "output": 5}, "stub"))
+        self.assertEqual((done["text"], done["usage"], done["retrieval"]["mode"]), ("Hello world", {"input": 11, "output": 5}, "none"))
         run = self.run_row(run_id)
-        self.assertEqual((run.status, run.tokens_in, run.tokens_out, run.retrieval_mode), ("succeeded", 11, 5, "stub"))
+        self.assertEqual((run.status, run.tokens_in, run.tokens_out, run.retrieval_mode), ("succeeded", 11, 5, "none"))
         self.assertEqual(run.output["text"], "Hello world")
         self.assertIsNotNone(run.latency_ms)
         detail = self.client.get(f"/api/v1/runs/{run_id}", headers=headers).json()
-        self.assertEqual((detail["status"], detail["retrieval_mode"]), ("succeeded", "stub"))
+        self.assertEqual((detail["status"], detail["retrieval_mode"]), ("succeeded", "none"))
         streamed = self.client.get(f"/api/v1/runs/{run_id}/events", headers=headers)
         self.assertEqual(streamed.status_code, 200)
         self.assertIn("event: done", streamed.text)
@@ -558,7 +573,7 @@ class RuntimeTests(unittest.TestCase):
         try:
             graph = compile_assistant(
                 AssistantDSLv1(prompt="base prompt", model_alias="bw-x"),
-                RuntimeDeps(llm=llm, retriever=StubRetriever(), tenant_id=uuid4(), allowed_dataset_ids=lambda ids: []),
+                RuntimeDeps(llm=llm, retriever=StubRetriever(), tenant_id=uuid4(), resolve_bases=lambda ids: []),
             )
             graph.invoke({"input": "hi", "history": []})
         finally:
@@ -592,11 +607,13 @@ class RuntimeTests(unittest.TestCase):
             AssistantDSLv1(prompt="p", model_alias="bw-x"),
             RuntimeDeps(
                 llm=ScriptedChat(chunks=["ok"]), retriever=StubRetriever(), tenant_id=uuid4(),
-                allowed_dataset_ids=lambda ids: [], span=span,
+                resolve_bases=lambda ids: [], span=span,
             ),
         )
         graph.invoke({"input": "hi", "history": []})
-        self.assertEqual(opened, list(STAGE_ORDER))
+        # The execute stage opens a nested "retrieval" span around the knowledge search.
+        expected = [name for stage in STAGE_ORDER for name in ([stage, "retrieval"] if stage == "execute" else [stage])]
+        self.assertEqual(opened, expected)
 
     # -- OC configuration -----------------------------------------------------------
 

@@ -8,6 +8,7 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from beework.integrations.litellm import model_alias
 from beework.models.assistants import Assistant
@@ -15,11 +16,24 @@ from beework.runtime.errors import RuntimeFailure
 from beework.runtime.oc import OCConfig
 
 
+class KnowledgeBaseRef(BaseModel):
+    """A mounted knowledge base as it was when the DSL was built (a publish records the engine dataset ids then).
+
+    At run time only ``kb_id`` is trusted: the tenant's current row decides which datasets are searched.
+    """
+
+    kb_id: UUID
+    name: str = ""
+    kb_type: Literal["standard", "faq"] = "standard"
+    engine: str = "ragflow"
+    dataset_id: str | None = None
+    faq_dataset_id: str | None = None
+    threshold: float = Field(default=0.62, ge=0, le=1)
+
+
 class KnowledgeConfig(BaseModel):
-    # RAGFlow dataset ids mounted on the assistant (T-033); empty until knowledge bases exist.
-    dataset_ids: list[str] = Field(default_factory=list, max_length=20)
+    bases: list[KnowledgeBaseRef] = Field(default_factory=list, max_length=20)
     top_k: int = Field(default=5, ge=1, le=20)
-    min_score: float = Field(default=0.3, ge=0, le=1)
 
 
 class LimitsConfig(BaseModel):
@@ -40,9 +54,15 @@ class AssistantDSLv1(BaseModel):
     oc: OCConfig = Field(default_factory=OCConfig)
 
 
-def dsl_from_draft(assistant: Assistant) -> AssistantDSLv1:
-    """Build the DSL from an assistant's draft configuration."""
+def dsl_from_draft(assistant: Assistant, db: Session | None = None) -> AssistantDSLv1:
+    """Build the DSL from an assistant's draft configuration.
+
+    ``db`` is needed to record mounted knowledge bases; callers that can mount any pass it.
+    """
     config = assistant.draft_config or {}
+    kb_ids = [UUID(str(value)) for value in (config.get("mounts") or {}).get("kb") or []]
+    if kb_ids and db is None:
+        raise ValueError("dsl_from_draft needs a database session to resolve mounted knowledge bases")
     model_id = config.get("model_id")
     if not model_id:
         raise RuntimeFailure("runtime.model_unavailable", "助理尚未选择模型")
@@ -53,5 +73,14 @@ def dsl_from_draft(assistant: Assistant) -> AssistantDSLv1:
         prompt=prompt,
         model_alias=model_alias(UUID(str(model_id))),
         greeting=config.get("greeting") or "",
+        knowledge=KnowledgeConfig(bases=_knowledge_refs(db, assistant.tenant_id, kb_ids) if kb_ids else []),
         oc=OCConfig.model_validate(config.get("oc") or {}),
     )
+
+
+def _knowledge_refs(db: Session, tenant_id: UUID, kb_ids: list[UUID]) -> list[KnowledgeBaseRef]:
+    from beework.knowledge_mounts import (
+        resolve_knowledge_bases,  # imports this module; resolved lazily
+    )
+
+    return resolve_knowledge_bases(db, tenant_id, kb_ids)

@@ -185,5 +185,26 @@
       "modelRequired": "Choose a model",
       "saveFailed": "Save failed"
     }
+  },
+  "picker": {
+    "title": "Mount capabilities",
+    "kinds": "Capability type",
+    "search": "Search {{kind}}",
+    "noMatch": "No matches",
+    "empty": "No indexed knowledge base yet. Upload documents to a knowledge base and wait for indexing first.",
+    "selectAll": "Select all",
+    "clear": "Clear",
+    "selected": "Selected {{count}}",
+    "remove": "Remove",
+    "typeStandard": "Standard KB",
+    "typeFaq": "FAQ KB",
+    "docs": "{{count}} documents",
+    "faqs": "{{count}} FAQs",
+    "loadFailed": "Could not load the capabilities to mount",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "saved": "Mounts saved to the draft",
+    "unknown": "(no longer available)"
   }
 }

@@ -39,3 +39,16 @@ class MountsResponse(BaseModel):
     groups: list[MountGroup]
     # Kinds that can be mounted today; empty until the owning tasks register a resolver.
     mountable_kinds: list[str]
+
+
+class CandidateEntry(BaseModel):
+    id: UUID
+    kind: str
+    name: str
+    kb_type: Literal["standard", "faq"]
+    documents: int
+    faqs: int
+
+
+class CandidatesResponse(BaseModel):
+    items: list[CandidateEntry]

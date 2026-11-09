@@ -87,6 +87,7 @@ def append_message(
     *,
     run_id: UUID | None = None,
     trace_id: str | None = None,
+    citations: list[dict] | None = None,
 ) -> Message:
     """Add a message with the next ``seq``. The caller holds a lock on the conversation row."""
     seq = (db.scalar(select(func.max(Message.seq)).where(Message.conversation_id == conversation.id)) or 0) + 1
@@ -98,6 +99,7 @@ def append_message(
         content=store_text(db, conversation.tenant_id, content),
         run_id=run_id,
         trace_id=trace_id,
+        citations=citations or None,
     )
     db.add(message)
     conversation.last_active_at = datetime.now(UTC)

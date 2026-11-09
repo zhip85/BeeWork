@@ -6,6 +6,7 @@ import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
 import { AssistantWizard } from './AssistantWizard'
+import { CapabilityPicker } from './CapabilityPicker'
 import { ChannelsPage } from '../channels/ChannelsPage'
 import { OpenApiCard } from '../channels/OpenApiCard'
 import { PublishDialog } from './PublishDialog'
@@ -46,6 +47,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
   const [publishing, setPublishing] = useState(false)
   const [showPrompt, setShowPrompt] = useState(false)
   const [pending, setPending] = useState<'delete' | 'disable' | null>(null)
+  const [mounting, setMounting] = useState(false)
   const [versionOptions, setVersionOptions] = useState<{ id: string; version: string; is_live: boolean }[]>([])
 
   const requested = params.get('tab') as Tab | null
@@ -215,7 +217,13 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
         <div className="detail-card">
           <header className="detail-card-head">
             <h2>{t('capabilities.title', { count: mounts?.total ?? 0 })}</h2>
-            <button className="secondary-button" disabled title={t('capabilities.soonHint')} type="button">{t('capabilities.mount')}</button>
+            <button
+              className="secondary-button"
+              disabled={!(can('assistants:edit') && assistant.can_edit && mounts?.mountable_kinds.includes('kb'))}
+              onClick={() => setMounting(true)}
+              title={mounts?.mountable_kinds.includes('kb') ? undefined : t('capabilities.soonHint')}
+              type="button"
+            >{t('capabilities.mount')}</button>
           </header>
           {mounts && mounts.total === 0 && <p className="assistants-empty-filtered">{t('capabilities.empty')}</p>}
           {mounts && mounts.groups.map((group) => (
@@ -232,8 +240,18 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
             </div>
           ))}
           <p className="wizard-muted">{t('capabilities.draftNote')}</p>
-          {mounts && mounts.mountable_kinds.length === 0 && <p className="wizard-muted">{t('capabilities.soonHint')}</p>}
+          <p className="wizard-muted">{t('capabilities.soonHint')}</p>
         </div>
+      )}
+
+      {mounting && (
+        <MountDialog
+          assistant={assistant}
+          mounts={mounts}
+          onClose={() => setMounting(false)}
+          onSaved={() => { setMounting(false); setNotice(ta('picker.saved')); setReload((value) => value + 1) }}
+          tenantId={tenantId}
+        />
       )}
 
       {tab === 'versions' && (
@@ -319,5 +337,69 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
         />
       )}
     </section>
+  )
+}
+
+function MountDialog({
+  assistant,
+  mounts,
+  tenantId,
+  onClose,
+  onSaved,
+}: {
+  assistant: Assistant
+  mounts: Mounts | null
+  tenantId: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const { t } = useTranslation('assistants')
+  const current = mounts?.groups.find((group) => group.kind === 'kb')?.items ?? []
+  const [ids, setIds] = useState<string[]>(assistant.config.mounts?.kb ?? [])
+  const [names, setNames] = useState<Record<string, string>>(Object.fromEntries(current.map((item) => [item.id, item.name])))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function save() {
+    setSaving(true)
+    setError('')
+    try {
+      await apiRequest(
+        `/api/v1/assistants/${assistant.id}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: assistant.name,
+            description: assistant.description,
+            category: assistant.category,
+            icon: assistant.icon,
+            color: assistant.color,
+            visibility: assistant.visibility,
+            visible_org_ids: assistant.visible_org_ids,
+            config: { ...assistant.config, mounts: { ...(assistant.config.mounts ?? {}), kb: ids } },
+            row_version: assistant.row_version,
+          }),
+        },
+        tenantId,
+      )
+      onSaved()
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : t('picker.loadFailed'))
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="modal-backdrop confirm-backdrop" onClick={onClose} role="presentation">
+      <div aria-labelledby="mount-title" aria-modal="true" className="create-modal mount-dialog" onClick={(event) => event.stopPropagation()} role="dialog">
+        <h2 id="mount-title">{t('picker.title')}</h2>
+        <CapabilityPicker names={names} onChange={(next, nextNames) => { setIds(next); setNames(nextNames) }} selected={ids} tenantId={tenantId} />
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="confirm-actions">
+          <button className="secondary-button" disabled={saving} onClick={onClose} type="button">{t('picker.cancel')}</button>
+          <button className="primary-button" disabled={saving} onClick={() => void save()} type="button">{saving ? t('picker.saving') : t('picker.save')}</button>
+        </div>
+      </div>
+    </div>
   )
 }

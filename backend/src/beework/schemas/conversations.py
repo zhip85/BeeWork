@@ -14,6 +14,7 @@ class MessageResponse(BaseModel):
     feedback: str | None
     trace_id: str | None
     run_id: UUID | None
+    citations: list[dict] | None = None
     created_at: datetime
 
 

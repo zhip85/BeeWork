@@ -73,6 +73,35 @@ def document_progress(document: dict) -> str:
     return "failed" if document["fail"] else "done"
 
 
+def similarity(query: str, text: str) -> float:
+    """Share of the query's words / CJK character pairs that occur in the text (0..1); a stand-in for embeddings."""
+    def terms(value: str) -> set[str]:
+        value = value.lower()
+        found = set(re.findall(r"[a-z0-9]+", value))
+        for run in re.findall(r"[\u4e00-\u9fff]+", value):
+            found.update(run[i : i + 2] for i in range(len(run) - 1))
+        return found
+
+    wanted = terms(query)
+    return len(wanted & terms(text)) / len(wanted) if wanted else 0.0
+
+
+def search_chunks(dataset_ids: list[str], query: str, threshold: float, top_k: int) -> list[dict]:
+    """Chunks of every *indexed* document in the given datasets scored against the query, best first."""
+    hits = []
+    for document in documents.values():
+        if document["dataset"] not in dataset_ids or document_progress(document) != "done":
+            continue
+        for number, text in enumerate(chunks_of(document)):
+            score = similarity(query, text)
+            if score >= threshold:
+                hits.append({
+                    "dataset": document["dataset"], "document": document, "id": f"{document['id']}-{number}",
+                    "content": text, "score": score,
+                })
+    return sorted(hits, key=lambda hit: hit["score"], reverse=True)[:top_k]
+
+
 def chunks_of(document: dict) -> list[str]:
     text = document["text"] or " "
     return [text[i : i + CHUNK_SIZE] for i in range(0, len(text), CHUNK_SIZE)] or [" "]
@@ -164,6 +193,14 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
             with lock:
                 if dataset_id not in dify_datasets:
                     return self._send({"code": "not_found", "message": "Dataset not found.", "status": 404}, 404)
+                if parts[3:] == ["retrieve"] and method == "POST":
+                    body = self._body()
+                    model = body.get("retrieval_model") or {}
+                    hits = search_chunks([dataset_id], str(body.get("query") or ""),
+                                         float(model.get("score_threshold") or 0), int(model.get("top_k") or 4))
+                    return self._send({"query": {"content": body.get("query")}, "records": [
+                        {"segment": {"id": h["id"], "content": h["content"], "document": {"id": h["document"]["id"], "name": h["document"]["name"]}},
+                         "score": h["score"]} for h in hits]})
                 if parts[3:] == ["document", "create-by-file"] and method == "POST":
                     length = int(self.headers.get("Content-Length") or 0)
                     files = parse_multipart(self.headers.get("Content-Type", ""), self.rfile.read(length))
@@ -283,6 +320,19 @@ def make_handler() -> type[BaseHTTPRequestHandler]:
                 if fail_next > 0:
                     fail_next -= 1
                     return self._error("Injected failure", 500)
+            if url.path == "/api/v1/retrieval" and method == "POST":
+                body = self._body()
+                with lock:
+                    ids = body.get("dataset_ids") or []
+                    missing = [i for i in ids if i not in datasets]
+                    if missing:
+                        return self._error(f"You don't own the dataset {missing[0]}")
+                    hits = search_chunks(ids, str(body.get("question") or ""), float(body.get("similarity_threshold") or 0),
+                                         int(body.get("top_k") or 8))
+                    return self._send({"code": 0, "data": {"chunks": [
+                        {"id": h["id"], "content": h["content"], "document_id": h["document"]["id"],
+                         "document_keyword": h["document"]["name"], "dataset_id": h["dataset"], "similarity": h["score"]}
+                        for h in hits], "total": len(hits)}})
             doc_route = re.fullmatch(r"/api/v1/datasets/([^/]+)/(documents|chunks)(?:/([^/]+)/chunks)?", url.path)
             if doc_route:
                 return self._ragflow_documents(method, doc_route, query)

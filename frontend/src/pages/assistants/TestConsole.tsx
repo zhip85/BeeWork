@@ -8,7 +8,8 @@ import type { RunEvent } from './runStream'
 import { TestCaseDialog } from './TestCaseDialog'
 import type { Assistant } from './types'
 
-type Meta = { latencyMs?: number; tokensIn?: number | null; tokensOut?: number | null; traceUrl?: string | null; retrieval?: string }
+type Citation = { document_name: string; kb_name?: string; kind?: string; snippet?: string }
+type Meta = { latencyMs?: number; tokensIn?: number | null; tokensOut?: number | null; traceUrl?: string | null; retrieval?: string; citations?: Citation[] }
 type Message = { id: number; role: 'user' | 'assistant'; text: string; state?: 'streaming' | 'error' | 'cancelled'; meta?: Meta }
 type VersionOption = { id: string; version: string; is_live: boolean }
 
@@ -52,7 +53,7 @@ export function TestConsole({ assistant, tenant }: { assistant: Assistant; tenan
       const data = event.data
       patchLast((m) => ({
         ...m, text: m.text || data.text, state: undefined,
-        meta: { latencyMs: data.latency_ms, tokensIn: data.usage?.input, tokensOut: data.usage?.output, traceUrl: data.trace_url, retrieval: data.retrieval?.mode },
+        meta: { latencyMs: data.latency_ms, tokensIn: data.usage?.input, tokensOut: data.usage?.output, traceUrl: data.trace_url, retrieval: data.retrieval?.mode, citations: data.retrieval?.citations },
       }))
     } else if (event.type === 'error') patchLast((m) => ({ ...m, state: 'error', text: event.data.message ?? t('console.failed') }))
     else if (event.type === 'cancelled') patchLast((m) => ({ ...m, state: 'cancelled' }))
@@ -126,10 +127,22 @@ export function TestConsole({ assistant, tenant }: { assistant: Assistant; tenan
           <div className={`console-message ${message.role}${message.state ? ` ${message.state}` : ''}`} key={message.id}>
             <p>{message.text || (message.state === 'streaming' ? t('console.thinking') : '')}{message.state === 'cancelled' && <em> {t('console.cancelled')}</em>}</p>
             {message.role === 'user' && canAddCase && <button className="text-button" onClick={() => setAddingCase(message.text)} type="button">{t('console.addCase')}</button>}
+            {message.meta?.citations && message.meta.citations.length > 0 && (
+              <div className="console-citations">
+                <strong>{t('console.citations')}</strong>
+                <ul>
+                  {message.meta.citations.map((citation, index) => (
+                    <li key={`${citation.document_name}:${index}`} title={citation.snippet}>
+                      {citation.kind === 'faq' && <em>{t('console.faq')}</em>}
+                      {citation.document_name}{citation.kb_name ? ` · ${citation.kb_name}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {message.meta && (
               <small>
                 {t('console.meta', { seconds: ((message.meta.latencyMs ?? 0) / 1000).toFixed(1), tokensIn: message.meta.tokensIn ?? '—', tokensOut: message.meta.tokensOut ?? '—' })}
-                {message.meta.retrieval === 'stub' && <> · {t('console.stubRetrieval')}</>}
                 {message.meta.traceUrl && <> · <a href={message.meta.traceUrl} rel="noreferrer" target="_blank">{t('console.trace')} <ExternalLink size={11} /></a></>}
               </small>
             )}

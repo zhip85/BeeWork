@@ -142,7 +142,7 @@ def resolve_target(db: Session, assistant: Assistant, target: dict[str, Any]) ->
         if approval is None or approval.tenant_id != assistant.tenant_id:
             raise RuntimeFailure("not_found", "未找到审批单")
         return AssistantDSLv1.model_validate(approval.payload["snapshot"]["dsl"]), None, "待发布版本"
-    return dsl_from_draft(assistant), None, "draft"
+    return dsl_from_draft(assistant, db), None, "draft"
 
 
 # ---------------------------------------------------------------------------

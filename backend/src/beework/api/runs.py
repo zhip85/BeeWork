@@ -110,7 +110,7 @@ def create_debug_run(
         model_id = version.snapshot.get("model_id")
     else:
         try:
-            dsl = dsl_from_draft(assistant)
+            dsl = dsl_from_draft(assistant, db)
         except RuntimeFailure as exc:
             raise ApiError(409, exc.code, exc.message) from exc
         model_id = assistant.draft_config.get("model_id")

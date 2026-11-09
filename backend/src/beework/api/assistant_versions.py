@@ -89,7 +89,7 @@ def _version_of(db: Session, assistant: Assistant, version_id: UUID) -> Assistan
 
 def draft_snapshot(db: Session, assistant: Assistant) -> dict[str, Any]:
     """Snapshot of the current draft; raises RuntimeFailure when it cannot be turned into a runtime DSL."""
-    dsl = dsl_from_draft(assistant)
+    dsl = dsl_from_draft(assistant, db)
     return build_snapshot(assistant, _visible_org_ids(db, assistant.id), dsl.model_dump(mode="json"))
 
 
