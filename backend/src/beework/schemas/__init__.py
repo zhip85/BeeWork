@@ -35,6 +35,24 @@ class CreateTenantRequest(BaseModel):
         return value
 
 
+class UpdateTenantRequest(BaseModel):
+    """Platform admin edit of a tenant: any subset of name, plan and seat limit. The slug and the data region stay fixed."""
+
+    name: str | None = Field(default=None, min_length=2, max_length=160)
+    plan: Literal["standard", "professional", "enterprise"] | None = None
+    seat_limit: int | None = Field(default=None, ge=1, le=100000)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if len(value) < 2:
+            raise ValueError("企业名称至少 2 个字符")
+        return value
+
+
 class CreateOrganizationRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     parent_id: UUID | None = None

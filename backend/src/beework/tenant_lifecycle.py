@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from beework.config import settings
 from beework.models import AuditEvent, AuthSession, Membership, Tenant
 from beework.notifications import notify
 from beework.worker.queue import enqueue, job_handler
@@ -58,6 +59,11 @@ REVIEW_TIMEOUT = timedelta(hours=72)
 
 def lifecycle_action(current_status: str, action: str) -> LifecycleAction | None:
     return LIFECYCLE_ACTIONS.get(current_status, {}).get(action)
+
+
+def review_required(action: LifecycleAction) -> bool:
+    """High-risk actions need a second platform admin only while ``TENANT_LIFECYCLE_REVIEW`` is on."""
+    return action.requires_review and settings.tenant_lifecycle_review
 
 GRACE_LIMIT = timedelta(days=7)  # PRD 5.1: grace longer than this turns the workspace read-only
 DELETION_LIMIT = timedelta(days=30)  # pending deletion longer than this becomes deleted

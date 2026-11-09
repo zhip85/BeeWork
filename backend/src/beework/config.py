@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     auth_secret: str = "local-only-change-this-secret-before-deploying"
     model_credentials_secret: str = "local-only-model-credentials-secret"
     auth_cookie_secure: bool = False
+    # PRD PLT-052 asks for a second platform admin to review suspend / delete. Switched off by decision (2026-11-09):
+    # lifecycle changes apply directly. Set TENANT_LIFECYCLE_REVIEW=true to bring the review back.
+    tenant_lifecycle_review: bool = False
     app_origin: str = "http://localhost:5173"
     bootstrap_tenant_name: str = "Acme 科技"
     bootstrap_tenant_slug: str = "acme"
@@ -80,6 +83,24 @@ class Settings(BaseSettings):
                     "MODEL_CREDENTIALS_SECRET must be at least 32 characters outside development"
                 )
         return self
+
+
+    def origin_allowed(self, origin: str | None) -> bool:
+        """Whether a request's ``Origin`` is this application's. In development the loopback names are interchangeable
+        (``localhost``, ``127.0.0.1``, ``[::1]``): opening the app by one of them must not break every write."""
+        if not origin:
+            return True
+        origin, expected = origin.rstrip("/").lower(), self.app_origin.rstrip("/").lower()
+        if origin == expected:
+            return True
+        if self.environment != "development":
+            return False
+        loopback = ("localhost", "127.0.0.1", "[::1]")
+        scheme, _, rest = expected.partition("://")
+        host, _, port = rest.partition(":")
+        if host not in loopback:
+            return False
+        return any(origin == f"{scheme}://{name}{':' + port if port else ''}" for name in loopback)
 
 
 settings = Settings()

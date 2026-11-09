@@ -27,6 +27,7 @@ audit_source_ip: ContextVar[str | None] = ContextVar("audit_source_ip", default=
 
 AUDIT_ACTION_DESCRIPTIONS = {
     "tenant.created": "创建企业租户",
+    "tenant.updated": "编辑企业租户",
     "tenant.status_changed": "变更企业状态",
     "tenant.lifecycle_requested": "发起租户生命周期复核",
     "tenant.lifecycle_rejected": "驳回租户生命周期操作",

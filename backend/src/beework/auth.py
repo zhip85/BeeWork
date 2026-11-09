@@ -81,7 +81,7 @@ def require_csrf(
             detail="安全校验失败，请刷新页面后重试",
         )
     origin = request.headers.get("origin")
-    if origin and origin.rstrip("/") != settings.app_origin.rstrip("/"):
+    if not settings.origin_allowed(origin):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="请求来源不合法")
 
 

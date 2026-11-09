@@ -1,5 +1,6 @@
 import unittest
 from datetime import UTC, datetime, timedelta
+from unittest import mock
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
@@ -10,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from beework.audit_maintenance import prune_expired_audit_events, verify_audit_chain
 from beework.auth import ACCESS_COOKIE
+from beework.config import settings
 from beework.db import get_db
 from beework.main import app
 from beework.model_secrets import decrypt_model_api_key
@@ -817,6 +819,7 @@ class TenantAuthTests(unittest.TestCase):
             200,
         )
 
+    @mock.patch.object(settings, "tenant_lifecycle_review", True)  # the two-person review is optional (PLT-052)
     def test_platform_admin_can_create_tenant(self) -> None:
         self.login(
             email="platform@example.com",
@@ -1460,6 +1463,75 @@ class TenantAuthTests(unittest.TestCase):
                     )
                 )
                 db.flush()
+
+    def test_lifecycle_changes_apply_directly_without_review_by_default(self) -> None:
+        self.assertFalse(settings.tenant_lifecycle_review)
+        self.login(email="platform@example.com", password="platform admin safe password")
+        url = f"/api/v1/platform/tenants/{self.other_tenant_id}/lifecycle"
+        listed = {t["slug"]: t for t in self.client.get("/api/v1/platform/tenants").json()}
+        self.assertEqual({a["requires_review"] for a in listed["other"]["available_actions"]}, {False})
+        suspended = self.client.post(url, json={"action": "suspend", "reason": "合同到期"}, headers=self.csrf_headers())
+        self.assertEqual(suspended.status_code, 200, suspended.text)
+        self.assertEqual((suspended.json()["tenant"]["status"], suspended.json()["operation"]), ("suspended", None))
+        deleting = self.client.post(url, json={"action": "schedule_deletion"}, headers=self.csrf_headers())
+        self.assertEqual((deleting.status_code, deleting.json()["tenant"]["status"]), (200, "pending_deletion"))
+        self.assertEqual(self.client.get("/api/v1/platform/operations", params={"status": "pending"}).json(), [])
+
+    def test_platform_admin_edits_name_plan_and_seats(self) -> None:
+        self.login(email="platform@example.com", password="platform admin safe password")
+        url = f"/api/v1/platform/tenants/{self.tenant_id}"
+        edited = self.client.patch(
+            url, json={"name": "Acme Renamed", "plan": "professional", "seat_limit": 25}, headers=self.csrf_headers()
+        )
+        self.assertEqual(edited.status_code, 200, edited.text)
+        body = edited.json()
+        self.assertEqual((body["name"], body["plan"], body["seat_limit"], body["slug"], body["region"]), ("Acme Renamed", "professional", 25, "acme", "ap_singapore"))
+        subscription = self.client.get(f"/api/v1/platform/tenants/{self.tenant_id}/subscription").json()
+        self.assertEqual((subscription["plan_code"], subscription["quotas"]["seats"]), ("professional", 25))
+        with self.session_factory() as db:
+            audit = db.scalar(select(AuditEvent).where(AuditEvent.action == "tenant.updated", AuditEvent.tenant_id.is_(None)))
+            self.assertIn("Acme Renamed", audit.details["name"])
+            self.assertEqual(audit.details["seat_limit"], "10 → 25")
+        # Only the name: nothing else is touched and no new subscription is written.
+        renamed = self.client.patch(url, json={"name": "Acme Again"}, headers=self.csrf_headers())
+        self.assertEqual((renamed.json()["plan"], renamed.json()["seat_limit"]), ("professional", 25))
+
+    def test_tenant_edit_validation_permissions_and_isolation(self) -> None:
+        url = f"/api/v1/platform/tenants/{self.tenant_id}"
+        self.login()  # a tenant admin is not a platform admin
+        self.assertEqual(self.client.patch(url, json={"name": "Hacked"}, headers=self.csrf_headers()).status_code, 403)
+        self.client.post("/api/v1/auth/logout", headers=self.csrf_headers())
+        self.login(email="platform@example.com", password="platform admin safe password")
+        self.assertEqual(self.client.patch(url, json={"name": "x"}).status_code, 403)  # no CSRF token
+        for body in ({"name": "a"}, {"seat_limit": 0}, {"plan": "gold"}):
+            self.assertEqual(self.client.patch(url, json=body, headers=self.csrf_headers()).status_code, 422, body)
+        too_low = self.client.patch(url, json={"seat_limit": 1}, headers=self.csrf_headers())  # two members already
+        self.assertEqual(too_low.status_code, 422, too_low.text)
+        self.assertIn("席位", too_low.json()["detail"])
+        missing = self.client.patch(f"/api/v1/platform/tenants/{uuid4()}", json={"name": "Nobody"}, headers=self.csrf_headers())
+        self.assertEqual(missing.status_code, 404)
+        with self.session_factory.begin() as db:
+            db.execute(update(Tenant).where(Tenant.id == UUID(self.other_tenant_id)).values(status="deleted"))
+        gone = self.client.patch(f"/api/v1/platform/tenants/{self.other_tenant_id}", json={"name": "Revive"}, headers=self.csrf_headers())
+        self.assertEqual(gone.status_code, 409)
+
+    def test_loopback_origins_are_interchangeable_in_development_only(self) -> None:
+        self.assertTrue(settings.origin_allowed(None))
+        self.assertTrue(settings.origin_allowed("http://localhost:5173"))
+        self.assertTrue(settings.origin_allowed("http://127.0.0.1:5173/"))
+        self.assertFalse(settings.origin_allowed("http://127.0.0.1:9999"))
+        self.assertFalse(settings.origin_allowed("http://evil.example.com:5173"))
+        with mock.patch.object(settings, "environment", "production"):
+            self.assertFalse(settings.origin_allowed("http://127.0.0.1:5173"))
+            self.assertTrue(settings.origin_allowed("http://localhost:5173"))
+
+    def test_logout_works_from_either_loopback_origin(self) -> None:
+        self.login()
+        out = self.client.post("/api/v1/auth/logout", headers={**self.csrf_headers(), "Origin": "http://127.0.0.1:5173"})
+        self.assertEqual(out.status_code, 204, out.text)
+        self.login()
+        bad = self.client.post("/api/v1/auth/logout", headers={**self.csrf_headers(), "Origin": "http://evil.example.com"})
+        self.assertEqual(bad.status_code, 403)
 
     def csrf_headers(self) -> dict[str, str]:
         csrf_token = self.client.cookies.get("beework_csrf")

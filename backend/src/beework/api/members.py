@@ -283,7 +283,7 @@ def accept_member_invitation(
     db: Session = Depends(get_db),
 ) -> CurrentUserResponse:
     origin = request.headers.get("origin")
-    if origin and origin.rstrip("/") != settings.app_origin.rstrip("/"):
+    if not settings.origin_allowed(origin):
         raise HTTPException(status_code=403, detail="请求来源不合法")
     token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
     invitation = db.scalar(
