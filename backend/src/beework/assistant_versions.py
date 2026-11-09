@@ -168,7 +168,7 @@ def execute_publish(
         AuditEvent(
             tenant_id=assistant.tenant_id,
             actor_user_id=actor_user_id,
-            action="assistant.published" if kind == "publish" else "assistant.rolled_back",
+            action={"publish": "assistant.published", "oc_change": "assistant.oc_published"}.get(kind, "assistant.rolled_back"),
             details={
                 "assistant_id": str(assistant.id),
                 "name": assistant.name,

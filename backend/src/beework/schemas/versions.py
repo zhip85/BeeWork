@@ -26,7 +26,7 @@ class VersionSummary(BaseModel):
     id: UUID
     version: str
     version_seq: int
-    kind: Literal["publish", "rollback"]
+    kind: Literal["publish", "rollback", "oc_change"]
     source_version_id: UUID | None
     change_note: str
     published_by: str | None

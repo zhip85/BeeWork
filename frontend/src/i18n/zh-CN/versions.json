@@ -44,7 +44,8 @@
     "by": "{{name}} · {{time}}",
     "kindRollback": "回滚",
     "noNote": "（无发布说明）",
-    "draftVersion": "草稿将成为 v{{version}}"
+    "draftVersion": "草稿将成为 v{{version}}",
+    "kindOcChange": "OC 变更"
   },
   "actions": {
     "view": "查看",

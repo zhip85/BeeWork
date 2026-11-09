@@ -10,6 +10,9 @@ from beework import (
     approvals as _approvals,  # noqa: F401  (registers approvals.apply / approvals.sweep)
 )
 from beework import (
+    assistant_oc as _assistant_oc,  # noqa: F401  (registers the assistant.oc_change approval action)
+)
+from beework import (
     assistant_publish as _assistant_publish,  # noqa: F401  (registers the assistant.publish approval action)
 )
 from beework import (

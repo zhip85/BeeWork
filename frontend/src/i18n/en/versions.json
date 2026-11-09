@@ -44,7 +44,8 @@
     "by": "{{name}} · {{time}}",
     "kindRollback": "Rollback",
     "noNote": "(no release note)",
-    "draftVersion": "The draft will become v{{version}}"
+    "draftVersion": "The draft will become v{{version}}",
+    "kindOcChange": "OC change"
   },
   "actions": {
     "view": "View",

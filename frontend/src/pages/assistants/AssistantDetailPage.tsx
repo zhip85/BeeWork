@@ -11,6 +11,7 @@ import { ChannelsPage } from '../channels/ChannelsPage'
 import { OpenApiCard } from '../channels/OpenApiCard'
 import { PublishDialog } from './PublishDialog'
 import { TestCasesTab } from './TestCasesTab'
+import { OrchestrationTab } from '../orchestration/OrchestrationTab'
 import { TestConsole } from './TestConsole'
 import type { Assistant, AssistantModelOptions, AssistantSummary, OrganizationOption } from './types'
 
@@ -267,7 +268,8 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
           <OpenApiCard assistantId={assistant.id} />
         </div>
       )}
-      {(tab === 'orchestration' || tab === 'dependencies') && (
+      {tab === 'orchestration' && <OrchestrationTab assistantId={assistant.id} tenant={tenant} />}
+      {tab === 'dependencies' && (
         <div className="detail-card"><p className="assistants-empty-filtered">{t('soonTab', { name: t(`tabs.${tab}`) })}</p></div>
       )}
 

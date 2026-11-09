@@ -73,6 +73,8 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "faq.imported": "批量导入 FAQ",
     "assistant.published": "发布助理版本",
     "assistant.rolled_back": "回滚助理版本",
+    "assistant.oc_saved": "保存助理 OC 草稿",
+    "assistant.oc_published": "助理 OC 变更生效",
     "assistant.version_restored": "恢复助理版本到草稿",
     "assistant.run_started": "发起助理调试运行",
     "compliance.updated": "更新数据与隐私设置",

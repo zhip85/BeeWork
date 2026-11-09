@@ -50,3 +50,31 @@
 - OC 各阶段的默认值（`glossary/rewrite/routing/components` 默认关闭，PII 与记忆默认开启）是本任务定的，后续阶段任务落地时需确认。
 - 阶段 span 嵌在 `assistant.run` 下，`ChatOpenAI` 生成观测嵌在 `oc.execute` 下，依赖 LangGraph 在线程间传递 OpenTelemetry 上下文（当前版本如此）。
 - 十阶段与旧的 `input_guard/retrieve/generate/output` 步骤名不同，`step` 事件的 `name` 变化；还没有前端消费者。
+
+### T-054 剩余部分完成记录
+
+**改动文件**
+- 后端：新增 `assistant_oc.py`（OC 草稿/线上读取、`with_oc`、审批动作 `assistant.oc_change`、阶段摘要注册表）、`schemas/assistant_oc.py`、`api/assistant_oc.py`、`tests/test_assistant_oc.py`（17 项）；修改 `assistant_versions.py`（`oc_change` 版本的审计动作）、`schemas/versions.py`、`models/assistants.py`（注释）、`models/__init__.py`（审计文案）、`api/__init__.py`、`worker/runner.py`（注册审批动作）、`tests/test_versions.py`（修复一个会把真实 `kb` 挂载解析器弹出注册表的测试清理，只影响测试顺序）。
+- 前端：新增 `pages/orchestration/{OrchestrationPage,OrchestrationTab}.tsx`、`stagePanels.ts`、`types.ts`、`i18n/*/orchestration.json`；修改 `App.tsx`（路由 `/assistants/:id/oc[/:stage]`）、`AssistantDetailPage.tsx`（“编排”页签）、`VersionsPage.tsx`（`oc_change` 标记）、`App.css`。
+- 迁移：无（`assistant_versions.kind` 是字符串列，新增取值 `oc_change`）。
+
+**接口**：`GET /oc/assistants`（助理选择器）、`GET|PUT /assistants/{id}/oc`（读取 / 保存草稿，带 `row_version`）、`POST /assistants/{id}/oc/submit`（201 直接生效 / 202 待审批）。权限 `orchestration:view|edit|publish`，另受助理范围角色限制。
+
+**设计**
+- OC 提交审批走审批事件 `rule`（“助理规则变更”，默认安全员 1 级、开启），请求类型 `rule_change`，`object_type=assistant_oc`，这样 OC 的待审批不会让助理显示“审批中”，也不占用发布的待审批名额。
+- 新版本 = 申请**通过时**的当前线上快照，只替换 `config.oc` 与 `dsl.oc`（`with_oc`）；提示词、模型、挂载的草稿修改不会被带上，审批期间发生的其他发布也不会被覆盖。助理从未发布时提交返回 409 “请先发布助理”。
+- 各阶段摘要由 `assistant_oc.register_summary(stage, fn)` 注册，前端 `STAGE_PANELS` 注册各阶段编辑页；未注册的阶段显示“即将开放”。
+
+**验证**：ruff；全量后端 524 项通过（迁移升降级 + `alembic check` 无变化）；前端 `tsc -b`、lint（0 警告）、`i18n:check`、build 通过。验收标准逐条：
+- “OC 提交审批生成的新版本只改变 `oc`，提示词等仍为旧线上值”——`test_policy_off_applies_directly_and_only_oc_changes`、`test_the_approval_applies_only_the_oc_and_keeps_a_later_publish`。
+- “管线阶段顺序固定；某阶段抛错时 run 失败并在事件中带阶段名”、“未实现阶段直通”——T-054a 已有测试（`test_runtime.py`），本次未改动运行时。
+- “Langfuse 中能看到按阶段划分的 span”——T-054a 在真实栈上已验证（12 个 observation），本次未改动运行时，未重跑。
+- 另覆盖：保存只写草稿并审计、校验与陈旧版本 409、审批通过/驳回/替换待审批、停用助理、助理选择器范围、查看者 403、跨租户 404、未登录 401。
+**是否连过真实第三方引擎**：本任务不涉及。**没有在浏览器里目视检查 OC 页面、选择器与“编排”页签。**
+
+**遗留问题**
+- 六个阶段的编辑页与摘要都还没有（T-055–T-059 提供），所以“保存草稿 / 提交审批”按钮目前只能保存默认值，页面上无法真正改动 OC；后端流程已用 API 测试验证。
+- 详情“编排”页签下方的两张摘要卡（护栏条数、记忆文件数）需要 PII / 记忆阶段的数据，等 T-055 / T-056 再补，现在只显示六步条和草稿与线上是否一致。
+- 页面左栏阶段分组沿用 PRD 的 4 组 6 阶段；“下期置灰”标记没有做（当前所有阶段都可点，进入后显示“即将开放”）。
+- OC 审批通过后的通知复用 `assistant.published` 类型，文案为“OC 变更已生效”。
+- 侧栏的“工作流”入口（`/workflows`，权限 `orchestration:view`）仍是占位页，与本任务无关。

@@ -1,0 +1,83 @@
+{
+  "title": "编排控制 OC",
+  "subtitle": "配置受治理的请求管线与唯一出口网关。",
+  "back": "返回助理详情",
+  "navLabel": "OC 阶段",
+  "assistant": "助理",
+  "notPublished": "未发布",
+  "status": {
+    "draft": "草稿",
+    "published": "已发布",
+    "disabled": "已停用"
+  },
+  "overview": "编排总览",
+  "configure": "配置",
+  "soon": "即将开放",
+  "soonStage": "“{{name}}”即将开放。",
+  "loading": "加载中…",
+  "loadFailed": "无法加载 OC 配置",
+  "actionFailed": "操作失败",
+  "stale": "配置已被他人修改，请刷新后重试",
+  "groups": {
+    "input": "输入处理",
+    "context": "理解与上下文",
+    "execute": "执行",
+    "output": "输出"
+  },
+  "stages": {
+    "pii": {
+      "name": "PII 规则",
+      "subtitle": "平台 · 租户 · 助手"
+    },
+    "memory": {
+      "name": "记忆",
+      "subtitle": "短期 · 长期"
+    },
+    "glossary": {
+      "name": "术语表",
+      "subtitle": "平台 · 租户 · 助手"
+    },
+    "rewrite": {
+      "name": "问题改写",
+      "subtitle": "改写策略"
+    },
+    "routing": {
+      "name": "路由",
+      "subtitle": "分发到已挂载智能体 / 流程"
+    },
+    "components": {
+      "name": "组件编排",
+      "subtitle": "按渠道注入 · 校验 · 降级"
+    }
+  },
+  "save": "保存草稿",
+  "saving": "保存中…",
+  "saved": "草稿已保存",
+  "saveFirst": "请先保存草稿",
+  "unsaved": "有未保存的修改。",
+  "submit": "提交审批",
+  "submitting": "提交中…",
+  "cancel": "取消",
+  "pending": "有一个 OC 变更正在审批中。",
+  "viewApproval": "查看审批",
+  "leaveTitle": "放弃未保存的修改？",
+  "leaveBody": "当前有未保存的 OC 修改，离开后将丢失。",
+  "leave": "放弃并离开",
+  "stay": "继续编辑",
+  "submitTitle": "OC 变更 · {{name}}",
+  "publishFirst": "请先发布助理，再提交 OC 变更。",
+  "noChanges": "OC 草稿与线上版本没有差异。",
+  "approvalRequired": "需要审批：通过后作为助理新版本生效，只包含 OC 的修改，驳回则草稿保留。",
+  "approvalOff": "未配置审批流：提交后立即生效，只包含 OC 的修改。",
+  "note": "变更说明（可选）",
+  "submitted": "已提交审批",
+  "applied": "OC 变更已生效",
+  "replaceTitle": "撤回待审批的申请？",
+  "replaceBody": "已有待审批的 OC 变更。撤回它并提交当前草稿吗？",
+  "pipelineTitle": "请求处理管线",
+  "pipelineSubtitle": "所有消息都经过这条受治理的路径。",
+  "configureOc": "配置 OC",
+  "denied": "你没有查看编排的权限。",
+  "draftDiffers": "OC 草稿与线上版本不同，尚未提交。",
+  "inSync": "OC 草稿与线上版本一致。"
+}

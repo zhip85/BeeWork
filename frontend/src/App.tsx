@@ -34,6 +34,7 @@ import { NotificationBell } from './components/NotificationBell'
 import { NotificationsPage } from './pages/notifications/NotificationsPage'
 import { AssistantDetailPage } from './pages/assistants/AssistantDetailPage'
 import { VersionsPage } from './pages/assistants/VersionsPage'
+import { OrchestrationPage } from './pages/orchestration/OrchestrationPage'
 import { ConversationsPage } from './pages/assistants/ConversationsPage'
 import { AuditLogPage } from './pages/audit/AuditLogPage'
 import { InviteAcceptancePage } from './pages/auth/InviteAcceptancePage'
@@ -395,6 +396,8 @@ function App() {
             <Route path="/settings/approvals" element={hasPermission('settings:view') && activeTenant ? <ApprovalPoliciesPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={isTenantAdmin && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/privacy" element={hasPermission('settings:view') && activeTenant ? <DataPrivacyPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants/:assistantId" element={hasPermission('assistants:view') && activeTenant ? <AssistantDetailPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/assistants/:assistantId/oc" element={hasPermission('orchestration:view') && activeTenant ? <OrchestrationPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/assistants/:assistantId/oc/:stage" element={hasPermission('orchestration:view') && activeTenant ? <OrchestrationPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants/:assistantId/versions" element={hasPermission('assistants:view') && activeTenant ? <VersionsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants/:assistantId/conversations" element={hasPermission('conversations:view') && activeTenant ? <ConversationsPage key={activeTenant.id} tenantId={activeTenant.id} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings" element={canViewSettings && activeTenant ? <TenantModelSettingsPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={canEditSettings} defaultEnvironment={environment} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
