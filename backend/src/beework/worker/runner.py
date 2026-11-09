@@ -42,6 +42,9 @@ from beework import (
 )
 from beework import usage as _usage  # noqa: F401  (registers usage.sync and usage.month_rollover)
 from beework.db import SessionLocal
+from beework.governance import (
+    tenant as _tenant_pii,  # noqa: F401  (registers the tenant.pii_rules approval action)
+)
 from beework.runtime import jobs as _runtime_jobs  # noqa: F401  (registers runtime.execute)
 from beework.worker.queue import claim_jobs, execute_job, reclaim_expired_jobs
 from beework.worker.scheduler import enqueue_scheduled_jobs

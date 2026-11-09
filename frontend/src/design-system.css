@@ -398,3 +398,14 @@ table { border-collapse: collapse; }
 .industry-edit { display: flex; gap: 6px; }
 .industry-edit input { min-width: 0; width: 140px; }
 .industry-add { display: grid; grid-template-columns: 1fr 1fr 1.2fr auto; gap: 8px; }
+
+/* Tenant rule library */
+.governance-chain { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.governance-chain li { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #fff; }
+.governance-chain li:first-child { background: #f6f8f6; }
+.governance-chain small { color: var(--muted); font-size: var(--fs-xs); }
+.governance-inherit { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); background: #fff; }
+.governance-inherit > span { display: flex; flex-direction: column; gap: 2px; }
+.governance-inherit small { color: var(--muted); font-size: var(--fs-xs); font-weight: var(--fw-regular); }
+.governance-table-title { margin: 12px 0 2px; }
+@media (max-width: 800px) { .governance-chain { grid-template-columns: 1fr; } }

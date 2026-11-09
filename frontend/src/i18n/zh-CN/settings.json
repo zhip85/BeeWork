@@ -4,7 +4,8 @@
     "privacy": "数据与隐私",
     "approvals": "审批策略",
     "usage": "订阅与用量",
-    "api": "API 密钥"
+    "api": "API 密钥",
+    "rules": "规则库"
   },
   "privacy": {
     "title": "数据与隐私",

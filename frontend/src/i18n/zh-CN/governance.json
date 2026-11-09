@@ -33,7 +33,8 @@
     "category": "分类",
     "level": "执行级别",
     "scope": "下发范围",
-    "status": "状态"
+    "status": "状态",
+    "layer": "层级"
   },
   "field": {
     "name": "规则名称",
@@ -134,5 +135,52 @@
   },
   "rulesetHint": "PII 类基线只引用“平台 PII 规则”页的规则，不重复存储匹配内容。",
   "retentionDays": "保留 {{days}} 天",
-  "retentionHint": "强制规则限制租户可选的会话保留期上限；推荐规则作为默认值。"
+  "retentionHint": "强制规则限制租户可选的会话保留期上限；推荐规则作为默认值。",
+  "restore": "恢复为继承规则",
+  "viewApproval": "查看审批",
+  "detectionOffNote": "PII 检测已关闭",
+  "layer": {
+    "platform_inherited": "平台继承",
+    "tenant": "租户级",
+    "tenant_modified": "租户级 · 已修改",
+    "assistant": "助手级",
+    "assistant_modified": "助手级 · 已修改"
+  },
+  "inheritedNotice": {
+    "platform": "",
+    "tenant": "该规则继承自平台，保存后成为租户级规则，平台规则不会改变。",
+    "assistant": "该规则继承自上级，保存后成为助手级规则，上级规则不会改变。"
+  },
+  "tenant": {
+    "kicker": "设置 · 规则库",
+    "title": "租户 PII 规则",
+    "subtitle": "在平台安全基线之上维护本租户的 PII 规则；对本租户所有引用全局规则的助理生效。",
+    "new": "新增租户规则",
+    "editTitle": "编辑规则",
+    "chainLabel": "继承链",
+    "chainPlatform": "平台安全基线 · 只读",
+    "chainPlatformCounts": "{{total}} 条 PII 规则 · {{enforced}} 条强制",
+    "chainTenant": "{{name}} 租户规则库",
+    "chainTenantCounts": "{{inherited}} 条继承 · {{own}} 条租户级 · 共 {{total}} 条 · {{effective}} 条生效",
+    "inherit": "继承平台 PII 规则",
+    "inheritHint": "平台强制规则始终生效；每条规则都可编辑，编辑后成为租户级规则。关闭时只保留平台强制规则。",
+    "scope": {
+      "all": "全部生效规则",
+      "tenant": "仅租户级"
+    },
+    "table": "租户规则",
+    "priority": "优先级：助手 > 租户 > 平台；带锁规则为平台强制，不可停用。",
+    "empty": "没有符合条件的规则。",
+    "submittedForApproval": "已提交审批，通过后生效。",
+    "approvalHint": "当前租户开启了“规则变更”审批：变更会先进入审批，通过后才生效。",
+    "toast": {
+      "savedAsTenant": "已保存为租户规则，平台规则未改变",
+      "toggled": "已生成租户级规则",
+      "created": "规则已保存",
+      "updated": "规则已保存",
+      "restored": "已恢复为继承规则",
+      "deleted": "已删除规则",
+      "settings": "设置已保存"
+    }
+  }
 }

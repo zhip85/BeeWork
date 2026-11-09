@@ -29,6 +29,7 @@ from beework.api import (
     runs,
     subscription,
     tenant_models,
+    tenant_pii_rules,
     test_cases,
     usage,
 )
@@ -52,6 +53,7 @@ for module in (
     platform_governance,
     platform_models,
     tenant_models,
+    tenant_pii_rules,
     members,
     notifications,
     roles,
