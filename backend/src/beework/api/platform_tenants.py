@@ -10,7 +10,7 @@ from beework.auth import (
     require_csrf,
 )
 from beework.db import get_db
-from beework.entitlements import create_subscription
+from beework.entitlements import change_subscription, create_subscription, seat_usage
 from beework.models import (
     AuditEvent,
     Membership,
@@ -28,6 +28,7 @@ from beework.schemas import (
     TenantLifecycleActionOption,
     TenantLifecycleRequest,
     TenantLifecycleResponse,
+    UpdateTenantRequest,
 )
 from beework.security import (
     hash_password,
@@ -40,6 +41,7 @@ from beework.tenant_lifecycle import (
     as_utc,
     lifecycle_action,
     record_lifecycle_audit,
+    review_required,
 )
 
 router = APIRouter()
@@ -130,6 +132,45 @@ def create_tenant(
     return _tenant_response(db, tenant)
 
 
+@router.patch("/platform/tenants/{tenant_id}", response_model=PlatformTenantResponse)
+def update_tenant(
+    tenant_id: UUID,
+    payload: UpdateTenantRequest,
+    user: User = Depends(require_platform_admin),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> PlatformTenantResponse:
+    """Edit name, plan and seat limit directly (no review). A plan or seat change writes a new subscription snapshot."""
+    tenant = db.scalar(select(Tenant).where(Tenant.id == tenant_id).with_for_update(key_share=True))
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="未找到企业工作区")
+    if tenant.status == "deleted":
+        raise HTTPException(status_code=409, detail="已删除的企业不能编辑")
+    changes: dict[str, str] = {}
+    if payload.name is not None and payload.name != tenant.name:
+        changes["name"] = f"{tenant.name} → {payload.name}"
+        tenant.name = payload.name
+    new_plan = payload.plan if payload.plan is not None else tenant.plan
+    new_seats = payload.seat_limit if payload.seat_limit is not None else tenant.seat_limit
+    if new_plan != tenant.plan or new_seats != tenant.seat_limit:
+        used = seat_usage(db, tenant.id)
+        if new_seats < used:
+            raise HTTPException(status_code=422, detail=f"席位上限不能低于已使用的席位（{used}）")
+        if new_plan != tenant.plan:
+            changes["plan"] = f"{tenant.plan} → {new_plan}"
+        if payload.seat_limit is not None and new_seats != tenant.seat_limit:
+            changes["seat_limit"] = f"{tenant.seat_limit} → {new_seats}"
+        # Without an explicit seat limit a plan change takes the new plan's own seat quota.
+        change_subscription(db, tenant, new_plan, seats=payload.seat_limit)
+        if new_seats != tenant.seat_limit and payload.seat_limit is None:
+            changes["seat_limit"] = f"{new_seats} → {tenant.seat_limit}"
+    if changes:
+        record_lifecycle_audit(db, actor_id=user.id, tenant=tenant, action="tenant.updated", details=changes)
+    db.commit()
+    db.refresh(tenant)
+    return _tenant_response(db, tenant)
+
+
 @router.get("/platform/tenants", response_model=list[PlatformTenantResponse])
 def list_platform_tenants(
     user: User = Depends(require_platform_admin),
@@ -205,7 +246,7 @@ def _tenant_response(db: Session, tenant: Tenant) -> PlatformTenantResponse:
                 action=key,
                 label=action.label,
                 to_status=action.to_status,
-                requires_review=action.requires_review,
+                requires_review=review_required(action),
             )
             for key, action in LIFECYCLE_ACTIONS.get(tenant.status, {}).items()
         ],
@@ -272,7 +313,7 @@ def run_tenant_lifecycle_action(
         "to": action.to_status,
         "reason": payload.reason,
     }
-    if not action.requires_review:
+    if not review_required(action):
         record_lifecycle_audit(
             db, actor_id=user.id, tenant=tenant, action="tenant.status_changed", details=details
         )

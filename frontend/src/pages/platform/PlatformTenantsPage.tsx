@@ -28,6 +28,12 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
   const [lifecycleReason, setLifecycleReason] = useState('')
   const [lifecycleSubmitting, setLifecycleSubmitting] = useState(false)
   const [reviewingOperation, setReviewingOperation] = useState('')
+  const [editing, setEditing] = useState<PlatformTenant | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editPlan, setEditPlan] = useState('standard')
+  const [editSeats, setEditSeats] = useState(10)
+  const [editSubmitting, setEditSubmitting] = useState(false)
+  const [editError, setEditError] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
@@ -99,6 +105,39 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
     ])
     setTenants(tenantResult)
     setOperations(operationResult)
+  }
+
+  function openEdit(tenant: PlatformTenant) {
+    setEditing(tenant)
+    setEditName(tenant.name)
+    setEditPlan(tenant.plan)
+    setEditSeats(tenant.seat_limit)
+    setEditError('')
+  }
+
+  async function submitEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!editing) return
+    setEditSubmitting(true)
+    setEditError('')
+    try {
+      const body: Record<string, unknown> = {}
+      if (editName.trim() !== editing.name) body.name = editName.trim()
+      if (editPlan !== editing.plan) body.plan = editPlan
+      if (editSeats !== editing.seat_limit) body.seat_limit = editSeats
+      if (Object.keys(body).length === 0) {
+        setEditing(null)
+        return
+      }
+      const updated = await apiRequest<PlatformTenant>(`/api/v1/platform/tenants/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
+      setTenants((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      setNotice(`已更新 ${updated.name}。`)
+      setEditing(null)
+    } catch (requestError) {
+      setEditError(requestError instanceof Error ? requestError.message : '保存失败')
+    } finally {
+      setEditSubmitting(false)
+    }
   }
 
   function openLifecycle(tenant: PlatformTenant) {
@@ -229,13 +268,31 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
                   <td>{tenant.seat_limit}</td>
                   <td>{tenant.member_count}</td>
                   <td><span className={`member-status ${['trial', 'active', 'grace'].includes(tenant.status) ? 'active' : 'inactive'}`}><i />{enumLabel('tenantStatus', tenant.status)}</span>{tenant.status === 'trial' && tenant.trial_ends_at && <small className="platform-tenant-slug">试用至 {new Date(tenant.trial_ends_at).toLocaleDateString()}</small>}{tenant.status_note && <small className="tenant-status-note">{tenant.status_note}</small>}</td>
-                  <td>{tenant.available_actions.length ? <button className="tenant-status-action" onClick={() => openLifecycle(tenant)} type="button">生命周期操作</button> : <span className="role-text">—</span>}</td>
+                  <td className="member-actions-cell">
+                    {tenant.status !== 'deleted' && <button className="tenant-status-action" onClick={() => openEdit(tenant)} type="button">编辑</button>}{' '}
+                    {tenant.available_actions.length ? <button className="tenant-status-action" onClick={() => openLifecycle(tenant)} type="button">生命周期操作</button> : tenant.status === 'deleted' ? <span className="role-text">—</span> : null}
+                  </td>
                 </tr>
               ))}</tbody>
             </table>
           </div>
         )}
       </div>
+      {editing && (
+        <div className="modal-backdrop" role="presentation" onClick={() => !editSubmitting && setEditing(null)}>
+          <form className="create-modal lifecycle-modal" role="dialog" aria-modal="true" aria-labelledby="tenant-edit-title" onClick={(event) => event.stopPropagation()} onSubmit={submitEdit}>
+            <button className="modal-close" type="button" aria-label="关闭" onClick={() => setEditing(null)}><X size={18} /></button>
+            <div className="section-kicker">编辑企业</div>
+            <h2 id="tenant-edit-title">{editing.name}</h2>
+            <label>企业名称<input maxLength={160} minLength={2} onChange={(event) => setEditName(event.target.value)} required value={editName} /></label>
+            <label>套餐<select onChange={(event) => setEditPlan(event.target.value)} value={editPlan}><option value="standard">标准版</option><option value="professional">专业版</option><option value="enterprise">企业版</option></select><small>保存后立即按新套餐的权益生效。</small></label>
+            <label>席位上限<input max={100000} min={1} onChange={(event) => setEditSeats(Number(event.target.value))} required type="number" value={editSeats} /><small>当前成员与待接受邀请共 {editing.member_count} 个；不能低于已使用的席位。</small></label>
+            <p className="organization-description">工作区标识 {editing.slug} 与数据区域 {enumLabel('region', editing.region)} 创建后不可修改。</p>
+            {editError && <p className="members-error" role="alert">{editError}</p>}
+            <button className="primary-button" disabled={editSubmitting} type="submit">{editSubmitting ? '保存中…' : '保存'}</button>
+          </form>
+        </div>
+      )}
       {lifecycleTenant && (
         <div className="modal-backdrop" role="presentation" onClick={() => !lifecycleSubmitting && setLifecycleTenant(null)}>
           <form className="create-modal lifecycle-modal" role="dialog" aria-modal="true" aria-labelledby="lifecycle-title" onClick={(event) => event.stopPropagation()} onSubmit={submitLifecycle}>
