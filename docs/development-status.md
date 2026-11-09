@@ -166,7 +166,7 @@
 - 验证：真实栈 e2e 在 Langfuse 读到 12 个 observation（`assistant.run`、10 个 `oc.*`、`ChatOpenAI`），管线自身耗时约 4–40 ms（mock 模型；模型本身约 400 ms+）。
 - 已知限制：见任务文件“遗留问题”。
 
-### OC 配置框架（T-054，待验收；运行管线骨架见 T-054a）
+### OC 配置框架（T-054，已验收（有条件）；运行管线骨架见 T-054a）
 
 - 页面：`/assistants/:id/oc[/:stage]`——页头、返回、保存草稿、提交审批、助理选择器（切换/离开前对未保存修改确认）、编排总览 + 4 组 6 个阶段导航（URL 直达，默认 PII 规则）、权限只读；助理详情“编排”页签显示六步条并跳转对应阶段。各阶段编辑页由 T-055–T-059 通过 `STAGE_PANELS` / `register_summary` 接入，当前显示“即将开放”。
 - 接口：`GET|PUT /assistants/{id}/oc`、`POST /assistants/{id}/oc/submit`、`GET /oc/assistants`。保存只写 `draft_config.oc`；提交走审批事件 `rule`（助理规则变更），生效的新版本是“当前线上快照 + 只替换 OC”，不带上提示词/模型等未审批草稿，也不覆盖审批期间的其他发布；版本类型 `oc_change`。
