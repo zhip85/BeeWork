@@ -92,7 +92,7 @@
 | [T-056](./T-056-oc-memory.md) | OC · 记忆 | T-054、T-026 | — | 待开发 | | T-056a 先行（闭环切片） |
 | [T-057](./T-057-oc-glossary-rewrite.md) | OC · 助手术语表与问题改写 | T-053、T-054 | — | 已完成（有条件） | Claude Sonnet 5.5 | |
 | [T-058](./T-058-oc-routing.md) | OC · 路由 | T-057、T-061、T-070 | — | 待开发 | | |
-| [T-060](./T-060-agent-domain.md) | 智能体领域模型、列表、创建页与编辑器框架 | T-001、T-010、T-025 | — | 待开发 | | |
+| [T-060](./T-060-agent-domain.md) | 智能体领域模型、列表、创建页与编辑器框架 | T-001、T-010、T-025 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-060-agent-domain`；编辑器主体为占位（T-061–T-064） |
 | [T-061](./T-061-agent-editor-runtime.md) | Agent 编辑器与 Agent 运行时 | T-060、T-033、T-071 | 供应商 Key | 待开发 | | |
 | [T-062](./T-062-flow-canvas-compiler.md) | Chatflow / Workflow 画布与编译器 | T-060、T-061 | — | 待开发 | | |
 | [T-063](./T-063-chatflow-runtime.md) | Chatflow 会话设置、中断追问与调试预览 | T-062、T-026 | — | 待开发 | | |

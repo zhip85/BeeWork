@@ -1,0 +1,122 @@
+{
+  "loading": "加载中…",
+  "loadFailed": "加载失败",
+  "actionFailed": "操作失败，请稍后重试",
+  "notFound": "未找到指定智能体",
+  "kind": {
+    "agent": "智能体",
+    "chatflow": "Chatflow",
+    "workflow": "工作流"
+  },
+  "kindHint": {
+    "agent": "指令驱动 · 自主决策与工具调用",
+    "chatflow": "多轮对话编排 · 可中断追问",
+    "workflow": "单次任务编排 · 结构化输入输出"
+  },
+  "pageTitle": {
+    "agent": "智能体",
+    "chatflow": "Chatflow",
+    "workflow": "工作流"
+  },
+  "pageSubtitle": {
+    "agent": "构建可自主决策并调用工具的专家智能体。",
+    "chatflow": "编排可保留上下文、支持中断追问的多轮对话。",
+    "workflow": "编排具有结构化输入与输出的单次任务。"
+  },
+  "create": "创建 {{kind}}",
+  "search": "搜索{{kind}}名称…",
+  "team": "多智能体协作",
+  "status": {
+    "draft": "草稿",
+    "available": "可用",
+    "disabled": "已停用"
+  },
+  "defaultDescription": {
+    "agent": "配置指令、知识与工具，完成专属任务。",
+    "flow": "通过节点编排任务处理过程。"
+  },
+  "noModel": "未指定模型",
+  "nodeOrchestration": "节点编排",
+  "configure": "配置",
+  "deleteAria": "删除 {{name}}",
+  "deleteTitle": "删除此{{kind}}？",
+  "deleteBody": "删除此{{kind}}？现有挂载与路由引用会标记为失效。",
+  "deleteBodyReferenced": "删除此{{kind}}？现有挂载与路由引用会标记为失效。当前有 {{count}} 处引用。",
+  "deleted": "已删除",
+  "empty": "暂无{{kind}}",
+  "emptyFiltered": "没有匹配的结果",
+  "corrupted": "该配置损坏，已保留原始数据，请恢复后再编辑。",
+  "corruptedShort": "配置损坏",
+  "backTo": "返回 {{kind}}",
+  "back": "返回",
+  "newDraft": "新建草稿",
+  "createTitle": "创建 {{kind}}",
+  "basicsTitle": "基础信息",
+  "basicsSubtitle": "设置此 {{kind}} 在工作区中的名称、描述与图标。",
+  "name": "名称",
+  "nameHint": "使用简洁、易于识别的名称。",
+  "namePlaceholder": {
+    "agent": "例如：客户服务智能体",
+    "chatflow": "例如：保单咨询 Chatflow",
+    "workflow": "例如：退款审批流程"
+  },
+  "description": "描述",
+  "descriptionPlaceholder": "描述它的用途、工作范围和适用场景。",
+  "descriptionHint": "描述将展示在工作区卡片中。",
+  "icon": "图标",
+  "iconHint": "选择一个便于快速识别的图标。",
+  "iconName": {
+    "brain": "智能",
+    "assistant": "助手",
+    "creative": "创意",
+    "chat": "对话",
+    "flow": "流程",
+    "team": "协作",
+    "global": "全局",
+    "governance": "治理"
+  },
+  "nextStep": "下一步：进入配置",
+  "nextHint": {
+    "agent": "配置指令、模型、知识与工具。",
+    "chatflow": "编排多轮对话流程与会话设置。",
+    "workflow": "编排任务流程并定义输入与输出。"
+  },
+  "cancel": "取消",
+  "creating": "创建中…",
+  "createAndConfigure": "创建并配置",
+  "createdNotice": "已创建草稿",
+  "unsaved": "未保存",
+  "saved": "已保存",
+  "draftChanges": "有尚未设为可用的草稿修改",
+  "checkConfig": "检查配置",
+  "saveDraft": "保存草稿",
+  "makeAvailable": "设为可用",
+  "more": "更多操作",
+  "enable": "启用",
+  "disable": "停用",
+  "draftSaved": "草稿已保存",
+  "madeAvailable": "已设为可用",
+  "disabledNotice": "已停用",
+  "enabledNotice": "已启用",
+  "checksPassed": "配置检查通过",
+  "checksPending": "配置待完善",
+  "close": "关闭",
+  "discardTitle": "放弃修改",
+  "discardBody": "放弃尚未保存的修改？",
+  "disableTitle": "停用此{{kind}}？",
+  "disableBody": "停用后，引用它的位置会显示失效。",
+  "disableBodyReferenced": "停用后，引用它的 {{count}} 处位置会显示失效。",
+  "editorTabs": "编辑器",
+  "tab": {
+    "instructions": "指令与资源",
+    "flow": "编排",
+    "session": "会话设置",
+    "preview": "调试预览",
+    "io": "输入输出",
+    "triggers": "触发方式",
+    "run": "试运行"
+  },
+  "bodyPending": "{{kind}}的编辑主体将在后续版本提供；当前可以管理名称、状态与可用配置。",
+  "guardrail": "仍受平台与助理护栏约束：智能体的输入输出始终经过引用它的助理的 OC 管线。",
+  "referencedBy": "当前有 {{count}} 处引用。"
+}

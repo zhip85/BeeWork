@@ -24,5 +24,6 @@
   "readonlyBanner": "企业工作区当前为「{{status}}」状态：仅可查看与导出，所有修改操作已暂停。如需恢复请联系平台。",
   "approvals": "审批中心",
   "pendingApprovals": "{{count}} 条待审批",
-  "channels": "渠道"
+  "channels": "渠道",
+  "agents": "智能体"
 }

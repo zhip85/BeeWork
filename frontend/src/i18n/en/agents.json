@@ -1,0 +1,122 @@
+{
+  "loading": "Loading…",
+  "loadFailed": "Failed to load",
+  "actionFailed": "The action failed. Please try again.",
+  "notFound": "Agent not found",
+  "kind": {
+    "agent": "Agent",
+    "chatflow": "Chatflow",
+    "workflow": "Workflow"
+  },
+  "kindHint": {
+    "agent": "Instruction-driven · autonomous decisions and tool calls",
+    "chatflow": "Multi-turn flows · can pause to ask",
+    "workflow": "Single task · structured input and output"
+  },
+  "pageTitle": {
+    "agent": "Agents",
+    "chatflow": "Chatflows",
+    "workflow": "Workflows"
+  },
+  "pageSubtitle": {
+    "agent": "Build expert agents that decide on their own and call tools.",
+    "chatflow": "Orchestrate multi-turn conversations that keep context and can ask follow-ups.",
+    "workflow": "Orchestrate single tasks with structured input and output."
+  },
+  "create": "Create {{kind}}",
+  "search": "Search {{kind}} names…",
+  "team": "Multi-agent team",
+  "status": {
+    "draft": "Draft",
+    "available": "Available",
+    "disabled": "Disabled"
+  },
+  "defaultDescription": {
+    "agent": "Configure instructions, knowledge and tools for a dedicated task.",
+    "flow": "Orchestrate how a task is processed with nodes."
+  },
+  "noModel": "No model",
+  "nodeOrchestration": "Node orchestration",
+  "configure": "Configure",
+  "deleteAria": "Delete {{name}}",
+  "deleteTitle": "Delete this {{kind}}?",
+  "deleteBody": "Delete this {{kind}}? Existing mounts and routing references will be marked invalid.",
+  "deleteBodyReferenced": "Delete this {{kind}}? Existing mounts and routing references will be marked invalid. It is referenced in {{count}} place(s).",
+  "deleted": "Deleted",
+  "empty": "No {{kind}} yet",
+  "emptyFiltered": "No matching results",
+  "corrupted": "This configuration is corrupted. The original data is kept; restore it before editing.",
+  "corruptedShort": "Configuration corrupted",
+  "backTo": "Back to {{kind}}",
+  "back": "Back",
+  "newDraft": "New draft",
+  "createTitle": "Create {{kind}}",
+  "basicsTitle": "Basics",
+  "basicsSubtitle": "Set the name, description and icon of this {{kind}} in the workspace.",
+  "name": "Name",
+  "nameHint": "Use a short, recognizable name.",
+  "namePlaceholder": {
+    "agent": "e.g. Customer service agent",
+    "chatflow": "e.g. Policy inquiry chatflow",
+    "workflow": "e.g. Refund approval workflow"
+  },
+  "description": "Description",
+  "descriptionPlaceholder": "Describe its purpose, scope and use cases.",
+  "descriptionHint": "The description is shown on workspace cards.",
+  "icon": "Icon",
+  "iconHint": "Pick an icon that is easy to recognize.",
+  "iconName": {
+    "brain": "Brain",
+    "assistant": "Assistant",
+    "creative": "Creative",
+    "chat": "Chat",
+    "flow": "Flow",
+    "team": "Team",
+    "global": "Global",
+    "governance": "Governance"
+  },
+  "nextStep": "Next: configure",
+  "nextHint": {
+    "agent": "Set up instructions, model, knowledge and tools.",
+    "chatflow": "Orchestrate the multi-turn flow and session settings.",
+    "workflow": "Orchestrate the task flow and define inputs and outputs."
+  },
+  "cancel": "Cancel",
+  "creating": "Creating…",
+  "createAndConfigure": "Create and configure",
+  "createdNotice": "Draft created",
+  "unsaved": "Unsaved",
+  "saved": "Saved",
+  "draftChanges": "Draft changes not yet made available",
+  "checkConfig": "Check configuration",
+  "saveDraft": "Save draft",
+  "makeAvailable": "Make available",
+  "more": "More actions",
+  "enable": "Enable",
+  "disable": "Disable",
+  "draftSaved": "Draft saved",
+  "madeAvailable": "Made available",
+  "disabledNotice": "Disabled",
+  "enabledNotice": "Enabled",
+  "checksPassed": "Configuration check passed",
+  "checksPending": "Configuration incomplete",
+  "close": "Close",
+  "discardTitle": "Discard changes",
+  "discardBody": "Discard unsaved changes?",
+  "disableTitle": "Disable this {{kind}}?",
+  "disableBody": "After disabling, places that reference it show as invalid.",
+  "disableBodyReferenced": "After disabling, the {{count}} place(s) that reference it show as invalid.",
+  "editorTabs": "Editor",
+  "tab": {
+    "instructions": "Instructions & resources",
+    "flow": "Orchestration",
+    "session": "Session settings",
+    "preview": "Debug preview",
+    "io": "Inputs & outputs",
+    "triggers": "Triggers",
+    "run": "Test run"
+  },
+  "bodyPending": "The editing body for {{kind}} arrives in a later release; for now you can manage the name, status and available configuration.",
+  "guardrail": "Still bound by platform and assistant guardrails: an agent's input and output always pass through the OC pipeline of the assistant that references it.",
+  "referencedBy": "Referenced in {{count}} place(s)."
+}
