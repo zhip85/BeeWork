@@ -12,6 +12,7 @@ from beework.auth import (
 from beework.db import get_db
 from beework.entitlements import change_subscription, create_subscription, seat_usage
 from beework.glossary import ensure_industry
+from beework.governance.tenant_glossary import preset_for_tenant
 from beework.models import (
     AuditEvent,
     AuthSession,
@@ -82,6 +83,7 @@ def create_tenant(
         tenant.status_changed_at = started
     db.add(tenant)
     db.flush()
+    preset_for_tenant(db, tenant)  # SET-061: a new tenant inherits the glossaries of its industry
     root_organization = Organization(tenant_id=tenant.id, name=tenant.name)
     db.add(root_organization)
     db.flush()

@@ -81,5 +81,54 @@
     "disable": "Disable",
     "enable": "Enable",
     "add": "Add industry"
+  },
+  "tenant": {
+    "kicker": "Settings · Glossary",
+    "title": "Tenant glossary",
+    "subtitle": "Maintain this tenant's terms on top of the industry glossaries; they apply to every assistant of the tenant.",
+    "new": "New tenant term",
+    "chainLabel": "Inheritance chain",
+    "none": "none inherited",
+    "chainIndustry": "Industry glossaries · {{names}}",
+    "chainIndustryCount": "{{count}} terms",
+    "chainTenant": "{{name}} glossary",
+    "chainTenantCounts": "{{inherited}} inherited · {{own}} tenant-level · {{total}} total",
+    "inheritTitle": "Inherit platform industry glossaries",
+    "inheritHint": "Click an industry tag to inherit it; several can be chosen. Terms follow the platform unless the tenant changed or removed them.",
+    "orderHint": "When a standard term is in several industry glossaries, the one earlier in this order wins.",
+    "moveEarlier": "Move earlier",
+    "moveLater": "Move later",
+    "termsTitle": "Tenant terms",
+    "termsHint": "Applies to every assistant of this tenant.",
+    "scope": {
+      "all": "All terms",
+      "tenant": "Tenant level only"
+    },
+    "empty": "No terms yet",
+    "hiddenCount": "{{count}} inherited terms deleted at this level",
+    "restoreAll": "Restore all",
+    "layer": {
+      "industry_inherited": "Inherited from platform",
+      "tenant": "Tenant",
+      "tenant_modified": "Tenant · modified"
+    },
+    "restore": "Restore inherited value",
+    "inheritedNotice": "This term is inherited from the platform. Saving makes it a tenant term; the platform glossary does not change.",
+    "hideBody": "“{{name}}” will be hidden from this tenant's glossary; the platform glossary is not affected. Use “Restore all” to bring it back.",
+    "pending": "Change awaiting approval",
+    "viewApproval": "View approval",
+    "submittedForApproval": "Submitted for approval; it takes effect once approved.",
+    "approvalHint": "Rule changes need approval in this tenant: they take effect only after approval.",
+    "toast": {
+      "savedAsTenant": "Saved as a tenant term; the platform glossary is unchanged",
+      "created": "Term saved",
+      "updated": "Term saved",
+      "restored": "Restored to the inherited value",
+      "hidden": "Deleted from the tenant glossary; the platform glossary is not affected",
+      "deleted": "Term deleted",
+      "restored_hidden": "Deleted inherited terms restored",
+      "settings": "Inheritance saved",
+      "imported": "Terms imported"
+    }
   }
 }

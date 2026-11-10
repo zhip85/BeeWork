@@ -81,5 +81,54 @@
     "disable": "停用",
     "enable": "启用",
     "add": "新增行业"
+  },
+  "tenant": {
+    "kicker": "设置 · 术语表",
+    "title": "租户术语表",
+    "subtitle": "在行业术语表之上维护本租户的术语；对本租户下所有助手生效。",
+    "new": "新增租户术语",
+    "chainLabel": "继承链",
+    "none": "未继承",
+    "chainIndustry": "行业术语表 · {{names}}",
+    "chainIndustryCount": "{{count}} 条术语",
+    "chainTenant": "{{name}}租户术语表",
+    "chainTenantCounts": "{{inherited}} 条继承 · {{own}} 条租户级 · 共 {{total}} 条",
+    "inheritTitle": "继承平台行业术语表",
+    "inheritHint": "点击行业标签切换继承，可多选；术语随平台更新，被租户修改或删除的除外。",
+    "orderHint": "同一标准术语出现在多个行业库时，取排在前面的行业库。",
+    "moveEarlier": "前移",
+    "moveLater": "后移",
+    "termsTitle": "租户术语",
+    "termsHint": "对本租户下所有助手生效。",
+    "scope": {
+      "all": "全部术语",
+      "tenant": "仅租户级"
+    },
+    "empty": "暂无术语",
+    "hiddenCount": "本层已删除 {{count}} 条继承术语",
+    "restoreAll": "全部恢复",
+    "layer": {
+      "industry_inherited": "平台继承",
+      "tenant": "租户级",
+      "tenant_modified": "租户级 · 已修改"
+    },
+    "restore": "恢复为继承值",
+    "inheritedNotice": "该术语继承自平台，保存后将成为租户级术语，平台术语表不会改变。",
+    "hideBody": "“{{name}}”将从本租户术语表隐藏，平台术语表不受影响；之后可以用“全部恢复”找回。",
+    "pending": "有待审批的变更",
+    "viewApproval": "查看审批",
+    "submittedForApproval": "已提交审批，通过后生效。",
+    "approvalHint": "当前租户开启了“规则变更”审批：变更会先进入审批，通过后才生效。",
+    "toast": {
+      "savedAsTenant": "已保存为租户级术语，平台术语表未改变",
+      "created": "术语已保存",
+      "updated": "术语已保存",
+      "restored": "已恢复为继承值",
+      "hidden": "已从租户术语表删除，平台术语表不受影响",
+      "deleted": "已删除术语",
+      "restored_hidden": "已恢复被删除的继承术语",
+      "settings": "继承设置已保存",
+      "imported": "术语已导入"
+    }
   }
 }

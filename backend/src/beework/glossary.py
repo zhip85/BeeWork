@@ -1,5 +1,6 @@
 """Industry dictionary and platform glossaries (T-051)."""
 
+from collections.abc import Callable
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -41,9 +42,17 @@ def industry_usage(db: Session, code: str) -> tuple[int, int]:
     return tenants, glossaries
 
 
+# Called with (db, id) when a platform term / glossary is deleted, so tenants' overrides, hidden markers and inherited
+# glossary selections can follow (PLT-125, PLT-133). The tenant glossary (T-053) registers here; the assistant layer later.
+PLATFORM_TERM_DELETE_HOOKS: list[Callable[[Session, UUID], None]] = []
+PLATFORM_GLOSSARY_DELETE_HOOKS: list[Callable[[Session, UUID], None]] = []
+
+
 def inheriting_tenant_count(db: Session, glossary: IndustryGlossary) -> int:
-    """Tenants that inherit the glossary: those of its industry (T-053 narrows this to the ones that opted in)."""
-    return db.scalar(select(func.count()).select_from(Tenant).where(Tenant.industry == glossary.industry_code)) or 0
+    """Tenants that inherit the glossary: those that selected it (SET-061)."""
+    from beework.models.tenant_glossary import TenantGlossarySettings
+
+    return sum(1 for row in db.scalars(select(TenantGlossarySettings)) if str(glossary.id) in (row.glossary_ids or []))
 
 
 def clean_name(value: str, label: str, limit: int = 80) -> str:

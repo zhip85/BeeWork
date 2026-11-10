@@ -193,6 +193,11 @@ def delete_glossary(
     if tenants and not confirm:
         raise ApiError(409, "glossary.in_use", f"{tenants} 个租户正在继承，删除后这些租户将失去继承的术语")
     service.audit(db, user.id, "glossary.deleted", name=glossary.name, tenants=str(tenants))
+    for term_id in db.scalars(select(PlatformTerm.id).where(PlatformTerm.glossary_id == glossary.id)):
+        for hook in service.PLATFORM_TERM_DELETE_HOOKS:
+            hook(db, term_id)
+    for hook in service.PLATFORM_GLOSSARY_DELETE_HOOKS:
+        hook(db, glossary.id)
     db.execute(delete(PlatformTerm).where(PlatformTerm.glossary_id == glossary.id))
     db.delete(glossary)
     db.commit()
@@ -301,6 +306,8 @@ def delete_term(
     glossary = _load_glossary(db, glossary_id)
     row = _load_term(db, glossary_id, term_id)
     service.audit(db, user.id, "glossary_term.deleted", name=row.term, glossary=glossary.name)
+    for hook in service.PLATFORM_TERM_DELETE_HOOKS:
+        hook(db, row.id)
     db.delete(row)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
