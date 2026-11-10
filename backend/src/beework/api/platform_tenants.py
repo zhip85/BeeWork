@@ -154,6 +154,14 @@ def update_tenant(
     changes: dict[str, str] = {}
     if payload.name is not None and payload.name != tenant.name:
         changes["name"] = f"{tenant.name} → {payload.name}"
+        # The root organization carries the company name (it is what the tenant side shows): keep it in step.
+        root = db.scalar(
+            select(Organization).where(
+                Organization.tenant_id == tenant.id, Organization.parent_id.is_(None), Organization.name == tenant.name
+            )
+        )
+        if root is not None:
+            root.name = payload.name
         tenant.name = payload.name
     if payload.slug is not None and payload.slug != tenant.slug:
         if db.scalar(select(Tenant.id).where(Tenant.slug == payload.slug, Tenant.id != tenant.id)):
