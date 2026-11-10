@@ -67,7 +67,10 @@
     "none": "未设置",
     "viewPrompt": "查看完整提示词",
     "promptTitle": "完整提示词",
-    "copy": "复制"
+    "copy": "复制",
+    "hint": "修改后点“保存”写入草稿，发布后才对线上生效。",
+    "reset": "撤销修改",
+    "experience": "体验"
   },
   "capabilities": {
     "title": "已挂载能力 {{count}}",
@@ -90,5 +93,24 @@
       "deleted": "已删除 / 失效"
     }
   },
-  "submitted": "已提交至审批中心"
+  "submitted": "已提交至审批中心",
+  "navLabel": "助手配置",
+  "nav": {
+    "overview": "概览",
+    "basics": "基础",
+    "basicsHint": "名称、提示词、模型、体验",
+    "capabilities": "能力",
+    "capabilitiesHint": "挂载知识库等",
+    "oc": "编排",
+    "channels": "渠道",
+    "channelsHint": "网页、App、IM、API",
+    "tests": "测试",
+    "testsHint": "发布前运行用例",
+    "versions": "发布与版本",
+    "versionsHint": "审批、发布、回滚",
+    "more": "更多",
+    "conversations": "会话记录",
+    "dependencies": "依赖",
+    "ocHint": "PII、记忆、术语、改写、路由"
+  }
 }

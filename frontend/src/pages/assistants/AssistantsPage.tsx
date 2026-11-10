@@ -6,12 +6,11 @@ import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { formatRelativeTime } from '../../i18n/format'
 import type { TenantMembership } from '../../types'
-import { AssistantWizard } from './AssistantWizard'
+import { AssistantCreateDialog } from './AssistantCreateDialog'
 import { PublishDialog } from './PublishDialog'
 import type { Assistant, AssistantPage, AssistantSummary, OrganizationOption } from './types'
 
 type PendingAction = { kind: 'delete' | 'disable'; assistant: Assistant }
-type WizardState = { mode: 'create' } | { mode: 'edit'; assistant: Assistant } | null
 
 const PAGE_SIZE = 100
 
@@ -21,7 +20,6 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
   const tenantId = tenant.id
   const writable = tenant.access_mode === 'full'
   const can = (permission: string) => writable && tenant.permissions.includes(permission)
-  const canRead = (permission: string) => tenant.permissions.includes(permission)
 
   const [items, setItems] = useState<Assistant[]>([])
   const [total, setTotal] = useState(0)
@@ -36,10 +34,17 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
   const [sort, setSort] = useState('updated_desc')
   const [view, setView] = useState<'cards' | 'list'>('cards')
   const [menuFor, setMenuFor] = useState<string | null>(null)
-  const [wizard, setWizard] = useState<WizardState>(null)
+  const [creating, setCreating] = useState(false)
+  const navigate = useNavigate()
   const [publishing, setPublishing] = useState<Assistant | null>(null)
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [reload, setReload] = useState(0)
+
+  /** The whole card / row opens the assistant; its links, buttons and menu keep their own action. */
+  function openFromCard(event: React.MouseEvent, assistant: Assistant) {
+    if ((event.target as HTMLElement).closest('a, button, [role="menu"]')) return
+    navigate(`/assistants/${assistant.id}`)
+  }
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ limit: String(PAGE_SIZE), sort })
@@ -105,7 +110,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
     <section className="assistants-page">
       <div className="page-heading">
         <div><p className="section-kicker">{t('title')}</p><h1>{t('title')}</h1><p>{t('subtitle')}</p></div>
-        {can('assistants:edit') && <button className="primary-button" onClick={() => setWizard({ mode: 'create' })} type="button"><Plus size={16} />{t('new')}</button>}
+        {can('assistants:edit') && <button className="primary-button" onClick={() => setCreating(true)} type="button"><Plus size={16} />{t('new')}</button>}
       </div>
 
       {summary && (
@@ -149,7 +154,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
 
       {emptyAll && (
         <div className="assistants-empty"><Bot size={26} /><h2>{t('empty')}</h2><p>{t('emptyHint')}</p>
-          {can('assistants:edit') && <button className="primary-button" onClick={() => setWizard({ mode: 'create' })} type="button"><Plus size={16} />{t('new')}</button>}
+          {can('assistants:edit') && <button className="primary-button" onClick={() => setCreating(true)} type="button"><Plus size={16} />{t('new')}</button>}
         </div>
       )}
       {!loading && !error && total === 0 && !emptyAll && <p className="assistants-empty-filtered">{t('emptyFiltered')}</p>}
@@ -157,12 +162,12 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
       {items.length > 0 && view === 'cards' && (
         <div className="assistant-grid">
           {items.map((assistant) => (
-            <article className="assistant-card" key={assistant.id}>
+            <article className="assistant-card clickable" key={assistant.id} onClick={(event) => openFromCard(event, assistant)}>
               <header>
                 <span className="assistant-icon"><Bot size={18} /></span>
                 <span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span>
                 {assistant.pending_approval_id && <Link className="assistant-status in_progress" to={`/approvals?id=${assistant.pending_approval_id}`}>{t('status.pendingApproval')}</Link>}
-                <RowMenu assistant={assistant} can={can} canRead={canRead} onPublish={() => setPublishing(assistant)} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} />
+                <RowMenu assistant={assistant} can={can} onPublish={() => setPublishing(assistant)} menuFor={menuFor} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} />
               </header>
               <h3><Link className="assistant-name-link" to={`/assistants/${assistant.id}`}>{assistant.name}</Link></h3>
               <p className="assistant-description">{assistant.description}</p>
@@ -170,12 +175,12 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
               <footer>
                 <small>{t('card.version', { version: assistant.draft_version, time: formatRelativeTime(assistant.updated_at) })}</small>
                 {assistant.can_edit && can('assistants:edit')
-                  ? <button className="text-button" onClick={() => setWizard({ mode: 'edit', assistant })} type="button">{t('menu.edit')}</button>
+                  ? <Link className="text-button" to={`/assistants/${assistant.id}`}>{t('card.open')}</Link>
                   : <small>{t('card.readOnly')}</small>}
               </footer>
             </article>
           ))}
-          {can('assistants:edit') && <button className="assistant-card assistant-card-new" onClick={() => setWizard({ mode: 'create' })} type="button"><Plus size={20} /><strong>{t('card.newTitle')}</strong><small>{t('card.newHint')}</small></button>}
+          {can('assistants:edit') && <button className="assistant-card assistant-card-new" onClick={() => setCreating(true)} type="button"><Plus size={20} /><strong>{t('card.newTitle')}</strong><small>{t('card.newHint')}</small></button>}
         </div>
       )}
 
@@ -185,12 +190,12 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
             <thead><tr><th>{t('list.assistant')}</th><th>{t('list.status')}</th><th>{t('list.organization')}</th><th>{t('list.updated')}</th><th /></tr></thead>
             <tbody>
               {items.map((assistant) => (
-                <tr key={assistant.id}>
+                <tr className="clickable" key={assistant.id} onClick={(event) => openFromCard(event, assistant)}>
                   <td><strong><Link className="assistant-name-link" to={`/assistants/${assistant.id}`}>{assistant.name}</Link></strong><small className="platform-tenant-slug">v{assistant.draft_version}</small></td>
                   <td><span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span>{assistant.pending_approval_id && <> <Link className="assistant-status in_progress" to={`/approvals?id=${assistant.pending_approval_id}`}>{t('status.pendingApproval')}</Link></>}</td>
                   <td>{assistant.organization_name}</td>
                   <td>{formatRelativeTime(assistant.updated_at)}</td>
-                  <td><RowMenu assistant={assistant} can={can} canRead={canRead} onPublish={() => setPublishing(assistant)} menuFor={menuFor} onEdit={() => setWizard({ mode: 'edit', assistant })} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} /></td>
+                  <td><RowMenu assistant={assistant} can={can} onPublish={() => setPublishing(assistant)} menuFor={menuFor} onCopy={() => void run(() => post(assistant, 'copy'), 'toast.copied')} onToggle={() => assistant.status === 'published' ? setPending({ kind: 'disable', assistant }) : void run(() => post(assistant, 'enable'), 'toast.enabled')} onDelete={() => setPending({ kind: 'delete', assistant })} setMenuFor={setMenuFor} /></td>
                 </tr>
               ))}
             </tbody>
@@ -198,16 +203,10 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
         </div>
       )}
 
-      {wizard && (
-        <AssistantWizard
-          key={wizard.mode === 'edit' ? wizard.assistant.id : 'new'}
-          assistant={wizard.mode === 'edit' ? wizard.assistant : null}
-          onClose={() => setWizard(null)}
-          onSaved={(messageKey, close) => {
-            setNotice(t(messageKey))
-            refresh()
-            if (close) setWizard(null)
-          }}
+      {creating && (
+        <AssistantCreateDialog
+          onClose={() => setCreating(false)}
+          onCreated={(created) => navigate(`/assistants/${created.id}`)}
           organizations={organizations}
           quota={summary?.quota ?? null}
           tenant={tenant}
@@ -260,36 +259,27 @@ function enumLabelCategory(t: (key: string) => string, category: string) {
 function RowMenu({
   assistant,
   can,
-  canRead,
   onPublish,
   menuFor,
   setMenuFor,
-  onEdit,
   onCopy,
   onToggle,
   onDelete,
 }: {
   assistant: Assistant
   can: (permission: string) => boolean
-  canRead: (permission: string) => boolean
   onPublish: () => void
   menuFor: string | null
   setMenuFor: (id: string | null) => void
-  onEdit: () => void
   onCopy: () => void
   onToggle: () => void
   onDelete: () => void
 }) {
   const { t } = useTranslation('assistants')
-  const navigate = useNavigate()
   const open = menuFor === assistant.id
   const ownable = assistant.can_edit
   const entries: { key: string; label: string; run: () => void; danger?: boolean }[] = []
-  if (ownable && can('assistants:edit')) entries.push({ key: 'edit', label: t('menu.edit'), run: onEdit })
   if (ownable && can('assistants:publish') && assistant.status !== 'disabled') entries.push({ key: 'publish', label: t('menu.publish'), run: onPublish })
-  if (canRead('assistants:view')) entries.push({ key: 'detail', label: t('menu.detail'), run: () => navigate(`/assistants/${assistant.id}`) })
-  if (canRead('assistants:view')) entries.push({ key: 'versions', label: t('menu.versions'), run: () => navigate(`/assistants/${assistant.id}/versions`) })
-  if (canRead('conversations:view')) entries.push({ key: 'history', label: t('menu.history'), run: () => navigate(`/assistants/${assistant.id}/conversations`) })
   if (ownable && can('assistants:edit')) entries.push({ key: 'copy', label: t('menu.copy'), run: onCopy })
   if (ownable && can('assistants:publish') && assistant.status !== 'draft') {
     entries.push({ key: 'toggle', label: assistant.status === 'published' ? t('menu.disable') : t('menu.enable'), run: onToggle })
