@@ -25,6 +25,14 @@ class AssistantMounts(BaseModel):
     api: list[UUID] = Field(default_factory=list)
 
 
+class MountSettings(BaseModel):
+    """Per-mount settings (演进 PRD 7.6): which of the capability's tools the agent may use (empty = all of the
+    mounted capability's tools it is allowed to see) and when to hand work over (the delegation description)."""
+
+    tools: list[str] = Field(default_factory=list, max_length=100)
+    delegate: str = Field(default="", max_length=500)
+
+
 class AssistantDraftConfig(BaseModel):
     """Editable assistant configuration stored in ``assistants.draft_config`` (read by the T-025 compiler)."""
 
@@ -37,6 +45,8 @@ class AssistantDraftConfig(BaseModel):
     suggested_questions: bool = True
     feedback_enabled: bool = True
     mounts: AssistantMounts = Field(default_factory=AssistantMounts)
+    # Keyed by mounted resource id; an entry for something that is not mounted is rejected on save.
+    mount_settings: dict[str, MountSettings] = Field(default_factory=dict, max_length=200)
     # OC configuration (T-054a defines the shape; stage tasks fill in behaviour).
     oc: OCConfig = Field(default_factory=OCConfig)
 

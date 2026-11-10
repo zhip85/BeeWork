@@ -727,6 +727,7 @@ from beework.models import (  # noqa: E402,F401
     agents,
     approvals,
     assistants,
+    capability_refs,
     channels,
     conversations,
     faq,

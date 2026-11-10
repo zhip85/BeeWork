@@ -192,7 +192,9 @@
     "kinds": "能力类型",
     "search": "搜索{{kind}}",
     "noMatch": "无匹配项",
-    "empty": "还没有已索引的知识库。请先在知识库中上传文档并等待索引完成。",
+    "empty": {
+      "kb": "还没有已索引的知识库。请先在知识库中上传文档并等待索引完成。"
+    },
     "selectAll": "全选",
     "clear": "清空",
     "selected": "已选 {{count}}",
@@ -206,6 +208,29 @@
     "saving": "保存中…",
     "cancel": "取消",
     "saved": "挂载已保存到草稿",
-    "unknown": "（已失效）"
+    "unknown": "（已失效）",
+    "emptyGeneric": "暂无可挂载的资源"
+  },
+  "dependencies": {
+    "title": "依赖 {{count}}",
+    "hint": "这里列出依赖本智能体的渠道、委派给它的智能体、调用它的流程和已上架的门户应用；只读，删除或停用前请先处理。",
+    "empty": "暂时没有对象依赖本智能体",
+    "loadFailed": "无法加载依赖",
+    "filter": "按状态筛选",
+    "allStatuses": "全部状态",
+    "kind": {
+      "channel": "渠道",
+      "assistant": "智能体",
+      "flow": "流程",
+      "portal_app": "门户应用"
+    },
+    "status": {
+      "draft": "草稿",
+      "active": "启用",
+      "published": "已发布",
+      "disabled": "已停用",
+      "listed": "已上架",
+      "delisted": "已下架"
+    }
   }
 }

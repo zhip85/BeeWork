@@ -17,9 +17,10 @@ from beework.api.conventions import (
 )
 from beework.approvals import pending_request
 from beework.auth import require_csrf
+from beework.capabilities import MOUNT_RESOLVERS
+from beework.capability_catalog import assistant_edges
 from beework.db import get_db
 from beework.entitlements import enforce_quota, get_subscription, register_usage_counter
-from beework.knowledge_mounts import mounted_kb_ids, resolve_kb_mounts
 from beework.models import (
     AuditEvent,
     Membership,
@@ -207,6 +208,7 @@ def _validate_organization(db: Session, membership: Membership, organization_id:
 
 
 MAX_KB_MOUNTS = 10
+MAX_OTHER_MOUNTS = 30
 
 
 def _validate_config(
@@ -214,24 +216,31 @@ def _validate_config(
 ) -> None:
     if config.driven_by is not None:
         raise ApiError(422, "assistant.driver_unavailable", "驱动方式暂未开放")
+    mounted_ids: set[str] = set()
     for kind in MOUNT_KINDS:
-        if kind != "kb" and getattr(config.mounts, kind):
+        ids = list(dict.fromkeys(getattr(config.mounts, kind)))
+        mounted_ids |= {str(value) for value in ids}
+        if not ids:
+            continue
+        resolver = MOUNT_RESOLVERS.get(kind)
+        if resolver is None:
             raise ApiError(422, "assistant.mount_unavailable", "该类型的能力暂未开放挂载")
-    kb_ids = list(dict.fromkeys(config.mounts.kb))
-    if len(kb_ids) > MAX_KB_MOUNTS:
-        raise ApiError(422, "assistant.mount_limit", f"最多挂载 {MAX_KB_MOUNTS} 个知识库")
-    if kb_ids:
-        # Only indexed knowledge bases of this tenant can be newly mounted (RUL-010); ones already mounted stay
-        # editable so a stale mount never blocks saving other changes (it is reported by the configuration check).
-        resolved = resolve_kb_mounts(db, membership.tenant_id, kb_ids)
-        for kb_id in kb_ids:
-            item = resolved.get(kb_id)
-            if str(kb_id) in already_mounted:
+        if len(ids) > (MAX_KB_MOUNTS if kind == "kb" else MAX_OTHER_MOUNTS):
+            raise ApiError(422, "assistant.mount_limit", f"该类型最多挂载 {MAX_KB_MOUNTS if kind == 'kb' else MAX_OTHER_MOUNTS} 个")
+        # Only available resources of this tenant can be newly mounted (RUL-010); ones already mounted stay editable
+        # so a stale mount never blocks saving other changes (it is reported by the configuration check).
+        resolved = resolver(db, membership.tenant_id, ids)
+        for target_id in ids:
+            item = resolved.get(target_id)
+            if str(target_id) in already_mounted:
                 continue
             if item is None:
-                raise ApiError(422, "assistant.mount_unavailable", "所选知识库不存在")
+                raise ApiError(422, "assistant.mount_unavailable", "所选能力不存在")
             if item.state != "available":
-                raise ApiError(422, "assistant.mount_unavailable", f"知识库“{item.name}”还没有已索引的内容，暂不能挂载")
+                raise ApiError(422, "assistant.mount_unavailable", f"“{item.name}”当前不可用，暂不能挂载")
+    unknown = set(config.mount_settings) - mounted_ids
+    if unknown:
+        raise ApiError(422, "assistant.mount_settings_invalid", "能力设置只能针对已挂载的能力")
     if config.model_id is not None:
         models, _ = _enabled_chat_models(db, membership.tenant_id)
         if config.model_id not in {model.id for model, _ in models}:
@@ -541,7 +550,7 @@ def update_assistant(
     name = _resolve_name_and_required(db, membership, payload, exclude_id=assistant.id, relaxed=relaxed)
     config = payload.config.model_copy(deep=True)
     _fill_default_model(db, membership, config, relaxed=relaxed)
-    _validate_config(db, membership, config, already_mounted=frozenset(mounted_kb_ids(assistant.draft_config)))
+    _validate_config(db, membership, config, already_mounted=frozenset(str(target_id) for _r, _t, target_id in assistant_edges(assistant.draft_config)))
 
     assistant.name = name
     assistant.description = payload.description.strip()

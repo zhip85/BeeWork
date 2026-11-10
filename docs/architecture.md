@@ -160,6 +160,12 @@ def update_note(note_id: UUID, payload: NoteWriteRequest,
 
 用户看到的只有“智能体 / Agent”（原“助理”）。内部标识不改：表 `assistants`、路径 `/assistants`、权限模块 `assistants:*`、审计动作 `assistant.*`、i18n key `assistants.*` 都指**智能体**；表 `agents`、权限模块 `agents:*` 指 **Chatflow / Workflow（界面称“流程画布”）**。新增文案一律写“智能体”，不要在用户可见文本里出现“助理 / 助手 / Assistant”；LLM 提示词与历史迁移文件不在此列。已写入审计表的旧记录描述保持原文。
 
+#### 能力目录与引用（T-070）
+
+- **挂载类型**由注册表决定：`capabilities.MOUNT_RESOLVERS`（状态：可用 / 已停用 / 已删除）与 `CANDIDATE_LISTERS`（挂载选择器的候选，只列可用且调用者可见的资源）。新能力类型在自己的模块里同时注册这两项即可挂载，不改助理接口。`mounts` 的键 `chatflow` / `flow` 指**流程连接**（T-075）而不是画布。
+- **引用表** `resource_references` 是派生数据：智能体与流程在 flush 时若草稿配置、线上版本或删除状态变了，其两个层（draft / live）的行在同一事务内**整体替换**（SQLAlchemy `after_flush` 监听，见 `capability_catalog.py`），所以 API、恢复、回滚、复制都不用单独调用。查询只走 `references_to`（删除 / 停用前的“N 处引用”、依赖页）与 `invalid_references`（配置检查）。新的引用方类型（流程连接 T-075、门户应用 T-140）要么写入这张表，要么注册 `REFERENCE_PROVIDERS` / `DEPENDENCY_PROVIDERS`。
+- **CAP-053 例外**：能力（Skill / MCP / API 插件）的变更对引用它的智能体**立即生效**，不随智能体版本锁定；智能体版本快照只冻结“挂载了谁、允许哪些工具、委派描述”（`mounts`、`mount_settings`），运行时按当前租户行解析能力。知识库同理（T-033 已是这样）。
+
 ### 3.3 审计
 
 - PRD GLB-088：**所有写操作写审计**。`db.add(AuditEvent(tenant_id=..., actor_user_id=..., action="domain.verb", details={...}))`，与业务写入同一事务。

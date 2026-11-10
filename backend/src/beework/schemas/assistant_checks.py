@@ -45,9 +45,33 @@ class CandidateEntry(BaseModel):
     id: UUID
     kind: str
     name: str
-    kb_type: Literal["standard", "faq"]
-    documents: int
-    faqs: int
+    # Knowledge bases (T-033); other kinds describe themselves in ``meta`` (T-066, T-072–T-075).
+    kb_type: Literal["standard", "faq"] | None = None
+    documents: int | None = None
+    faqs: int | None = None
+    meta: dict = {}
+
+
+class TypeEntry(BaseModel):
+    kind: str
+    mountable: bool  # a resolver is registered: the type can be mounted today
+    available: int  # how many resources of this type could be mounted now (capped at 100)
+
+
+class TypesResponse(BaseModel):
+    items: list[TypeEntry]
+
+
+class DependencyEntry(BaseModel):
+    kind: Literal["channel", "assistant", "flow", "portal_app"]
+    id: UUID
+    name: str
+    status: str
+    detail: str = ""
+
+
+class DependenciesResponse(BaseModel):
+    items: list[DependencyEntry]
 
 
 class CandidatesResponse(BaseModel):

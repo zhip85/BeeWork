@@ -42,3 +42,9 @@ def resolve_mounts(db: Session, tenant_id: UUID, mounts: dict[str, Any]) -> list
         for mount_id in ids:
             items.append(found.get(mount_id) or MountItem(id=mount_id, kind=kind, name="", state="deleted"))
     return items
+
+
+# lister(db, membership, q, limit) -> candidate dicts; only resources the caller may see and that can be mounted now
+# (RUL-010). Each capability type registers one next to its resolver (T-033 ``kb``; T-066, T-072–T-075 the rest).
+CandidateLister = Callable[[Session, Any, str | None, int], list[dict[str, Any]]]
+CANDIDATE_LISTERS: dict[str, CandidateLister] = {}

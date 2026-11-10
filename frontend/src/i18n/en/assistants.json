@@ -192,7 +192,9 @@
     "kinds": "Capability type",
     "search": "Search {{kind}}",
     "noMatch": "No matches",
-    "empty": "No indexed knowledge base yet. Upload documents to a knowledge base and wait for indexing first.",
+    "empty": {
+      "kb": "No indexed knowledge base yet. Upload documents in Knowledge and wait for indexing to finish."
+    },
     "selectAll": "Select all",
     "clear": "Clear",
     "selected": "Selected {{count}}",
@@ -206,6 +208,29 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "saved": "Mounts saved to the draft",
-    "unknown": "(no longer available)"
+    "unknown": "(no longer available)",
+    "emptyGeneric": "Nothing to mount yet"
+  },
+  "dependencies": {
+    "title": "Dependencies {{count}}",
+    "hint": "Channels bound to this agent, agents that delegate to it, flows that call it and listed portal apps. Read only — handle them before deleting or disabling.",
+    "empty": "Nothing depends on this agent yet",
+    "loadFailed": "Could not load dependencies",
+    "filter": "Filter by status",
+    "allStatuses": "All statuses",
+    "kind": {
+      "channel": "Channel",
+      "assistant": "Agent",
+      "flow": "Flow",
+      "portal_app": "Portal app"
+    },
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "published": "Published",
+      "disabled": "Disabled",
+      "listed": "Listed",
+      "delisted": "Delisted"
+    }
   }
 }
