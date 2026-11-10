@@ -37,6 +37,15 @@ export function KnowledgeListPage({ tenant }: { tenant: TenantMembership }) {
     return () => window.clearTimeout(timer)
   }, [load])
 
+  useEffect(() => {
+    if (!menuFor) return
+    const close = () => setMenuFor(null)
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close() }
+    document.addEventListener('click', close)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', onKey) }
+  }, [menuFor])
+
   const open = (kb: KnowledgeBase) => navigate(`/knowledge/${kb.id}`)
 
   async function copy(kb: KnowledgeBase) {
@@ -94,14 +103,16 @@ export function KnowledgeListPage({ tenant }: { tenant: TenantMembership }) {
               </span>
               <span className={`assistant-status knowledge-status-${kb.status}`}>{t(`status.${kb.status}`)}</span>
               {(canEdit || canDelete) && (
-                <button aria-label={t('menu')} className="icon-button" onClick={() => setMenuFor(menuFor === kb.id ? null : kb.id)} type="button"><MoreHorizontal size={16} /></button>
-              )}
-              {menuFor === kb.id && (
-                <div className="card-menu" role="menu">
-                  <Link role="menuitem" to={`/knowledge/${kb.id}?view=settings`}>{t('menuSettings')}</Link>
-                  {canEdit && <button onClick={() => void copy(kb)} role="menuitem" type="button">{t('menuCopy')}</button>}
-                  {canDelete && <button className="danger" onClick={() => void askDelete(kb)} role="menuitem" type="button">{t('menuDelete')}</button>}
-                </div>
+                <span className="assistant-menu">
+                  <button aria-expanded={menuFor === kb.id} aria-haspopup="menu" aria-label={t('menu')} className="icon-button" onClick={(event) => { event.stopPropagation(); setMenuFor(menuFor === kb.id ? null : kb.id) }} type="button"><MoreHorizontal size={16} /></button>
+                  {menuFor === kb.id && (
+                    <ul role="menu">
+                      <li role="none"><Link role="menuitem" to={`/knowledge/${kb.id}?view=settings`}>{t('menuSettings')}</Link></li>
+                      {canEdit && <li role="none"><button onClick={() => void copy(kb)} role="menuitem" type="button">{t('menuCopy')}</button></li>}
+                      {canDelete && <li role="none"><button className="danger" onClick={() => void askDelete(kb)} role="menuitem" type="button">{t('menuDelete')}</button></li>}
+                    </ul>
+                  )}
+                </span>
               )}
             </header>
             <button className="knowledge-card-body" onClick={() => open(kb)} type="button">
