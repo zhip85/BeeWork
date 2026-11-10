@@ -28,5 +28,6 @@
   "group": {
     "build": "Build",
     "run": "Run & operate"
-  }
+  },
+  "aiPortal": "AI Portal"
 }

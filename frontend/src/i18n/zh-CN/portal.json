@@ -1,0 +1,83 @@
+{
+  "eyebrow": "AI PORTAL",
+  "title": "AI 门户",
+  "subtitle": "把已发布的智能体上架给员工使用；员工只会看到名称、说明和分类，看不到底层资源类型。",
+  "tabs": {
+    "apps": "应用管理",
+    "settings": "门户设置",
+    "login": "登录与身份",
+    "analytics": "使用分析"
+  },
+  "soon": "即将开放",
+  "stats": {
+    "listed": "已上架应用",
+    "mau": "月活跃员工",
+    "calls": "本月使用次数"
+  },
+  "search": "搜索应用名称…",
+  "addApp": "添加 AI 应用",
+  "editApp": "编辑 AI 应用",
+  "loading": "加载中…",
+  "loadFailed": "加载失败",
+  "actionFailed": "操作失败，请稍后重试",
+  "empty": "还没有门户应用。添加一个已发布的智能体，再上架给员工。",
+  "emptyFiltered": "没有匹配的应用",
+  "noDescription": "暂无说明",
+  "status": {
+    "draft": "草稿",
+    "listed": "已上架",
+    "delisted": "已下架"
+  },
+  "featuredBadge": "推荐",
+  "source": "来源",
+  "sourcePlaceholder": "选择已发布的智能体",
+  "sourceHint": "只列出已发布且可用的资源；上架后不能更换来源。",
+  "sourceLocked": "已上架的应用不能更换来源，请先下架。",
+  "noSources": "暂无可选来源：请先发布一个智能体。",
+  "sourceMissing": "（来源不可用）",
+  "sourceUnset": "来源未设置",
+  "sourceUnavailable": "来源不可用",
+  "appName": "员工端名称",
+  "appDescription": "应用说明",
+  "categoryLabel": "分类",
+  "audienceLabel": "可见范围",
+  "pickOrganizations": "选择可见的组织（含其下级组织）",
+  "noOrganizations": "没有可选择的组织",
+  "featured": "在员工端推荐此应用",
+  "category": {
+    "efficiency": "效率工具",
+    "service": "员工服务",
+    "sales": "销售",
+    "finance": "财务",
+    "legal": "法务"
+  },
+  "audience": {
+    "all": "全公司",
+    "orgs": "指定组织",
+    "admins": "仅管理员"
+  },
+  "edit": "编辑",
+  "list": "上架",
+  "delist": "下架",
+  "delete": "删除",
+  "cancel": "取消",
+  "save": "保存",
+  "saving": "保存中…",
+  "addAndKeepDraft": "添加（草稿）",
+  "added": "已添加，上架后员工才能看到",
+  "saved": "已保存",
+  "delistedBecause": "下架原因：{{reason}}",
+  "confirm": {
+    "listTitle": "上架“{{name}}”？",
+    "listBody": "上架前会检查来源已发布、可见范围有效且不含失效的能力引用；上架后员工立即可见。",
+    "delistTitle": "下架“{{name}}”？",
+    "delistBody": "下架后员工端立即隐藏并且不能发起新的调用；历史会话按门户设置保留；配置与审计记录保留。",
+    "deleteTitle": "删除“{{name}}”？",
+    "deleteBody": "删除后配置不再显示，操作会写入审计记录。"
+  },
+  "done": {
+    "list": "已上架",
+    "delist": "已下架",
+    "delete": "已删除"
+  }
+}

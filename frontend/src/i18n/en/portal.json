@@ -1,0 +1,83 @@
+{
+  "eyebrow": "AI PORTAL",
+  "title": "AI Portal",
+  "subtitle": "List published agents for employees; they only see the name, description and category — never the type of the underlying resource.",
+  "tabs": {
+    "apps": "Apps",
+    "settings": "Portal settings",
+    "login": "Sign-in & identity",
+    "analytics": "Usage analytics"
+  },
+  "soon": "Coming soon",
+  "stats": {
+    "listed": "Listed apps",
+    "mau": "Monthly active employees",
+    "calls": "Uses this month"
+  },
+  "search": "Search app names…",
+  "addApp": "Add AI app",
+  "editApp": "Edit AI app",
+  "loading": "Loading…",
+  "loadFailed": "Failed to load",
+  "actionFailed": "The action failed. Please try again.",
+  "empty": "No portal apps yet. Add a published agent, then list it for employees.",
+  "emptyFiltered": "No matching apps",
+  "noDescription": "No description",
+  "status": {
+    "draft": "Draft",
+    "listed": "Listed",
+    "delisted": "Delisted"
+  },
+  "featuredBadge": "Featured",
+  "source": "Source",
+  "sourcePlaceholder": "Choose a published agent",
+  "sourceHint": "Only published, usable resources are listed; the source cannot be changed once listed.",
+  "sourceLocked": "A listed app cannot change its source — delist it first.",
+  "noSources": "Nothing to choose from: publish an agent first.",
+  "sourceMissing": "(source unavailable)",
+  "sourceUnset": "Source not set",
+  "sourceUnavailable": "Source unavailable",
+  "appName": "Name shown to employees",
+  "appDescription": "Description",
+  "categoryLabel": "Category",
+  "audienceLabel": "Visible to",
+  "pickOrganizations": "Pick the organizations (their sub-organizations included)",
+  "noOrganizations": "No organizations to choose from",
+  "featured": "Feature this app for employees",
+  "category": {
+    "efficiency": "Productivity",
+    "service": "Employee services",
+    "sales": "Sales",
+    "finance": "Finance",
+    "legal": "Legal"
+  },
+  "audience": {
+    "all": "Whole company",
+    "orgs": "Selected organizations",
+    "admins": "Administrators only"
+  },
+  "edit": "Edit",
+  "list": "List",
+  "delist": "Delist",
+  "delete": "Delete",
+  "cancel": "Cancel",
+  "save": "Save",
+  "saving": "Saving…",
+  "addAndKeepDraft": "Add (as draft)",
+  "added": "Added — employees see it once it is listed",
+  "saved": "Saved",
+  "delistedBecause": "Delisted: {{reason}}",
+  "confirm": {
+    "listTitle": "List “{{name}}”?",
+    "listBody": "Before listing we check that the source is published, the audience is valid and no capability reference is broken; employees see it right away.",
+    "delistTitle": "Delist “{{name}}”?",
+    "delistBody": "Employees stop seeing it and cannot start new calls at once; history follows the portal settings; configuration and audit records are kept.",
+    "deleteTitle": "Delete “{{name}}”?",
+    "deleteBody": "The configuration disappears from the list; the action is audited."
+  },
+  "done": {
+    "list": "Listed",
+    "delist": "Delisted",
+    "delete": "Deleted"
+  }
+}
