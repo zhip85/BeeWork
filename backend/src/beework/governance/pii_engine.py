@@ -76,6 +76,17 @@ def _merge(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
+def detector_configured(match_type: str) -> bool:
+    """Whether the detector for ``match_type`` can answer at all (the in-process ones always can)."""
+    from beework.config import settings
+
+    if match_type == "classifier":
+        return bool(settings.presidio_analyzer_url)
+    if match_type == "llm_judge":
+        return bool(settings.safety_judge_model and settings.litellm_base_url and settings.litellm_master_key)
+    return True
+
+
 def applies(rule: PolicyRule, stage: str) -> bool:
     return rule.stage in ("both", stage)
 

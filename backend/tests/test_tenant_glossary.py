@@ -276,6 +276,17 @@ class TenantGlossaryTests(test_versions.VersionTests):
         self.assertEqual(len(self.rows()), 3)  # two own terms and one override
         self.assertIn("tenant_term.imported", self.audit_actions())
 
+    def test_a_large_import_is_capped_and_stays_fast(self) -> None:
+        text = "\n".join(f"术语{i},别名{i},定义{i}" for i in range(520))
+        preview = self.import_text(text, dry_run="true").json()
+        self.assertEqual(preview["recognized"], 500)  # the tenant import stops at 500 rows
+        self.assertIn("最多导入 500 条", preview["errors"][-1]["message"])
+        self.assertEqual(self.import_text(text).json()["outcome"], "applied")
+        self.assertEqual(len(self.rows()), 500)
+        again = self.import_text(text, on_duplicate="skip").json()
+        self.assertEqual(again["outcome"], "applied")
+        self.assertEqual(len(self.rows()), 500)  # nothing was added twice
+
     def test_import_encodings_limits_and_empty_input(self) -> None:
         self.assertEqual(self.import_text("术语,别名\n会员号,member".encode("gb18030"), dry_run="true").json()["recognized"], 1)
         self.assertEqual(self.import_text(b"\xef\xbb\xbf" + "工号,x".encode(), dry_run="true").json()["recognized"], 1)

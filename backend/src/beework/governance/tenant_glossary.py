@@ -15,7 +15,13 @@ from beework.approvals import ApplyContext, approval_action
 from beework.errors import ApiError
 from beework.glossary import clean_term
 from beework.governance import actor_name
-from beework.governance.term_inheritance import Term, TermView, industry_terms, tenant_terms
+from beework.governance.term_inheritance import (
+    EffectiveTerm,
+    Term,
+    TermView,
+    industry_terms,
+    tenant_terms,
+)
 from beework.models import AuditEvent, Tenant
 from beework.models.glossary import Industry, IndustryGlossary, PlatformTerm
 from beework.models.tenant_glossary import TenantGlossarySettings, TenantTerm
@@ -236,19 +242,30 @@ def apply_change(db: Session, tenant_id: UUID, user_id: UUID | None, operation: 
 
 
 def _import(db: Session, tenant_id: UUID, user_id: UUID | None, actor: str, fields: dict[str, Any]) -> str:
-    """SET-063: terms parsed by the shared parser become tenant terms; ones the tenant already has are skipped or overwritten."""
+    """SET-063: terms parsed by the shared parser become tenant terms; ones the tenant already has are skipped or overwritten.
+
+    The tenant's view is computed once; new terms are added directly, only overwrites go through ``apply_change``.
+    """
     on_duplicate = fields.get("on_duplicate", "skip")
+    taken = {item.term.key: item for item in tenant_view(db, tenant_id).terms}
+    capacity = MAX_TENANT_TERMS - len(tenant_rows(db, tenant_id))
     created = updated = 0
     for item in fields.get("rows", []):
         term, aliases, definition = clean_term(item["term"], item.get("aliases", []), item.get("definition", ""))
-        current = next((i for i in tenant_view(db, tenant_id).terms if i.term.key == term.lower()), None)
+        current = taken.get(term.lower())
         if current is None:
-            apply_change(db, tenant_id, user_id, "create", None, {"term": term, "aliases": aliases, "definition": definition})
+            if created >= capacity:
+                raise ApiError(422, "tenant_glossary.too_many", f"租户术语最多 {MAX_TENANT_TERMS} 条")
+            row = TenantTerm(tenant_id=tenant_id, from_id=None)
+            _fill(row, term, aliases, definition, actor)
+            row.row_version = 1
+            db.add(row)
+            taken[term.lower()] = EffectiveTerm(id=str(row.id), term=Term(id=str(row.id), layer="tenant", term=term), label="tenant")
             created += 1
         elif on_duplicate == "overwrite":
             apply_change(db, tenant_id, user_id, "update", UUID(current.id), {"term": term, "aliases": aliases, "definition": definition})
+            db.flush()
             updated += 1
-        db.flush()
     _audit(db, tenant_id, user_id, "tenant_term.imported", "导入租户术语", created=str(created), updated=str(updated))
     return "imported"
 

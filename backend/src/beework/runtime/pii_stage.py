@@ -8,14 +8,17 @@ piece afterwards, so unmasked text is never streamed. Hits carry the rule, layer
 
 from langgraph.config import get_stream_writer
 
-from beework.governance.pii_engine import applies, scan
+from beework.governance.pii_engine import applies, detector_configured, scan
 from beework.runtime.compiler import Node, RuntimeDeps, RuntimeState, register_stage
 from beework.runtime.dsl import AssistantDSLv1
 
 
 def holds_output(rules: list) -> bool:
-    """Whether output rules may rewrite the reply, so streaming must wait for them."""
-    return any(applies(rule, "output") and rule.action in ("mask", "block") for rule in rules)
+    """Whether output rules may rewrite the reply, so streaming must wait for them.
+
+    A rule whose detector is not configured can never change the reply (it fails open), so it does not stop streaming.
+    """
+    return any(applies(rule, "output") and rule.action in ("mask", "block") and detector_configured(rule.match_type) for rule in rules)
 
 
 @register_stage("pii_input")

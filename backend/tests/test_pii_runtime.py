@@ -140,6 +140,14 @@ class PiiRuntimeTests(test_runtime.RuntimeTests):
         run_id, _llm, _ = self.ask("你好", ScriptedChat(chunks=["a", "b", "c"], seen_messages=[]))
         self.assertEqual("".join(e.data["text"] for e in self.events(run_id) if e.type == "token"), "abc")
 
+    def test_an_output_rule_with_an_unconfigured_detector_does_not_stop_streaming(self) -> None:
+        self.keep_raw_logs()
+        self.platform_rule("姓名", "PERSON", match_type="classifier", stage="output", action="mask")
+        with mock.patch.object(settings, "presidio_analyzer_url", ""):
+            run_id, _llm, _ = self.ask("你好", ScriptedChat(chunks=["a", "b", "c"], seen_messages=[]))
+        self.assertEqual([e.data["text"] for e in self.events(run_id) if e.type == "token"], ["abc"])  # coalesced as usual, not held
+        self.assertEqual(self.run_row(run_id).output["pii"]["failures"][0]["reason"], "not_configured")
+
     def test_a_blocking_output_rule_replaces_the_reply(self) -> None:
         self.keep_raw_logs()
         self.platform_rule("泄密", "内部密码", match_type="keyword", stage="output", action="block", message="该回复包含受限内容，已被拦截。")
