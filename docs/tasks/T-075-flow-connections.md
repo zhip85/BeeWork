@@ -9,7 +9,7 @@
 
 ## 数据模型（`models/flow_connections.py`）
 
-`flow_connections`：`tenant_id`、`kind`（chatflow / workflow）、名称（同租户同类型唯一，≤ 50）、说明、`source_type`（`native` 本平台画布 / `dify`；`coze`、`n8n`、`http` 只预留枚举，界面显示“即将支持”）、`flow_id`（native 时指向 `agents` 表中已发布的流程）、外部配置（`base_url`、`app_id`、`credential` 加密存储（`model_secrets`），响应只返回掩码）、`input_mapping` / `output_mapping`（JSON）、`streaming`、状态（enabled / disabled）、最近测试时间与结果、`row_version`、审计字段、软删除。
+`flow_connections`：`tenant_id`、`kind`（chatflow / workflow）、名称（同租户同类型唯一，≤ 50）、说明、`source_type`（`native` 本平台画布 / `dify`）、`flow_id`（native 时指向 `agents` 表中已发布的流程）、外部配置（`base_url`、`app_id`、`credential` 加密存储（`model_secrets`），响应只返回掩码）、`input_mapping` / `output_mapping`（JSON）、`streaming`、状态（enabled / disabled）、最近测试时间与结果、`row_version`、审计字段、软删除。
 
 ## 接口与权限
 
@@ -38,5 +38,5 @@
 
 ## 不在范围
 
-- Coze、n8n、通用 HTTP 的真实接入（只预留枚举）。
+- Coze、n8n、通用 HTTP 等其他外部来源（2026-11-10 确认不在当前计划内，不预留界面入口）。
 - 流程画布本身的设计与发布（T-060、T-062–T-064）。
