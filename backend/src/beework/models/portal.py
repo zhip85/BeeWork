@@ -66,3 +66,33 @@ class PortalAppOrganization(Base):
     tenant_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
+
+
+class PortalSettings(Base, TimestampMixin, VersionedMixin):
+    """One row per tenant (演进 PRD 10.4); a tenant without a row uses the defaults of ``portal_service.DEFAULTS``."""
+
+    __tablename__ = "portal_settings"
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True
+    )
+    # Brand and default experience.
+    portal_name: Mapped[str] = mapped_column(String(50), nullable=False, default="")  # empty = “{tenant} AI”
+    input_placeholder: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    default_audience: Mapped[str] = mapped_column(String(8), nullable=False, default="all")  # for new apps
+    answer_style: Mapped[str] = mapped_column(String(10), nullable=False, default="balanced")
+    # Navigation and discovery.
+    nav_search: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    nav_projects: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    nav_app_library: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    nav_recent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    nav_pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Conversation abilities (the real upload and voice arrive with T-148; the switches are stored now).
+    file_upload: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    voice_input: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # What employees may change about themselves.
+    profile_edit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    personal_memory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    task_notifications: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Conversations of a delisted app: readable but closed, or hidden (演进 PRD 10.3).
+    delisted_history: Mapped[str] = mapped_column(String(8), nullable=False, default="readonly")

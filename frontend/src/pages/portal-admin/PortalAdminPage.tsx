@@ -5,9 +5,11 @@ import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
 import { AppDialog } from './AppDialog'
+import { SettingsPanel } from './SettingsPanel'
 import type { PortalApp, Summary } from './types'
 
 const TABS = ['apps', 'settings', 'login', 'analytics'] as const
+const READY: readonly string[] = ['apps', 'settings']
 
 /** AI portal for administrators (演进 PRD 10): put published agents in front of employees. Settings, login and
  * analytics arrive with T-141 / T-146 / T-147 and say so rather than pretending. */
@@ -67,11 +69,14 @@ export function PortalAdminPage({ tenant }: { tenant: TenantMembership }) {
       </div>
       <div className="portal-tabs" role="tablist">
         {TABS.map((key) => (
-          <button aria-selected={tab === key} className={tab === key ? 'selected' : ''} disabled={key !== 'apps'} key={key} onClick={() => setTab(key)} role="tab" title={key === 'apps' ? undefined : t('soon')} type="button">
-            {t(`tabs.${key}`)}{key !== 'apps' && <small>{t('soon')}</small>}
+          <button aria-selected={tab === key} className={tab === key ? 'selected' : ''} disabled={!READY.includes(key)} key={key} onClick={() => setTab(key)} role="tab" title={READY.includes(key) ? undefined : t('soon')} type="button">
+            {t(`tabs.${key}`)}{!READY.includes(key) && <small>{t('soon')}</small>}
           </button>
         ))}
       </div>
+      {tab === 'settings' && <SettingsPanel tenant={tenant} />}
+      {tab === 'apps' && (
+        <>
       <div className="portal-stats">
         <div><small>{t('stats.listed')}</small><strong>{summary?.listed ?? '–'}</strong></div>
         <div><small>{t('stats.mau')}</small><strong>{summary?.monthly_active_employees ?? '–'}</strong></div>
@@ -111,6 +116,8 @@ export function PortalAdminPage({ tenant }: { tenant: TenantMembership }) {
           </article>
         ))}
       </div>
+        </>
+      )}
       {editing && <AppDialog app={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={(message) => { setEditing(null); setNotice(message); load() }} tenant={tenant} />}
       {confirm && (
         <ConfirmDialog

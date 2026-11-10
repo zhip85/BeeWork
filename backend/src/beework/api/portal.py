@@ -11,11 +11,11 @@ from beework.api import assistant_checks
 from beework.api import assistants as assistants_api
 from beework.api.assistants import _actor_name
 from beework.api.conventions import ApiError, check_row_version, normalize_name
-from beework.auth import require_csrf
+from beework.auth import get_tenant_membership, require_csrf
 from beework.db import get_db
 from beework.models import AuditEvent, Membership, Organization, TenantRole, utc_now
 from beework.models.assistants import Assistant
-from beework.models.portal import PortalApp, PortalAppOrganization
+from beework.models.portal import PortalApp, PortalAppOrganization, PortalSettings
 from beework.rbac import flatten_permissions, permissions_for_role, require_tenant_permission
 from beework.schemas.assistant_checks import DependencyEntry
 from beework.schemas.portal import (
@@ -23,6 +23,9 @@ from beework.schemas.portal import (
     ListRequest,
     PortalAppResponse,
     PortalAppWriteRequest,
+    PortalMeConfig,
+    PortalSettingsResponse,
+    PortalSettingsUpdate,
     PortalSummary,
     SourceEntry,
     SourcesResponse,
@@ -161,6 +164,83 @@ def app_sources(
                 )
             )
     return SourcesResponse(items=items)
+
+
+# ---------------------------------------------------------------------------
+# Portal settings (T-141, 演进 PRD 10.4).
+# ---------------------------------------------------------------------------
+
+
+def _settings_response(db: Session, membership: Membership) -> PortalSettingsResponse:
+    body, row = portal_service.load_settings(db, membership.tenant_id)
+    return PortalSettingsResponse(
+        **body.model_dump(), row_version=row.row_version if row else 0, updated_at=row.updated_at if row else None,
+        updated_by=row.updated_by if row else None, can_edit=_can(db, membership, "portal:edit"),
+    )
+
+
+@router.get("/portal/settings", response_model=PortalSettingsResponse)
+def get_settings(
+    membership: Membership = Depends(require_tenant_permission("portal:view")),
+    db: Session = Depends(get_db),
+) -> PortalSettingsResponse:
+    return _settings_response(db, membership)
+
+
+@router.put("/portal/settings", response_model=PortalSettingsResponse)
+def put_settings(
+    payload: PortalSettingsUpdate,
+    membership: Membership = Depends(require_tenant_permission("portal:edit")),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> PortalSettingsResponse:
+    """Saves the whole settings object. The audit record names the changed settings with their old and new values —
+    short switches and enums only, never free text."""
+    row = db.get(PortalSettings, membership.tenant_id)
+    before, _row = portal_service.load_settings(db, membership.tenant_id)
+    if payload.row_version is None:
+        raise ApiError(422, "validation.invalid", "缺少 row_version")
+    if payload.row_version != (row.row_version if row else 0):  # 0 = this tenant has never saved settings
+        who = f"{row.updated_by} " if row and row.updated_by else "其他人"
+        raise ApiError(409, "conflict.stale", f"该对象已被 {who}修改，请刷新后重试")
+    values = {name: getattr(payload, name) for name in portal_service.SETTING_FIELDS}
+    values["portal_name"], values["input_placeholder"] = values["portal_name"].strip(), values["input_placeholder"].strip()
+    actor = _actor_name(db, membership)
+    if row is None:
+        row = PortalSettings(tenant_id=membership.tenant_id, row_version=1, updated_by=actor, **values)
+        db.add(row)
+    else:
+        for name, value in values.items():
+            setattr(row, name, value)
+        row.row_version += 1
+        row.updated_by = actor
+    changed = {
+        name: f"{getattr(before, name)}→{value}"
+        for name, value in values.items() if getattr(before, name) != value and name not in ("portal_name", "input_placeholder")
+    }
+    changed.update({name: "changed" for name in ("portal_name", "input_placeholder") if getattr(before, name) != values[name]})
+    db.add(
+        AuditEvent(
+            tenant_id=membership.tenant_id, actor_user_id=membership.user_id, action="portal_settings.updated",
+            details={"changed": ", ".join(sorted(changed)) or "none", **{k: v for k, v in changed.items() if v != "changed"}},
+        )
+    )
+    db.commit()
+    return _settings_response(db, membership)
+
+
+@router.get("/portal/me/config", response_model=PortalMeConfig)
+def my_config(
+    membership: Membership = Depends(get_tenant_membership),
+    db: Session = Depends(get_db),
+) -> PortalMeConfig:
+    """What the employee side reads: brand and switches, none of the administrative fields."""
+    body, _row = portal_service.load_settings(db, membership.tenant_id)
+    data = body.model_dump(exclude={"default_audience", "portal_name"})
+    return PortalMeConfig(
+        **data, portal_name=portal_service.portal_name(db, membership.tenant_id, body),
+        has_console=_can(db, membership, "dashboard:view"),
+    )
 
 
 @router.get("/portal/apps", response_model=list[PortalAppResponse])

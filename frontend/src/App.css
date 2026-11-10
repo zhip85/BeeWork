@@ -4317,3 +4317,16 @@ tr.policy-off td { opacity: 0.55; }
 .portal-org-list { display: grid; gap: 6px; max-height: 180px; overflow: auto; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
 .portal-org-list legend { padding: 0 4px; font-size: var(--fs-xs); font-weight: 600; }
 .portal-org-list label, .portal-featured { display: flex; gap: 8px; align-items: center; font-size: var(--fs-sm); }
+
+/* AI portal settings (T-141) */
+.portal-settings { display: grid; gap: 14px; }
+.portal-settings fieldset { margin: 0; min-width: 0; }
+.portal-settings legend h2 { margin: 0; font-size: var(--fs-lg); }
+.portal-settings-bar { display: flex; gap: 10px; align-items: center; justify-content: flex-end; color: #5d6c65; font-size: var(--fs-sm); }
+.portal-settings-bar span { margin-right: auto; }
+.portal-switches { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.portal-switches label { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.portal-switches label span { display: grid; gap: 2px; }
+.portal-switches small { color: #7d8983; font-size: var(--fs-xs); }
+.portal-settings legend { float: left; width: 100%; padding: 0 0 6px; }
+.portal-settings legend + * { clear: both; }

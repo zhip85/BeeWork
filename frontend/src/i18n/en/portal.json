@@ -79,5 +79,88 @@
     "list": "Listed",
     "delist": "Delisted",
     "delete": "Deleted"
+  },
+  "settings": {
+    "saved": "Settings saved",
+    "unsaved": "Unsaved changes",
+    "upToDate": "Up to date",
+    "preview": "Preview",
+    "previewSoon": "Preview opens once the employee side is live",
+    "save": "Save settings",
+    "brand": {
+      "title": "Brand and default experience",
+      "hint": "Set the employee-side name, the input hint and default behaviour.",
+      "name": "Portal name",
+      "namePlaceholder": "{{tenant}} AI",
+      "placeholder": "Input hint",
+      "placeholderDefault": "Search conversations, projects and AI apps.",
+      "audience": "Default visibility of new apps",
+      "style": "Default answer style"
+    },
+    "style": {
+      "concise": "Concise",
+      "balanced": "Balanced",
+      "detailed": "Detailed"
+    },
+    "nav": {
+      "title": "Navigation and discovery",
+      "hint": "Choose which modules the employee sidebar shows; turning one off also makes the server refuse its requests."
+    },
+    "session": {
+      "title": "Conversation abilities",
+      "hint": "Control the tools employees can use in the input box."
+    },
+    "personal": {
+      "title": "Employee personal settings",
+      "hint": "Control what employees may change in their account center."
+    },
+    "switch": {
+      "nav_search": {
+        "label": "Search",
+        "hint": "Search conversations, projects and AI apps."
+      },
+      "nav_projects": {
+        "label": "Projects",
+        "hint": "Group conversations and working notes in projects."
+      },
+      "nav_app_library": {
+        "label": "AI app library",
+        "hint": "Show the listed apps the employee may use."
+      },
+      "nav_recent": {
+        "label": "Recent",
+        "hint": "Show recent conversations in the sidebar."
+      },
+      "nav_pinned": {
+        "label": "Pinned conversations",
+        "hint": "Let employees pin important conversations."
+      },
+      "file_upload": {
+        "label": "File upload",
+        "hint": "Let employees attach local files to a question."
+      },
+      "voice_input": {
+        "label": "Voice input",
+        "hint": "Show the microphone in the input box."
+      },
+      "profile_edit": {
+        "label": "Allow editing profile and preferences",
+        "hint": "Employees may change their display name, department and AI preferences."
+      },
+      "personal_memory": {
+        "label": "Personal memory",
+        "hint": "Let employees control memory across conversations; turned off, nothing is written to personal memory for portal conversations."
+      },
+      "task_notifications": {
+        "label": "Task completion notifications",
+        "hint": "Let employees set up notifications for long tasks."
+      }
+    },
+    "delisted": {
+      "title": "History of delisted apps",
+      "hint": "What happens to employees' existing conversations once an app is delisted; either way no new calls can be started.",
+      "readonly": "Keep, readable only (default)",
+      "hidden": "Hide"
+    }
   }
 }

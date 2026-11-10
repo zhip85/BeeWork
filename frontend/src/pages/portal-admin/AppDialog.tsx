@@ -19,6 +19,7 @@ export function AppDialog({ tenant, app, onClose, onSaved }: { tenant: TenantMem
   const [description, setDescription] = useState(app?.description ?? '')
   const [category, setCategory] = useState(app?.category ?? t(`category.${PRESET_CATEGORIES[1]}`))
   const [audience, setAudience] = useState<Audience>(app?.audience ?? 'all')
+  const [audienceTouched, setAudienceTouched] = useState(Boolean(app))
   const [orgIds, setOrgIds] = useState<string[]>(app?.organization_ids ?? [])
   const [featured, setFeatured] = useState(app?.featured ?? false)
   const [saving, setSaving] = useState(false)
@@ -27,7 +28,10 @@ export function AppDialog({ tenant, app, onClose, onSaved }: { tenant: TenantMem
 
   useEffect(() => {
     apiRequest<{ items: SourceEntry[] }>('/api/v1/portal/app-sources', {}, tenant.id).then((r) => setSources(r.items)).catch(() => setSources([]))
+    // New apps start with the audience the administrator chose as the portal default (T-141).
+    if (!app) apiRequest<{ default_audience: Audience }>('/api/v1/portal/settings', {}, tenant.id).then((r) => setAudience((current) => (audienceTouched ? current : r.default_audience))).catch(() => undefined)
     apiRequest<{ organizations: Org[] }>('/api/v1/organizations', {}, tenant.id).then((r) => setOrgs(r.organizations)).catch(() => setOrgs([]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenant.id])
 
   const presets = PRESET_CATEGORIES.map((key) => t(`category.${key}`))
@@ -93,7 +97,7 @@ export function AppDialog({ tenant, app, onClose, onSaved }: { tenant: TenantMem
           </label>
           <label className="kb-field">
             <span>{t('audienceLabel')}</span>
-            <select onChange={(event) => setAudience(event.target.value as Audience)} value={audience}>
+            <select onChange={(event) => { setAudienceTouched(true); setAudience(event.target.value as Audience) }} value={audience}>
               <option value="all">{t('audience.all')}</option>
               <option value="orgs">{t('audience.orgs')}</option>
               <option value="admins">{t('audience.admins')}</option>

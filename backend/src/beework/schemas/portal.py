@@ -85,3 +85,56 @@ class PortalSummary(BaseModel):
 class ListCheckIssue(BaseModel):
     code: str
     message: str
+
+
+AnswerStyle = Literal["concise", "balanced", "detailed"]
+DelistedHistory = Literal["readonly", "hidden"]
+
+
+class PortalSettingsBody(BaseModel):
+    portal_name: str = Field(default="", max_length=50)
+    input_placeholder: str = Field(default="", max_length=100)
+    default_audience: Audience = "all"
+    answer_style: AnswerStyle = "balanced"
+    nav_search: bool = True
+    nav_projects: bool = True
+    nav_app_library: bool = True
+    nav_recent: bool = True
+    nav_pinned: bool = True
+    file_upload: bool = True
+    voice_input: bool = False
+    profile_edit: bool = True
+    personal_memory: bool = True
+    task_notifications: bool = True
+    delisted_history: DelistedHistory = "readonly"
+
+
+class PortalSettingsUpdate(PortalSettingsBody):
+    row_version: int | None = None  # 0 / absent only while the tenant has never saved settings
+
+
+class PortalSettingsResponse(PortalSettingsBody):
+    row_version: int = 0
+    updated_at: datetime | None = None
+    updated_by: str | None = None
+    can_edit: bool = False
+
+
+class PortalMeConfig(BaseModel):
+    """What the employee side may read: switches and brand, nothing administrative."""
+
+    portal_name: str
+    input_placeholder: str
+    answer_style: AnswerStyle
+    nav_search: bool
+    nav_projects: bool
+    nav_app_library: bool
+    nav_recent: bool
+    nav_pinned: bool
+    file_upload: bool
+    voice_input: bool
+    profile_edit: bool
+    personal_memory: bool
+    task_notifications: bool
+    delisted_history: DelistedHistory
+    has_console: bool  # whether “返回管理端” is offered
