@@ -1,68 +1,56 @@
-"""Agent / Chatflow / Workflow domain rules (T-060): config parsing, presets, configuration checks, references,
-cycle detection and the mount resolvers registered with ``capabilities``.
+"""Flow studio domain rules (T-060): config parsing, presets, configuration checks, references, cycle detection and
+versioned publishing of Chatflows / Workflows.
+
+“智能体” is the ``assistants`` table (T-067); the ``agents`` table holds flows only.
 """
 
 import re
 from collections.abc import Callable
-from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ValidationError
-from sqlalchemy import select
+from pydantic import ValidationError
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from beework.capabilities import MOUNT_RESOLVERS, MountItem, MountResolver
-from beework.knowledge_mounts import resolve_kb_mounts
-from beework.models.agents import Agent
+from beework.models import utc_now
+from beework.models.agents import Agent, FlowVersion
 from beework.models.assistants import Assistant
 from beework.schemas.agents import (
-    AgentConfigV1,
-    AgentResources,
     ChatSettings,
     CheckIssue,
     FlowConfigV1,
     FlowNode,
-    TeamSettings,
     WorkflowTriggers,
 )
 
 FIELD_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 MAX_FIELDS = 40
-REFERENCE_NODE_TYPES = ("agent", "copilot")
+REFERENCE_NODE_TYPES = ("agent", "copilot", "connector")
 
 
 class ConfigCorrupted(Exception):
     """The stored configuration cannot be parsed; the original data must stay untouched (AGT-007, GLB-084)."""
 
 
-def config_model(kind: str) -> type[BaseModel]:
-    return AgentConfigV1 if kind == "agent" else FlowConfigV1
-
-
-def parse_config(kind: str, raw: dict | None) -> AgentConfigV1 | FlowConfigV1:
+def parse_config(raw: dict | None) -> FlowConfigV1:
     try:
-        return config_model(kind).model_validate(raw or {})  # type: ignore[return-value]
+        return FlowConfigV1.model_validate(raw or {})
     except ValidationError as exc:
         raise ConfigCorrupted(str(exc)) from exc
 
 
-def preset_config(kind: str, is_team: bool, model_id: UUID | None) -> dict[str, Any]:
+def preset_config(kind: str) -> dict:
     """Initial draft config (3.3.2). Pre-set flow nodes may be deleted by the user."""
-    if kind == "agent":
-        config = AgentConfigV1(model_id=model_id)
-        if is_team:
-            config.team = TeamSettings()
-        return config.model_dump(mode="json")
     if kind == "chatflow":
         nodes = [
             FlowNode(id="n1", type="classify", name="意图识别", instruction="将用户消息分类为：产品咨询 / 售后服务 / 其他", order=1),
-            FlowNode(id="n2", type="agent", name="答复 Agent", order=2),
+            FlowNode(id="n2", type="agent", name="答复智能体", order=2),
             FlowNode(id="n3", type="note", name="注释", instruction="信息不足时追问用户（interrupt）", order=3),
         ]
         return FlowConfigV1(nodes=nodes, chat_settings=ChatSettings()).model_dump(mode="json")
     nodes = [
         FlowNode(id="n1", type="extract", name="提取订单信息", instruction="从输入中提取 order_id、金额与原因", order=1),
-        FlowNode(id="n2", type="agent", name="审核 Agent", order=2),
+        FlowNode(id="n2", type="agent", name="审核智能体", order=2),
         FlowNode(id="n3", type="review", name="人工复核", instruction="金额大于 5,000 时需人工审批", order=3),
     ]
     return FlowConfigV1(nodes=nodes, triggers=WorkflowTriggers()).model_dump(mode="json")
@@ -73,74 +61,66 @@ def preset_config(kind: str, is_team: bool, model_id: UUID | None) -> dict[str, 
 # ---------------------------------------------------------------------------
 
 
-def agent_refs(config: AgentConfigV1 | FlowConfigV1) -> list[UUID]:
-    """Other agents / workflows this configuration connects to."""
-    if isinstance(config, AgentConfigV1):
-        return list(config.resources.agents)
-    return [node.target_id for node in config.nodes if node.type in REFERENCE_NODE_TYPES and node.target_id]
+def flow_refs(config: FlowConfigV1) -> list[UUID]:
+    """Other flows this flow's nodes call (cycle detection only follows these)."""
+    return [
+        node.target_id
+        for node in config.nodes
+        if node.type in ("agent", "copilot") and node.target_kind == "flow" and node.target_id
+    ]
 
 
-def raw_agent_refs(kind: str, raw: dict | None) -> list[UUID]:
+def raw_flow_refs(raw: dict | None) -> list[UUID]:
     if not raw:
         return []
     try:
-        return agent_refs(parse_config(kind, raw))
+        return flow_refs(parse_config(raw))
     except ConfigCorrupted:
         return []
 
 
-def _live_agents(db: Session, tenant_id: UUID, ids: list[UUID]) -> dict[UUID, Agent]:
+def _live_flows(db: Session, tenant_id: UUID, ids: list[UUID]) -> dict[UUID, Agent]:
     if not ids:
         return {}
     return {
-        agent.id: agent
-        for agent in db.scalars(
+        flow.id: flow
+        for flow in db.scalars(
             select(Agent).where(Agent.tenant_id == tenant_id, Agent.id.in_(ids), Agent.deleted_at.is_(None))
         )
     }
 
 
-def _resolver(kind: str, mount_kind: str) -> MountResolver:
-    def resolve(db: Session, tenant_id: UUID, ids: list[UUID]) -> dict[UUID, MountItem]:
-        """CAP-051: 可用 → available; 草稿 / 已停用 → disabled (the referencing object shows it red). A deleted
-        agent, or one of another kind, is not returned and is therefore reported as deleted."""
-        return {
-            agent.id: MountItem(
-                id=agent.id,
-                kind=mount_kind,
-                name=agent.name,
-                state="available" if agent.status == "available" else "disabled",
-                meta={"status": agent.status, "kind": agent.kind, "is_team": agent.is_team},
+def _published_assistants(db: Session, tenant_id: UUID, ids: list[UUID]) -> set[UUID]:
+    if not ids:
+        return set()
+    return set(
+        db.scalars(
+            select(Assistant.id).where(
+                Assistant.tenant_id == tenant_id,
+                Assistant.id.in_(ids),
+                Assistant.deleted_at.is_(None),
+                Assistant.status == "published",
             )
-            for agent in _live_agents(db, tenant_id, ids).values()
-            if agent.kind == kind
-        }
-
-    return resolve
+        )
+    )
 
 
-MOUNT_RESOLVERS["agent"] = _resolver("agent", "agent")
-MOUNT_RESOLVERS["chatflow"] = _resolver("chatflow", "chatflow")
-MOUNT_RESOLVERS["flow"] = _resolver("workflow", "flow")
+# Other modules register who points at a flow (flow connections T-075, portal apps T-140): fn(db, flow) -> [(kind, id, name)].
+ReferenceProvider = Callable[[Session, Agent], list[tuple[str, UUID, str]]]
+REFERENCE_PROVIDERS: list[ReferenceProvider] = []
 
 
-def find_references(db: Session, agent: Agent) -> list[tuple[str, UUID, str]]:
-    """Assistants (draft mounts) and other agents (draft or available config) that point at ``agent``."""
-    target = str(agent.id)
+def find_references(db: Session, flow: Agent) -> list[tuple[str, UUID, str]]:
+    """Other flows (draft or published config) and registered providers that point at ``flow``."""
     found: list[tuple[str, UUID, str]] = []
-    mount_kind = {"agent": "agent", "chatflow": "chatflow", "workflow": "flow"}[agent.kind]
-    for assistant in db.scalars(
-        select(Assistant).where(Assistant.tenant_id == agent.tenant_id, Assistant.deleted_at.is_(None))
-    ):
-        mounted = ((assistant.draft_config or {}).get("mounts") or {}).get(mount_kind) or []
-        if target in {str(value) for value in mounted}:
-            found.append(("assistant", assistant.id, assistant.name))
     for other in db.scalars(
-        select(Agent).where(Agent.tenant_id == agent.tenant_id, Agent.deleted_at.is_(None), Agent.id != agent.id)
+        select(Agent).where(Agent.tenant_id == flow.tenant_id, Agent.deleted_at.is_(None), Agent.id != flow.id)
     ):
-        refs = raw_agent_refs(other.kind, other.draft_config) + raw_agent_refs(other.kind, other.available_config)
-        if agent.id in refs:
+        refs = raw_flow_refs(other.draft_config) + raw_flow_refs(other.published_config)
+        if flow.id in refs:
             found.append((other.kind, other.id, other.name))
+    for provider in REFERENCE_PROVIDERS:
+        found.extend(provider(db, flow))
     return found
 
 
@@ -149,25 +129,23 @@ class ReferenceCycle(Exception):
         self.self_reference = self_reference
 
 
-def ensure_no_cycle(db: Session, agent: Agent, config: AgentConfigV1 | FlowConfigV1) -> None:
-    """RUL-014: an agent cannot connect to itself, and connections between agents must not form a loop."""
-    new_refs = agent_refs(config)
-    if agent.id in new_refs:
+def ensure_no_cycle(db: Session, flow: Agent, config: FlowConfigV1) -> None:
+    """RUL-014: a flow cannot call itself, and calls between flows must not form a loop."""
+    new_refs = flow_refs(config)
+    if flow.id in new_refs:
         raise ReferenceCycle(True)
     graph: dict[UUID, set[UUID]] = {}
     for other in db.scalars(
-        select(Agent).where(Agent.tenant_id == agent.tenant_id, Agent.deleted_at.is_(None), Agent.id != agent.id)
+        select(Agent).where(Agent.tenant_id == flow.tenant_id, Agent.deleted_at.is_(None), Agent.id != flow.id)
     ):
-        graph[other.id] = set(raw_agent_refs(other.kind, other.draft_config)) | set(
-            raw_agent_refs(other.kind, other.available_config)
-        )
-    # The saved available config also counts for the agent being edited: callers keep executing it.
-    graph[agent.id] = set(new_refs) | set(raw_agent_refs(agent.kind, agent.available_config))
+        graph[other.id] = set(raw_flow_refs(other.draft_config)) | set(raw_flow_refs(other.published_config))
+    # The published config also counts for the flow being edited: callers keep executing it.
+    graph[flow.id] = set(new_refs) | set(raw_flow_refs(flow.published_config))
     seen: set[UUID] = set()
     stack = list(new_refs)
     while stack:
         current = stack.pop()
-        if current == agent.id:
+        if current == flow.id:
             raise ReferenceCycle(False)
         if current in seen:
             continue
@@ -184,63 +162,55 @@ NodeRule = Callable[[FlowNode], str | None]
 NODE_RULES: list[NodeRule] = []
 
 
-def _resource_issues(db: Session, agent: Agent, config: AgentConfigV1 | FlowConfigV1) -> list[CheckIssue]:
-    states: list[str] = []
-    if isinstance(config, AgentConfigV1):
-        resources: AgentResources = config.resources
-        # Channels, skills and tools get their catalogue in T-070/T-072/T-074; until then they cannot resolve.
-        states += ["deleted" for _ in [*resources.channels, *resources.skills, *resources.tools]]
-        found = resolve_kb_mounts(db, agent.tenant_id, list(resources.knowledge))
-        states += [found[i].state if i in found else "deleted" for i in resources.knowledge]
-        agents = _live_agents(db, agent.tenant_id, list(resources.agents))
-        states += ["available" if i in agents and agents[i].status == "available" else "deleted" for i in resources.agents]
-    else:
-        ids = [n.target_id for n in config.nodes if n.type in REFERENCE_NODE_TYPES and n.target_id]
-        agents = _live_agents(db, agent.tenant_id, ids)
-        states += ["available" if i in agents and agents[i].status == "available" else "deleted" for i in ids]
-    if any(state != "available" for state in states):
-        return [CheckIssue(code="resource_invalid", message="请处理失效的资源引用")]
-    return []
+def _node_target_ok(
+    node: FlowNode, flows: dict[UUID, Agent], assistants: set[UUID]
+) -> bool:
+    """演进 PRD 6.5: a node whose target is gone, unpublished or disabled is flagged, never skipped silently."""
+    if node.target_id is None:
+        return True
+    if node.target_kind == "assistant":
+        return node.target_id in assistants
+    if node.target_kind == "flow":
+        target = flows.get(node.target_id)
+        return target is not None and target.status == "published"
+    return False  # connections (T-075) and unknown kinds cannot resolve yet
 
 
-def check_agent(db: Session, agent: Agent, config: AgentConfigV1 | FlowConfigV1) -> list[CheckIssue]:
+def invalid_node_ids(db: Session, flow: Agent, config: FlowConfigV1) -> list[str]:
+    nodes = [n for n in config.nodes if n.type in REFERENCE_NODE_TYPES and n.target_id]
+    flows = _live_flows(db, flow.tenant_id, [n.target_id for n in nodes if n.target_kind == "flow"])
+    assistants = _published_assistants(db, flow.tenant_id, [n.target_id for n in nodes if n.target_kind == "assistant"])
+    return [n.id for n in nodes if not _node_target_ok(n, flows, assistants)]
+
+
+def check_flow(db: Session, flow: Agent, config: FlowConfigV1) -> list[CheckIssue]:
     issues: list[CheckIssue] = []
 
     def add(code: str, message: str) -> None:
         issues.append(CheckIssue(code=code, message=message))
 
-    if not agent.name.strip():
+    if not flow.name.strip():
         add("name_required", "请填写名称")
-    if isinstance(config, AgentConfigV1):
-        if not config.instructions.strip():
-            add("instructions_required", "请填写指令")
-        if agent.is_team:
-            members = config.resources.agents
-            if len(members) < 2:
-                add("team_members", "协作组至少连接 2 个智能体")
-            team = config.team
-            if team is not None and team.lead_agent_id is not None and team.lead_agent_id not in members:
-                add("team_lead", "主控智能体需在已连接的智能体中")
+    executable = [node for node in config.nodes if node.type != "note"]
+    if not executable:
+        add("nodes_required", "请添加执行节点")
+    for node in executable:
+        for rule in NODE_RULES:
+            message = rule(node)
+            if message:
+                add("node_incomplete", f"{node.name or node.type} · {message}")
+    if flow.kind == "chatflow":
+        settings = config.chat_settings or ChatSettings()
+        if not settings.opening.strip():
+            add("opening_required", "请填写开场白")
+        if not settings.fallback.strip():
+            add("fallback_required", "请填写兜底回复")
+        if not 1 <= settings.history_turns <= 50:
+            add("history_turns", "历史轮数需在 1–50 之间")
     else:
-        executable = [node for node in config.nodes if node.type != "note"]
-        if not executable:
-            add("nodes_required", "请添加执行节点")
-        for node in executable:
-            for rule in NODE_RULES:
-                message = rule(node)
-                if message:
-                    add("node_incomplete", f"{node.name or node.type} · {message}")
-        if agent.kind == "chatflow":
-            settings = config.chat_settings or ChatSettings()
-            if not settings.opening.strip():
-                add("opening_required", "请填写开场白")
-            if not settings.fallback.strip():
-                add("fallback_required", "请填写兜底回复")
-            if not 1 <= settings.history_turns <= 50:
-                add("history_turns", "历史轮数需在 1–50 之间")
-        else:
-            _workflow_issues(config, add)
-    issues += _resource_issues(db, agent, config)
+        _workflow_issues(config, add)
+    if invalid_node_ids(db, flow, config):
+        add("resource_invalid", "请处理失效的资源引用")
     return issues
 
 
@@ -262,3 +232,30 @@ def _workflow_issues(config: FlowConfigV1, add: Callable[[str, str], None]) -> N
         add("tool_name", "工具名需为小写下划线格式")
     if len(config.inputs) + len(config.outputs) > MAX_FIELDS:
         add("too_many_fields", "字段过多")
+
+
+# ---------------------------------------------------------------------------
+# Versioned publishing (演进 PRD 6.8).
+# ---------------------------------------------------------------------------
+
+
+def publish_flow(db: Session, flow: Agent, config: FlowConfigV1, note: str, actor: str) -> FlowVersion:
+    """Freeze the draft as the next immutable version and make it the one callers execute."""
+    last = db.scalar(select(func.max(FlowVersion.version_seq)).where(FlowVersion.flow_id == flow.id)) or 0
+    snapshot = config.model_dump(mode="json")
+    version = FlowVersion(
+        tenant_id=flow.tenant_id,
+        flow_id=flow.id,
+        version_seq=last + 1,
+        version=f"v{last + 1}",
+        snapshot=snapshot,
+        change_note=note.strip(),
+        published_by=actor,
+    )
+    db.add(version)
+    db.flush()
+    flow.published_config = snapshot
+    flow.live_version_id = version.id
+    flow.status = "published"
+    flow.published_at = utc_now()
+    return version

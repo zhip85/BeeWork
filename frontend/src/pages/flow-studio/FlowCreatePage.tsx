@@ -5,37 +5,37 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { apiRequest } from '../../api'
 import type { TenantMembership } from '../../types'
-import { AGENT_ICONS, AgentIcon, ICON_ORDER } from './AgentIcon'
+import { FLOW_ICONS, FlowIcon, ICON_ORDER } from './FlowIcon'
 import { DEFAULT_ICON, parseKind } from './types'
-import type { AgentDetail, AgentIconName } from './types'
+import type { FlowDetail, FlowIconName } from './types'
 
 const NAME_MAX = 50
 const DESCRIPTION_MAX = 200
 
 /** Create page (3.3.2): name, description and icon; creating opens the editor on a new draft. */
-export function AgentCreatePage({ tenant }: { tenant: TenantMembership }) {
-  const { t } = useTranslation('agents')
+export function FlowCreatePage({ tenant }: { tenant: TenantMembership }) {
+  const { t } = useTranslation('flows')
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const kind = parseKind(params.get('type'))
   const kindName = t(`kind.${kind}`)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [icon, setIcon] = useState<AgentIconName>(DEFAULT_ICON[kind])
+  const [icon, setIcon] = useState<FlowIconName>(DEFAULT_ICON[kind])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const listPath = kind === 'agent' ? '/agents' : `/agents?type=${kind}`
+  const listPath = kind === 'chatflow' ? '/flow-studio' : `/flow-studio?type=${kind}`
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setSaving(true)
     setError('')
     try {
-      const created = await apiRequest<AgentDetail>('/api/v1/agents', {
+      const created = await apiRequest<FlowDetail>('/api/v1/agents', {
         method: 'POST',
         body: JSON.stringify({ kind, name: name.trim(), description: description.trim(), icon }),
       }, tenant.id)
-      navigate(`/agents/${created.id}`, { state: { notice: t('createdNotice') } })
+      navigate(`/flow-studio/${created.id}`, { state: { notice: t('createdNotice') } })
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : t('actionFailed'))
       setSaving(false)
@@ -44,12 +44,12 @@ export function AgentCreatePage({ tenant }: { tenant: TenantMembership }) {
 
   return (
     <section className="kb-create-page">
-      <Link className="back-link" to={listPath}><ArrowLeft size={15} /> {t('backTo', { kind: kindName })} <span className="agents-draft-badge">{t('newDraft')}</span></Link>
+      <Link className="back-link" to={listPath}><ArrowLeft size={15} /> {t('backTo', { kind: kindName })} <span className="flows-draft-badge">{t('newDraft')}</span></Link>
       <div className="kb-create-shell">
         <header className="kb-create-title">
-          <span className={`agents-icon large ${kind}`}><AgentIcon name={icon} size={24} /></span>
+          <span className={`flows-icon large ${kind}`}><FlowIcon name={icon} size={24} /></span>
           <div>
-            <span className="eyebrow">AI WORKSPACE</span>
+            <span className="eyebrow">FLOW STUDIO</span>
             <h1>{t('createTitle', { kind: kindName })}</h1>
           </div>
         </header>
@@ -70,9 +70,9 @@ export function AgentCreatePage({ tenant }: { tenant: TenantMembership }) {
           </label>
           <fieldset className="kb-type-field">
             <legend>{t('icon')} <em>*</em></legend>
-            <div className="agents-icon-grid" role="radiogroup">
+            <div className="flows-icon-grid" role="radiogroup">
               {ICON_ORDER.map((value) => {
-                const Icon = AGENT_ICONS[value]
+                const Icon = FLOW_ICONS[value]
                 return (
                   <label className={icon === value ? 'selected' : ''} key={value}>
                     <input checked={icon === value} name="icon" onChange={() => setIcon(value)} type="radio" />

@@ -5,7 +5,6 @@ import {
   BookOpen,
   Bot,
   Boxes,
-  Brain,
   ChevronDown,
   CircleHelp,
   ClipboardCheck,
@@ -44,9 +43,9 @@ import { NoTenantAccessPage } from './pages/auth/NoTenantAccessPage'
 import { Dashboard } from './pages/dashboard/Dashboard'
 import { MembersPage } from './pages/members/MembersPage'
 import { PlatformConsole } from './pages/platform/PlatformConsole'
-import { AgentCreatePage } from './pages/agents/AgentCreatePage'
-import { AgentEditorPage } from './pages/agents/AgentEditorPage'
-import { AgentsPage } from './pages/agents/AgentsPage'
+import { FlowCreatePage } from './pages/flow-studio/FlowCreatePage'
+import { FlowEditorPage } from './pages/flow-studio/FlowEditorPage'
+import { FlowsPage } from './pages/flow-studio/FlowsPage'
 import { KnowledgeCreatePage } from './pages/knowledge/KnowledgeCreatePage'
 import { KnowledgeDetailPage } from './pages/knowledge/KnowledgeDetailPage'
 import { KnowledgeListPage } from './pages/knowledge/KnowledgeListPage'
@@ -74,7 +73,7 @@ const navigation = [
 
 // Navigation entries with their own page; every other entry still shows the placeholder (listing them here is what
 // keeps a placeholder route from shadowing the real one at the same path).
-const REAL_PAGES = new Set(['/assistants', '/agents', '/approvals', '/channels', '/knowledge'])
+const REAL_PAGES = new Set(['/assistants', '/flow-studio', '/approvals', '/channels', '/knowledge'])
 
 function App() {
   const { t } = useTranslation(['nav', 'common', 'settings', 'notifications', 'channels'])
@@ -401,9 +400,9 @@ function App() {
               <Route key={to} path={to} element={hasPermission(permission) ? <SectionPlaceholder title={t(`nav:${labelKey}`)} icon={<Icon size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             ))}
             <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            <Route path="/agents" element={hasPermission('agents:view') && activeTenant ? <AgentsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            <Route path="/agents/new" element={hasPermission('agents:edit') && activeTenant && activeTenant.access_mode === 'full' ? <AgentCreatePage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            <Route path="/agents/:agentId" element={hasPermission('agents:view') && activeTenant ? <AgentEditorPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/flow-studio" element={hasPermission('agents:view') && activeTenant ? <FlowsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/flow-studio/new" element={hasPermission('agents:edit') && activeTenant && activeTenant.access_mode === 'full' ? <FlowCreatePage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/flow-studio/:flowId" element={hasPermission('agents:view') && activeTenant ? <FlowEditorPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/knowledge" element={hasPermission('knowledge:view') && activeTenant ? <KnowledgeListPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/knowledge/new" element={hasPermission('knowledge:edit') && activeTenant && activeTenant.access_mode === 'full' ? <KnowledgeCreatePage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/knowledge/:kbId" element={hasPermission('knowledge:view') && activeTenant ? <KnowledgeDetailPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
