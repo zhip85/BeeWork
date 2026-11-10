@@ -151,3 +151,61 @@ def visible_apps(db: Session, membership: Membership) -> list[PortalApp]:
             continue
         visible.append(app)
     return visible
+
+
+# ---------------------------------------------------------------------------
+# Portal settings (T-141).
+# ---------------------------------------------------------------------------
+
+from fastapi import Depends  # noqa: E402
+
+from beework.auth import get_tenant_membership  # noqa: E402
+from beework.db import get_db  # noqa: E402
+from beework.models import Tenant  # noqa: E402
+from beework.models.portal import PortalSettings  # noqa: E402
+from beework.schemas.portal import PortalSettingsBody  # noqa: E402
+
+SETTING_FIELDS = tuple(PortalSettingsBody.model_fields)
+FEATURES = {
+    "search": "nav_search", "projects": "nav_projects", "app_library": "nav_app_library", "recent": "nav_recent",
+    "pinned": "nav_pinned", "file_upload": "file_upload", "voice_input": "voice_input", "profile_edit": "profile_edit",
+    "personal_memory": "personal_memory", "task_notifications": "task_notifications",
+}
+
+
+def load_settings(db: Session, tenant_id: UUID) -> tuple[PortalSettingsBody, PortalSettings | None]:
+    """The tenant's settings, or the defaults when it never saved any (nothing is written by reading)."""
+    row = db.get(PortalSettings, tenant_id)
+    if row is None:
+        return PortalSettingsBody(), None
+    return PortalSettingsBody(**{name: getattr(row, name) for name in SETTING_FIELDS}), row
+
+
+def portal_name(db: Session, tenant_id: UUID, settings_: PortalSettingsBody) -> str:
+    if settings_.portal_name.strip():
+        return settings_.portal_name.strip()
+    tenant = db.get(Tenant, tenant_id)
+    return f"{tenant.name} AI" if tenant else "AI"
+
+
+def require_portal_feature(feature: str):
+    """Dependency for employee-side endpoints: refused with 403 ``portal.feature_disabled`` when the administrator
+    switched the feature off — the server enforces it, hiding the menu is only a courtesy (演进 PRD 10.4)."""
+    field = FEATURES[feature]
+
+    def dependency(membership: Membership = Depends(get_tenant_membership), db: Session = Depends(get_db)) -> Membership:
+        from beework.api.conventions import (
+            ApiError,  # imported late: the API package imports this module
+        )
+
+        settings_, _row = load_settings(db, membership.tenant_id)
+        if not getattr(settings_, field):
+            raise ApiError(403, "portal.feature_disabled", "管理员已关闭此功能")
+        return membership
+
+    return dependency
+
+
+def feature_enabled(db: Session, tenant_id: UUID, feature: str) -> bool:
+    """For code paths that are not endpoints (e.g. the memory write of a portal conversation, T-056 / T-145)."""
+    return bool(getattr(load_settings(db, tenant_id)[0], FEATURES[feature]))

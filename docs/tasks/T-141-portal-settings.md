@@ -27,3 +27,21 @@
 ## 验收标准
 
 - [ ] 测试：每个开关关闭后对应员工接口 403；设置保存后重新读取一致；无权限 403；跨租户隔离；`row_version` 冲突 409。
+
+## 完成记录
+
+**改动文件**
+- 后端：`models/portal.py`（`PortalSettings`，每租户一行）+ 迁移 `0042_portal_settings`（可降级）、`schemas/portal.py`、`portal_service.py`（`load_settings`：没有记录时返回默认值且**读取不写库**；`require_portal_feature(feature)` 依赖：开关关闭则 403 `portal.feature_disabled`；`feature_enabled(db, tenant_id, feature)` 供非接口代码使用）、`api/portal.py`（`GET / PUT /portal/settings`、`GET /portal/me/config`）、审计 `portal_settings.updated`（归“智能体”分类）。
+- 设置项：品牌（门户名称，空 = “{租户名} AI”；输入框提示语；新建应用的默认可见范围；默认回答风格）；导航（搜索、项目、AI 应用库、最近使用、置顶）；会话能力（文件上传、语音输入；默认关）；员工个人设置（编辑个人资料、个人记忆、任务完成通知）；下架应用历史会话 `readonly`（默认）/ `hidden`。
+- 规则：`PUT` 必须带 `row_version`（从未保存过的租户为 0），不一致 409 `conflict.stale`；审计只记录**开关与枚举**的旧值→新值，门户名称与提示语只记“已修改”，不存正文；`/portal/me/config` 只返回品牌与开关（不含默认可见范围、版本号等管理字段）加 `has_console`（是否显示“返回管理端”），任何租户成员可读。
+- 前端：“AI 门户 → 门户设置”页签（品牌与默认体验、导航与内容发现、会话能力、员工个人设置、下架历史；未保存提示、离开页面提醒；保存失败显示错误而不是成功；“预览”按钮在员工端上线前禁用并说明）；添加应用的弹窗默认可见范围取自这里的设置；`i18n/{zh-CN,en}/portal.json` 补全。
+- 测试：`tests/test_portal_settings.py` 14 项（默认值与读取不写库、保存读回一致、校验、陈旧 / 缺失 / 首次保存版本冲突、审计不含正文、员工配置不含管理字段、**每个开关都在服务端关闭其端点并可恢复**、按租户隔离、非接口代码的判定函数、403、CSRF）。员工端接口还不存在，所以用与它们相同的依赖挂了探测路由来验证强制执行本身。
+
+**验证**：ruff；全量 `./scripts/test-postgres.sh`（迁移升降级 + `alembic check`）；前端 `tsc -b`、lint、`i18n:check`、`style:check`、build；无头 Chrome 在开发库里关闭“项目”、保存、刷新后确认保持关闭。
+**是否连过真实第三方引擎**：不涉及。
+
+**遗留问题**
+- 各开关对应的真实员工端接口在 T-143（项目、置顶、对话）、T-144（应用库）、T-145（个人资料、记忆、通知）、T-148（上传、语音）里**必须**挂上 `require_portal_feature(...)`；个人记忆的写入停止要在 T-056 / T-145 里调用 `feature_enabled(..., "personal_memory")`。
+- `delisted_history` 只存储；下架后历史会话怎么处理在 T-143 落实。
+- `has_console` 目前按“是否有工作台权限”判断，`employee` 角色（T-142）上线后其值为 false。
+- “预览员工端”在 T-142 后接通。开发库里“项目”开关被我关掉了，用于验证，需要时可在页面里重新打开。

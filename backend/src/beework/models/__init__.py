@@ -78,6 +78,7 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "model_catalog.tested": "测试模型连通性",
     "model_environment.tested": "测试环境模型调用",
     "job.retried": "重试后台任务",
+    "portal_settings.updated": "修改门户设置",
     "portal_app.created": "添加门户应用",
     "portal_app.updated": "修改门户应用",
     "portal_app.listed": "上架门户应用",
@@ -583,7 +584,7 @@ class AuditEvent(Base):
     def set_audit_metadata(self, _key: str, action: str) -> str:
         if action.startswith(("membership.", "role.", "organization.")):
             self.category = "members_permissions"
-        elif action.startswith(("assistant.", "channel.", "flow.", "portal_app.")):
+        elif action.startswith(("assistant.", "channel.", "flow.", "portal_app.", "portal_settings.")):
             self.category = "assistants"
         elif action.startswith("api_key."):
             self.category = "developer"

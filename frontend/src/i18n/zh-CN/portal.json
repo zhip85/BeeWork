@@ -79,5 +79,88 @@
     "list": "已上架",
     "delist": "已下架",
     "delete": "已删除"
+  },
+  "settings": {
+    "saved": "设置已保存",
+    "unsaved": "有未保存的修改",
+    "upToDate": "已是最新",
+    "preview": "预览",
+    "previewSoon": "员工端上线后开放预览",
+    "save": "保存设置",
+    "brand": {
+      "title": "品牌与默认体验",
+      "hint": "设置员工端名称、输入提示和默认行为。",
+      "name": "门户名称",
+      "namePlaceholder": "{{tenant}} AI",
+      "placeholder": "输入框提示语",
+      "placeholderDefault": "搜索对话、项目和 AI 应用。",
+      "audience": "新建应用的默认可见范围",
+      "style": "默认回答风格"
+    },
+    "style": {
+      "concise": "简洁",
+      "balanced": "均衡",
+      "detailed": "详细"
+    },
+    "nav": {
+      "title": "导航与内容发现",
+      "hint": "选择员工端侧栏展示的模块；关闭后相关接口也会拒绝。"
+    },
+    "session": {
+      "title": "会话能力",
+      "hint": "管控员工在输入框内可使用的工具。"
+    },
+    "personal": {
+      "title": "员工个人设置",
+      "hint": "控制员工可在账号个人中心中修改的内容。"
+    },
+    "switch": {
+      "nav_search": {
+        "label": "搜索",
+        "hint": "搜索对话、项目和 AI 应用。"
+      },
+      "nav_projects": {
+        "label": "项目",
+        "hint": "使用项目归纳对话与工作说明。"
+      },
+      "nav_app_library": {
+        "label": "AI 应用库",
+        "hint": "展示已上架且有权限的 AI 应用。"
+      },
+      "nav_recent": {
+        "label": "最近使用",
+        "hint": "在侧栏展示最近对话。"
+      },
+      "nav_pinned": {
+        "label": "置顶对话",
+        "hint": "允许员工置顶重要对话。"
+      },
+      "file_upload": {
+        "label": "文件上传",
+        "hint": "允许员工在提问时添加本地文件。"
+      },
+      "voice_input": {
+        "label": "语音输入",
+        "hint": "在输入框中展示麦克风入口。"
+      },
+      "profile_edit": {
+        "label": "允许编辑个人资料与偏好",
+        "hint": "员工可修改显示名称、部门与 AI 默认偏好。"
+      },
+      "personal_memory": {
+        "label": "个人记忆",
+        "hint": "允许员工控制跨对话个人记忆；关闭后停止为门户对话写入个人记忆。"
+      },
+      "task_notifications": {
+        "label": "任务完成通知",
+        "hint": "允许员工配置长任务完成通知。"
+      }
+    },
+    "delisted": {
+      "title": "下架应用的历史会话",
+      "hint": "应用下架后，员工已有的会话如何处理；无论选哪种，都不能再发起新的调用。",
+      "readonly": "保留，只读可看（默认）",
+      "hidden": "隐藏"
+    }
   }
 }
