@@ -25,8 +25,8 @@ type Mounts = { total: number; groups: { kind: string; items: MountEntry[] }[]; 
 
 const TABS = ['overview', 'basics', 'capabilities', 'channels', 'tests', 'versions', 'conversations', 'dependencies'] as const
 type Tab = (typeof TABS)[number]
-// Orchestration is its own set of pages: an old ``?tab=orchestration`` link goes to its overview.
-const MOVED: Record<string, (id: string) => string> = { orchestration: (id) => `/assistants/${id}/oc/overview` }
+// Orchestration is its own set of pages: an old ``?tab=orchestration`` link goes to its first stage.
+const MOVED: Record<string, (id: string) => string> = { orchestration: (id) => `/assistants/${id}/oc/pii` }
 
 export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
   const { t } = useTranslation('detail')

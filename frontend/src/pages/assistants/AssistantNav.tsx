@@ -49,7 +49,6 @@ export function AssistantNav({
           </button>
           {ocOpen && (
             <div className="assistant-nav-children">
-              {item('oc:overview', to('overview'))}
               {STAGES.map((stage) => item(`oc:${stage}`, `${STAGES.indexOf(stage) + 1}. ${to(`stages.${stage}.name`)}`))}
             </div>
           )}
