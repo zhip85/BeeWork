@@ -184,7 +184,8 @@
       "promptRequired": "请填写助理提示词",
       "modelRequired": "请选择模型",
       "saveFailed": "保存失败"
-    }
+    },
+    "createHint": "先填写这几项即可创建，提示词、能力、编排和渠道创建后在助手页里继续配置。"
   },
   "picker": {
     "title": "挂载能力",

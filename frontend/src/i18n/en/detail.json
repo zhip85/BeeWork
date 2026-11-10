@@ -67,7 +67,10 @@
     "none": "Not set",
     "viewPrompt": "View full prompt",
     "promptTitle": "Full prompt",
-    "copy": "Copy"
+    "copy": "Copy",
+    "hint": "Click Save to write the draft; changes reach live only after publishing.",
+    "reset": "Discard changes",
+    "experience": "Experience"
   },
   "capabilities": {
     "title": "Mounted capabilities {{count}}",
@@ -90,5 +93,24 @@
       "deleted": "Deleted / invalid"
     }
   },
-  "submitted": "Submitted to the approval center"
+  "submitted": "Submitted to the approval center",
+  "navLabel": "Assistant setup",
+  "nav": {
+    "overview": "Overview",
+    "basics": "Basics",
+    "basicsHint": "Name, prompt, model, experience",
+    "capabilities": "Capabilities",
+    "capabilitiesHint": "Mount knowledge bases and more",
+    "oc": "Orchestration",
+    "channels": "Channels",
+    "channelsHint": "Web, app, IM, API",
+    "tests": "Tests",
+    "testsHint": "Run cases before publishing",
+    "versions": "Publish & versions",
+    "versionsHint": "Approval, publish, roll back",
+    "more": "More",
+    "conversations": "Conversations",
+    "dependencies": "Dependencies",
+    "ocHint": "PII, memory, glossary, rewrite, routing"
+  }
 }

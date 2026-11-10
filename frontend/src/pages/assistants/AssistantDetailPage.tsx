@@ -1,28 +1,34 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Bot, Copy, MoreHorizontal, X } from 'lucide-react'
+import { ArrowLeft, Bot, MoreHorizontal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
-import { AssistantWizard } from './AssistantWizard'
+import { AssistantBasicsPanel } from './AssistantBasicsPanel'
+import { AssistantNav } from './AssistantNav'
+import type { NavKey } from './AssistantNav'
 import { CapabilityPicker } from './CapabilityPicker'
 import { ChannelsPage } from '../channels/ChannelsPage'
 import { OpenApiCard } from '../channels/OpenApiCard'
 import { PublishDialog } from './PublishDialog'
 import { TestCasesTab } from './TestCasesTab'
-import { OrchestrationTab } from '../orchestration/OrchestrationTab'
 import { TestConsole } from './TestConsole'
-import type { Assistant, AssistantModelOptions, AssistantSummary, OrganizationOption } from './types'
+import type { Assistant, OrganizationOption } from './types'
 
 type CheckIssue = { code: string; severity: 'blocker' | 'high' | 'info'; message: string; target: string }
 type Checks = { issues: CheckIssue[]; blockers: number; high_impact: number; info: number }
 type MountEntry = { id: string; kind: string; name: string; state: 'available' | 'disabled' | 'deleted' }
 type Mounts = { total: number; groups: { kind: string; items: MountEntry[] }[]; mountable_kinds: string[] }
 
-const TABS = ['overview', 'capabilities', 'orchestration', 'channels', 'versions', 'dependencies', 'tests', 'conversations'] as const
+const TABS = ['overview', 'basics', 'capabilities', 'channels', 'tests', 'dependencies'] as const
 type Tab = (typeof TABS)[number]
-const PREVIEW_LINES = 3
+// Sections that used to be tabs and are now their own pages: old links keep working.
+const MOVED: Record<string, (id: string) => string> = {
+  orchestration: (id) => `/assistants/${id}/oc/overview`,
+  versions: (id) => `/assistants/${id}/versions`,
+  conversations: (id) => `/assistants/${id}/conversations`,
+}
 
 export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
   const { t } = useTranslation('detail')
@@ -37,22 +43,23 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
   const [assistant, setAssistant] = useState<Assistant | null>(null)
   const [checks, setChecks] = useState<Checks | null>(null)
   const [mounts, setMounts] = useState<Mounts | null>(null)
-  const [models, setModels] = useState<AssistantModelOptions | null>(null)
   const [organizations, setOrganizations] = useState<OrganizationOption[]>([])
-  const [quota, setQuota] = useState<AssistantSummary['quota'] | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [reload, setReload] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [wizard, setWizard] = useState(false)
   const [publishing, setPublishing] = useState(false)
-  const [showPrompt, setShowPrompt] = useState(false)
   const [pending, setPending] = useState<'delete' | 'disable' | null>(null)
   const [mounting, setMounting] = useState(false)
   const [versionOptions, setVersionOptions] = useState<{ id: string; version: string; is_live: boolean }[]>([])
 
   const requested = params.get('tab') as Tab | null
   const tab: Tab = requested && TABS.includes(requested) ? requested : 'overview'
+
+  useEffect(() => {
+    const moved = params.get('tab') ? MOVED[params.get('tab') as string] : undefined
+    if (moved) navigate(moved(assistantId), { replace: true })
+  }, [params, assistantId, navigate])
 
   useEffect(() => {
     let active = true
@@ -74,15 +81,14 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
 
   useEffect(() => {
     let active = true
-    apiRequest<AssistantModelOptions>('/api/v1/assistants/model-options', {}, tenantId).then((result) => active && setModels(result)).catch(() => undefined)
     apiRequest<{ organizations: OrganizationOption[] }>('/api/v1/organizations', {}, tenantId).then((result) => active && setOrganizations(result.organizations)).catch(() => undefined)
     apiRequest<{ items: { id: string; version: string; is_live: boolean }[] }>(`/api/v1/assistants/${assistantId}/versions`, {}, tenantId).then((result) => active && setVersionOptions(result.items)).catch(() => undefined)
-    apiRequest<AssistantSummary>('/api/v1/assistants/summary', {}, tenantId).then((result) => active && setQuota(result.quota)).catch(() => undefined)
     return () => { active = false }
   }, [tenantId, assistantId, reload])
 
   const refresh = useCallback(() => setReload((value) => value + 1), [])
   const setTab = (next: Tab) => setParams(next === 'overview' ? {} : { tab: next }, { replace: true })
+  const goTo = (path: string) => navigate(path)
 
   async function act(path: string, doneKey: string) {
     try {
@@ -118,10 +124,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
   }
 
   const editable = assistant.can_edit
-  const modelName = models?.models.find((model) => model.id === assistant.config.model_id)?.display_name
-  const prompt = assistant.config.prompt
-  const promptLines = prompt.split('\n')
-  const promptPreview = promptLines.slice(0, PREVIEW_LINES).join('\n') + (promptLines.length > PREVIEW_LINES ? ' …' : '')
+  const canEditBasics = editable && can('assistants:edit')
 
   const menu: { key: string; label: string; run: () => void; danger?: boolean }[] = []
   if (editable && can('assistants:edit')) menu.push({ key: 'copy', label: ta('menu.copy'), run: () => void copy() })
@@ -154,13 +157,9 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
       {notice && <p className="assistants-notice" role="status">{notice}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
 
-      <nav aria-label={t('tabsLabel')} className="detail-tabs" role="tablist">
-        {TABS.map((key) => (
-          <button aria-selected={tab === key} className={tab === key ? 'selected' : ''} key={key} onClick={() => setTab(key)} role="tab" type="button">
-            {t(`tabs.${key}`)}{key === 'capabilities' && mounts ? ` ${mounts.total}` : ''}
-          </button>
-        ))}
-      </nav>
+      <div className="orchestration-layout assistant-workspace">
+      <AssistantNav active={tab as NavKey} capabilityCount={mounts?.total} go={goTo} assistantId={assistant.id} showOc={tenant.permissions.includes('orchestration:view')} />
+      <div className="assistant-workspace-content">
 
       {tab === 'overview' && (
         <div className="detail-overview-split">
@@ -174,7 +173,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
                   <li className={`check-${issue.severity}`} key={issue.code + issue.message}>
                     <span className="check-badge">{t(`checks.severity.${issue.severity}`)}</span>
                     <span>{issue.message}</span>
-                    {issue.target === 'basic' && editable && can('assistants:edit') && <button className="text-button" onClick={() => setWizard(true)} type="button">{t('checks.fix')}</button>}
+                    {issue.target === 'basic' && canEditBasics && <button className="text-button" onClick={() => setTab('basics')} type="button">{t('checks.fix')}</button>}
                     {issue.target === 'capabilities' && <button className="text-button" onClick={() => setTab('capabilities')} type="button">{t('checks.fix')}</button>}
                   </li>
                 ))}
@@ -182,37 +181,13 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
             )}
           </div>
 
-          <div className="detail-card">
-            <h2>{t('path.title')}</h2>
-            <ol className="config-path">
-              <li><span>{t('path.identity')}</span><small>{t('path.identityHint')}</small>{editable && can('assistants:edit') && <button className="text-button" onClick={() => setWizard(true)} type="button">{ta('menu.edit')}</button>}</li>
-              <li><span>{t('path.driver')}</span><small>{t('path.driverHint')}</small><em>{t('soon')}</em></li>
-              <li><span>{t('path.capabilities')}</span><small>{t('path.capabilitiesHint', { count: mounts?.total ?? 0 })}</small><button className="text-button" onClick={() => setTab('capabilities')} type="button">{t('tabs.capabilities')}</button></li>
-              <li><span>{t('path.oc')}</span><small>{t('path.ocHint')}</small><em>{t('soon')}</em></li>
-              <li><span>{t('path.channels')}</span><small>{t('path.channelsHint')}</small><button className="text-button" onClick={() => setTab('channels')} type="button">{t('tabs.channels')}</button></li>
-              <li><span>{t('path.tests')}</span><small>{t('path.testsHint')}</small><button className="text-button" onClick={() => setTab('tests')} type="button">{t('tabs.tests')}</button></li>
-              <li><span>{t('path.publish')}</span><small>{t('path.publishHint')}</small><Link className="text-button" to={`/assistants/${assistant.id}/versions`}>{t('tabs.versions')}</Link></li>
-            </ol>
-          </div>
-
-          <div className="detail-card">
-            <header className="detail-card-head"><h2>{t('basic.title')}</h2>{editable && can('assistants:edit') && <button className="text-button" onClick={() => setWizard(true)} type="button">{ta('menu.edit')}</button>}</header>
-            <dl className="basic-config">
-              <dt>{t('basic.model')}</dt><dd>{modelName ?? (assistant.config.model_id ? t('basic.modelUnknown') : t('basic.none'))}</dd>
-              <dt>{t('basic.driver')}</dt><dd>{t('basic.driverDefault')}</dd>
-              <dt>{t('basic.language')}</dt><dd>{assistant.config.default_language === 'en' ? 'English' : '简体中文'}</dd>
-              <dt>{t('basic.visibility')}</dt><dd>{t(`basic.visibilityValue.${assistant.visibility}`)}</dd>
-              <dt>{t('basic.prompt')}</dt>
-              <dd>
-                {prompt ? <><pre className="prompt-preview">{promptPreview}</pre><button className="text-button" onClick={() => setShowPrompt(true)} type="button">{t('basic.viewPrompt')}</button></> : t('basic.none')}
-              </dd>
-            </dl>
-          </div>
           <p className="wizard-muted">{t('metricsPending')}</p>
         </div>
         <TestConsole assistant={assistant} key={assistant.id + ':' + assistant.live_version_id} tenant={tenant} />
         </div>
       )}
+
+      {tab === 'basics' && <AssistantBasicsPanel assistant={assistant} canEdit={canEditBasics} onSaved={() => { setNotice(ta('toast.saved')); refresh() }} organizations={organizations} tenant={tenant} />}
 
       {tab === 'capabilities' && (
         <div className="detail-card">
@@ -255,12 +230,6 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
         />
       )}
 
-      {tab === 'versions' && (
-        <div className="detail-card"><p>{t('versionsHint')}</p><Link className="primary-button" to={`/assistants/${assistant.id}/versions`}>{t('tabs.versions')}</Link></div>
-      )}
-      {tab === 'conversations' && (
-        <div className="detail-card"><p>{t('conversationsHint')}</p><Link className="primary-button" to={`/assistants/${assistant.id}/conversations`}>{t('tabs.conversations')}</Link></div>
-      )}
       {tab === 'tests' && <TestCasesTab assistant={assistant} tenant={tenant} versions={versionOptions} />}
       {tab === 'channels' && (
         <div className="detail-channels">
@@ -268,39 +237,12 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
           <OpenApiCard assistantId={assistant.id} />
         </div>
       )}
-      {tab === 'orchestration' && <OrchestrationTab assistantId={assistant.id} tenant={tenant} />}
       {tab === 'dependencies' && (
         <div className="detail-card"><p className="assistants-empty-filtered">{t('soonTab', { name: t(`tabs.${tab}`) })}</p></div>
       )}
 
-      {showPrompt && (
-        <div className="modal-backdrop confirm-backdrop" role="presentation" onClick={() => setShowPrompt(false)}>
-          <div aria-labelledby="prompt-title" aria-modal="true" className="create-modal" onClick={(event) => event.stopPropagation()} role="dialog">
-            <button aria-label={t('close')} className="modal-close" onClick={() => setShowPrompt(false)} type="button"><X size={18} /></button>
-            <h2 id="prompt-title">{t('basic.promptTitle')}</h2>
-            <pre className="version-lines">{prompt}</pre>
-            <div className="confirm-actions">
-              <button className="secondary-button" onClick={() => void navigator.clipboard?.writeText(prompt)} type="button"><Copy size={14} /> {t('basic.copy')}</button>
-              {editable && can('assistants:edit') && <button className="primary-button" onClick={() => { setShowPrompt(false); setWizard(true) }} type="button">{ta('menu.edit')}</button>}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {wizard && (
-        <AssistantWizard
-          assistant={assistant}
-          onClose={() => setWizard(false)}
-          onSaved={(messageKey, close) => {
-            setNotice(ta(messageKey))
-            refresh()
-            if (close) setWizard(false)
-          }}
-          organizations={organizations}
-          quota={quota}
-          tenant={tenant}
-        />
-      )}
+      </div>
+      </div>
 
       {publishing && (
         <PublishDialog

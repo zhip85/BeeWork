@@ -184,7 +184,8 @@
       "promptRequired": "Enter the assistant prompt",
       "modelRequired": "Choose a model",
       "saveFailed": "Save failed"
-    }
+    },
+    "createHint": "Fill in these few fields to create. Prompt, capabilities, orchestration and channels are set on the assistant page afterwards."
   },
   "picker": {
     "title": "Mount capabilities",

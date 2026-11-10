@@ -6,8 +6,9 @@ import { ApiRequestError, apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
 import { ChangeList } from '../assistants/VersionDiff'
+import { AssistantNav } from '../assistants/AssistantNav'
 import { STAGE_PANELS } from './stagePanels'
-import { GROUPS, STAGES } from './types'
+import { STAGES } from './types'
 import type { OcAssistantOption, OcConfig, OcState, Stage } from './types'
 
 const OVERVIEW = 'overview'
@@ -101,7 +102,7 @@ function OrchestrationView({ tenant }: { tenant: TenantMembership }) {
       {dirty && <p className="usage-hint">{t('unsaved')}</p>}
 
       <div className="orchestration-layout">
-        <nav aria-label={t('navLabel')} className="orchestration-nav">
+        <div className="orchestration-side">
           <div className="orchestration-selector">
             <button aria-expanded={menu} onClick={() => setMenu(!menu)} type="button">
               <span>{t('assistant')} · {header?.name ?? '…'}</span><ChevronDown size={14} />
@@ -123,21 +124,8 @@ function OrchestrationView({ tenant }: { tenant: TenantMembership }) {
               </ul>
             )}
           </div>
-          <button aria-current={stage === OVERVIEW ? 'page' : undefined} className={stage === OVERVIEW ? 'active' : ''} onClick={() => go(`/assistants/${assistantId}/oc/${OVERVIEW}`)} type="button">
-            <strong>{t('overview')}</strong>
-          </button>
-          {GROUPS.map((group) => (
-            <div key={group.key}>
-              <small className="orchestration-group">{t(`groups.${group.key}`)}</small>
-              {group.stages.map((name) => (
-                <button aria-current={stage === name ? 'page' : undefined} className={stage === name ? 'active' : ''} key={name} onClick={() => go(`/assistants/${assistantId}/oc/${name}`)} type="button">
-                  <strong>{STAGES.indexOf(name) + 1}. {t(`stages.${name}.name`)}</strong>
-                  <small>{t(`stages.${name}.subtitle`)}</small>
-                </button>
-              ))}
-            </div>
-          ))}
-        </nav>
+          <AssistantNav active={`oc:${stage}`} assistantId={assistantId} go={go} showOc />
+        </div>
 
         <div className="orchestration-content">
           {!state && !error && <p>{t('loading')}</p>}

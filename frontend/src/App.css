@@ -4204,3 +4204,11 @@ tr.policy-off td { opacity: 0.55; }
 }
 .kb-cancel { display: inline-flex; align-items: center; min-height: 38px; padding: 0 16px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink-soft); font-size: var(--fs-sm); text-decoration: none; }
 .kb-cancel:hover { border-color: var(--forest); color: var(--forest); }
+
+/* Assistant page: one left navigation (shared with the OC page) and the section beside it */
+.orchestration-side { display: grid; gap: 8px; align-content: start; }
+.orchestration-side .orchestration-selector { margin-bottom: 0; }
+.orchestration-side .orchestration-selector > button { flex-direction: row; white-space: nowrap; }
+.assistant-workspace-content { display: grid; gap: 14px; min-width: 0; }
+.assistant-nav { position: sticky; top: 12px; }
+.basics-fieldset { display: grid; gap: 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
