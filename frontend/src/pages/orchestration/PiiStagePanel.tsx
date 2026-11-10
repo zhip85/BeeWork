@@ -99,8 +99,8 @@ export function PiiStagePanel({ assistantId, tenant, oc, readOnly, onChange }: S
       </label>
       <div className="knowledge-status-bar">
         {(['all', 'assistant'] as const).map((value) => <button aria-pressed={scope === value} className={scope === value ? 'active' : ''} key={value} onClick={() => setScope(value)} type="button">{t(`assistant.scope.${value}`)}</button>)}
-        {!readOnly && <button className="primary-button" onClick={() => open(null)} style={{ marginLeft: 'auto' }} type="button"><Plus size={15} /> {t('assistant.new')}</button>}
       </div>
+      {!readOnly && <div className="plans-actions"><button className="primary-button" onClick={() => open(null)} type="button"><Plus size={15} /> {t('assistant.new')}</button></div>}
       <p className="usage-hint">{t('tenant.priority')}</p>
       {rows.length === 0 && <p className="assistants-empty-filtered">{t('tenant.empty')}</p>}
       {rows.length > 0 && (
