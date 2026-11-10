@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   Command,
   FileText,
+  Globe2,
   Hexagon,
   Radio,
   LayoutDashboard,
@@ -43,6 +44,7 @@ import { NoTenantAccessPage } from './pages/auth/NoTenantAccessPage'
 import { Dashboard } from './pages/dashboard/Dashboard'
 import { MembersPage } from './pages/members/MembersPage'
 import { PlatformConsole } from './pages/platform/PlatformConsole'
+import { PortalAdminPage } from './pages/portal-admin/PortalAdminPage'
 import { FlowCreatePage } from './pages/flow-studio/FlowCreatePage'
 import { FlowEditorPage } from './pages/flow-studio/FlowEditorPage'
 import { FlowsPage } from './pages/flow-studio/FlowsPage'
@@ -67,13 +69,14 @@ const navigation = [
   { labelKey: 'knowledge', to: '/knowledge', icon: BookOpen, permission: 'knowledge:view', group: 'build' },
   { labelKey: 'flowStudio', to: '/flow-studio', icon: Workflow, permission: 'agents:view', group: 'build' },
   { labelKey: 'capabilities', to: '/capabilities', icon: Boxes, permission: 'capabilities:view', group: 'build' },
+  { labelKey: 'aiPortal', to: '/ai-portal', icon: Globe2, permission: 'portal:view', group: 'run' },
   { labelKey: 'channels', to: '/channels', icon: Radio, permission: 'channels:view', group: 'run' },
   { labelKey: 'approvals', to: '/approvals', icon: ClipboardCheck, permission: 'approvals:view', group: 'run' },
 ]
 
 // Navigation entries with their own page; every other entry still shows the placeholder (listing them here is what
 // keeps a placeholder route from shadowing the real one at the same path).
-const REAL_PAGES = new Set(['/assistants', '/flow-studio', '/approvals', '/channels', '/knowledge'])
+const REAL_PAGES = new Set(['/assistants', '/ai-portal', '/flow-studio', '/approvals', '/channels', '/knowledge'])
 
 function App() {
   const { t } = useTranslation(['nav', 'common', 'settings', 'notifications', 'channels'])
@@ -400,6 +403,7 @@ function App() {
               <Route key={to} path={to} element={hasPermission(permission) ? <SectionPlaceholder title={t(`nav:${labelKey}`)} icon={<Icon size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             ))}
             <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/ai-portal" element={hasPermission('portal:view') && activeTenant ? <PortalAdminPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/flow-studio" element={hasPermission('agents:view') && activeTenant ? <FlowsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/flow-studio/new" element={hasPermission('agents:edit') && activeTenant && activeTenant.access_mode === 'full' ? <FlowCreatePage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/flow-studio/:flowId" element={hasPermission('agents:view') && activeTenant ? <FlowEditorPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
