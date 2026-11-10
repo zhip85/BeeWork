@@ -12,7 +12,9 @@ import { CapabilityPicker } from './CapabilityPicker'
 import { ChannelsPage } from '../channels/ChannelsPage'
 import { OpenApiCard } from '../channels/OpenApiCard'
 import { PublishDialog } from './PublishDialog'
+import { ConversationsPage } from './ConversationsPage'
 import { TestCasesTab } from './TestCasesTab'
+import { VersionsPage } from './VersionsPage'
 import { TestConsole } from './TestConsole'
 import type { Assistant, OrganizationOption } from './types'
 
@@ -21,14 +23,10 @@ type Checks = { issues: CheckIssue[]; blockers: number; high_impact: number; inf
 type MountEntry = { id: string; kind: string; name: string; state: 'available' | 'disabled' | 'deleted' }
 type Mounts = { total: number; groups: { kind: string; items: MountEntry[] }[]; mountable_kinds: string[] }
 
-const TABS = ['overview', 'basics', 'capabilities', 'channels', 'tests', 'dependencies'] as const
+const TABS = ['overview', 'basics', 'capabilities', 'channels', 'tests', 'versions', 'conversations', 'dependencies'] as const
 type Tab = (typeof TABS)[number]
-// Sections that used to be tabs and are now their own pages: old links keep working.
-const MOVED: Record<string, (id: string) => string> = {
-  orchestration: (id) => `/assistants/${id}/oc/overview`,
-  versions: (id) => `/assistants/${id}/versions`,
-  conversations: (id) => `/assistants/${id}/conversations`,
-}
+// Orchestration is its own set of pages: an old ``?tab=orchestration`` link goes to its overview.
+const MOVED: Record<string, (id: string) => string> = { orchestration: (id) => `/assistants/${id}/oc/overview` }
 
 export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
   const { t } = useTranslation('detail')
@@ -230,6 +228,8 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
         />
       )}
 
+      {tab === 'versions' && <div className="detail-card"><VersionsPage assistantId={assistant.id} embedded tenant={tenant} /></div>}
+      {tab === 'conversations' && <div className="detail-card"><ConversationsPage assistantId={assistant.id} embedded tenantId={tenantId} /></div>}
       {tab === 'tests' && <TestCasesTab assistant={assistant} tenant={tenant} versions={versionOptions} />}
       {tab === 'channels' && (
         <div className="detail-channels">

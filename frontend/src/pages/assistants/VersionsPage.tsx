@@ -24,9 +24,10 @@ type VersionDetail = Version & { snapshot: Record<string, unknown>; change_diff:
 type VersionList = { items: Version[]; live_version_id: string | null; draft_version: string }
 type Pending = { kind: 'restore' | 'rollback'; version: Version }
 
-export function VersionsPage({ tenant }: { tenant: TenantMembership }) {
+export function VersionsPage({ tenant, assistantId: embeddedId, embedded = false }: { tenant: TenantMembership; assistantId?: string; embedded?: boolean }) {
   const { t } = useTranslation('versions')
-  const { assistantId = '' } = useParams()
+  const params = useParams()
+  const assistantId = embeddedId ?? params.assistantId ?? ''
   const tenantId = tenant.id
   const writable = tenant.access_mode === 'full'
   const can = (permission: string) => writable && tenant.permissions.includes(permission)
@@ -104,9 +105,11 @@ export function VersionsPage({ tenant }: { tenant: TenantMembership }) {
   }
 
   return (
-    <section className="settings-page versions-page">
-      <Link className="back-link" to="/assistants"><ArrowLeft size={14} /> {t('page.back')}</Link>
-      <div className="page-heading"><div><p className="section-kicker">{assistant?.name ?? ''}</p><h1>{t('page.title')}</h1><p>{t('page.subtitle')}</p></div></div>
+    <section className={embedded ? 'versions-page versions-embedded' : 'settings-page versions-page'}>
+      {!embedded && <Link className="back-link" to="/assistants"><ArrowLeft size={14} /> {t('page.back')}</Link>}
+      {embedded
+        ? <div className="detail-card-head"><div><h2>{t('page.title')}</h2><p className="usage-hint">{t('page.subtitle')}</p></div></div>
+        : <div className="page-heading"><div><p className="section-kicker">{assistant?.name ?? ''}</p><h1>{t('page.title')}</h1><p>{t('page.subtitle')}</p></div></div>}
       {notice && <p className="assistants-notice" role="status">{notice}</p>}
       {error && <p className="form-error" role="alert">{error} <button className="text-button" onClick={refresh} type="button">{t('page.retry')}</button></p>}
       {!data && !error && <p>{t('page.loading')}</p>}

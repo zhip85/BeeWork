@@ -4212,3 +4212,12 @@ tr.policy-off td { opacity: 0.55; }
 .assistant-workspace-content { display: grid; gap: 14px; min-width: 0; }
 .assistant-nav { position: sticky; top: 12px; }
 .basics-fieldset { display: grid; gap: 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.assistant-nav-group { position: relative; }
+.assistant-nav-group > button { position: relative; display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 8px 12px; border: 1px solid transparent; border-radius: 8px; background: none; text-align: left; cursor: pointer; }
+.assistant-nav-group > button.active-parent { border-color: #1f6a43; }
+.assistant-nav-group .nav-caret { position: absolute; right: 12px; top: 14px; color: #5d6c65; }
+.assistant-nav-children { display: grid; gap: 2px; margin: 2px 0 4px 14px; padding-left: 8px; border-left: 2px solid var(--line); }
+.assistant-nav-children > button { padding: 6px 10px; }
+.assistant-card.clickable, .data-table tr.clickable { cursor: pointer; }
+.assistant-card.clickable:hover { border-color: #1f6a43; }
+.data-table tr.clickable:hover { background: #f6f9f6; }

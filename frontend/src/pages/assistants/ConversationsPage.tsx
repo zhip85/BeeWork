@@ -20,9 +20,10 @@ type Message = { id: string; seq: number; role: string; content: string; trace_i
 type Detail = Conversation & { messages: Message[] }
 type Page = { items: Conversation[]; total: number }
 
-export function ConversationsPage({ tenantId }: { tenantId: string }) {
+export function ConversationsPage({ tenantId, assistantId: embeddedId, embedded = false }: { tenantId: string; assistantId?: string; embedded?: boolean }) {
   const { t } = useTranslation('conversations')
-  const { assistantId = '' } = useParams()
+  const params = useParams()
+  const assistantId = embeddedId ?? params.assistantId ?? ''
   const [status, setStatus] = useState('')
   const [page, setPage] = useState<Page | null>(null)
   const [error, setError] = useState('')
@@ -44,9 +45,11 @@ export function ConversationsPage({ tenantId }: { tenantId: string }) {
   }, [assistantId, tenantId, status, reload, t])
 
   return (
-    <section className="settings-page conversations-page">
-      <Link className="back-link" to="/assistants"><ArrowLeft size={14} /> {t('back')}</Link>
-      <div className="page-heading"><div><p className="section-kicker">{t('title')}</p><h1>{t('title')}</h1><p>{t('subtitle')}</p></div></div>
+    <section className={embedded ? 'conversations-page conversations-embedded' : 'settings-page conversations-page'}>
+      {!embedded && <Link className="back-link" to="/assistants"><ArrowLeft size={14} /> {t('back')}</Link>}
+      {embedded
+        ? <div className="detail-card-head"><div><h2>{t('title')}</h2><p className="usage-hint">{t('subtitle')}</p></div></div>
+        : <div className="page-heading"><div><p className="section-kicker">{t('title')}</p><h1>{t('title')}</h1><p>{t('subtitle')}</p></div></div>}
       <div className="assistants-toolbar">
         <select aria-label={t('filter.status')} onChange={(event) => { setPage(null); setStatus(event.target.value) }} value={status}>
           <option value="">{t('filter.status')}</option>

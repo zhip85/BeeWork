@@ -40,6 +40,12 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [reload, setReload] = useState(0)
 
+  /** The whole card / row opens the assistant; its links, buttons and menu keep their own action. */
+  function openFromCard(event: React.MouseEvent, assistant: Assistant) {
+    if ((event.target as HTMLElement).closest('a, button, [role="menu"]')) return
+    navigate(`/assistants/${assistant.id}`)
+  }
+
   const query = useMemo(() => {
     const params = new URLSearchParams({ limit: String(PAGE_SIZE), sort })
     if (search.trim()) params.set('q', search.trim())
@@ -156,7 +162,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
       {items.length > 0 && view === 'cards' && (
         <div className="assistant-grid">
           {items.map((assistant) => (
-            <article className="assistant-card" key={assistant.id}>
+            <article className="assistant-card clickable" key={assistant.id} onClick={(event) => openFromCard(event, assistant)}>
               <header>
                 <span className="assistant-icon"><Bot size={18} /></span>
                 <span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span>
@@ -184,7 +190,7 @@ export function AssistantsPage({ tenant }: { tenant: TenantMembership }) {
             <thead><tr><th>{t('list.assistant')}</th><th>{t('list.status')}</th><th>{t('list.organization')}</th><th>{t('list.updated')}</th><th /></tr></thead>
             <tbody>
               {items.map((assistant) => (
-                <tr key={assistant.id}>
+                <tr className="clickable" key={assistant.id} onClick={(event) => openFromCard(event, assistant)}>
                   <td><strong><Link className="assistant-name-link" to={`/assistants/${assistant.id}`}>{assistant.name}</Link></strong><small className="platform-tenant-slug">v{assistant.draft_version}</small></td>
                   <td><span className={`assistant-status ${assistant.status}`}>{t(`status.${assistant.status}`)}</span>{assistant.pending_approval_id && <> <Link className="assistant-status in_progress" to={`/approvals?id=${assistant.pending_approval_id}`}>{t('status.pendingApproval')}</Link></>}</td>
                   <td>{assistant.organization_name}</td>

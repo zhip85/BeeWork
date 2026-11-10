@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { STAGES } from '../orchestration/types'
 
@@ -8,7 +10,6 @@ export function navPath(assistantId: string, key: NavKey): string {
   const base = `/assistants/${assistantId}`
   if (key === 'overview') return base
   if (key.startsWith('oc:')) return `${base}/oc/${key.slice(3)}`
-  if (key === 'versions' || key === 'conversations') return `${base}/${key}`
   return `${base}?tab=${key}`
 }
 
@@ -27,6 +28,8 @@ export function AssistantNav({
 }) {
   const { t } = useTranslation('detail')
   const { t: to } = useTranslation('orchestration')
+  const inOc = active.startsWith('oc:')
+  const [ocOpen, setOcOpen] = useState(inOc)
   const item = (key: NavKey, label: string, hint?: string) => (
     <button aria-current={active === key ? 'page' : undefined} className={active === key ? 'active' : ''} key={key} onClick={() => go(navPath(assistantId, key))} type="button">
       <strong>{label}</strong>
@@ -38,12 +41,18 @@ export function AssistantNav({
       {item('overview', t('nav.overview'))}
       {item('basics', t('nav.basics'), t('nav.basicsHint'))}
       {item('capabilities', `${t('nav.capabilities')}${capabilityCount ? ` · ${capabilityCount}` : ''}`, t('nav.capabilitiesHint'))}
-      {showOc && !active.startsWith('oc:') && item('oc:overview', t('nav.oc'), t('nav.ocHint'))}
-      {showOc && active.startsWith('oc:') && (
-        <div>
-          <small className="orchestration-group">{t('nav.oc')}</small>
-          {item('oc:overview', to('overview'))}
-          {STAGES.map((stage) => item(`oc:${stage}`, `${STAGES.indexOf(stage) + 1}. ${to(`stages.${stage}.name`)}`, to(`stages.${stage}.subtitle`)))}
+      {showOc && (
+        <div className="assistant-nav-group">
+          <button aria-expanded={ocOpen} className={inOc ? 'active-parent' : ''} onClick={() => setOcOpen(!ocOpen)} type="button">
+            <strong>{t('nav.oc')}</strong><small>{t('nav.ocHint')}</small>
+            {ocOpen ? <ChevronDown className="nav-caret" size={14} /> : <ChevronRight className="nav-caret" size={14} />}
+          </button>
+          {ocOpen && (
+            <div className="assistant-nav-children">
+              {item('oc:overview', to('overview'))}
+              {STAGES.map((stage) => item(`oc:${stage}`, `${STAGES.indexOf(stage) + 1}. ${to(`stages.${stage}.name`)}`))}
+            </div>
+          )}
         </div>
       )}
       {item('channels', t('nav.channels'), t('nav.channelsHint'))}
