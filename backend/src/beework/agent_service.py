@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from beework.capability_catalog import references_to
 from beework.models import utc_now
 from beework.models.agents import Agent, FlowVersion
 from beework.models.assistants import Assistant
@@ -111,14 +112,8 @@ REFERENCE_PROVIDERS: list[ReferenceProvider] = []
 
 
 def find_references(db: Session, flow: Agent) -> list[tuple[str, UUID, str]]:
-    """Other flows (draft or published config) and registered providers that point at ``flow``."""
-    found: list[tuple[str, UUID, str]] = []
-    for other in db.scalars(
-        select(Agent).where(Agent.tenant_id == flow.tenant_id, Agent.deleted_at.is_(None), Agent.id != flow.id)
-    ):
-        refs = raw_flow_refs(other.draft_config) + raw_flow_refs(other.published_config)
-        if flow.id in refs:
-            found.append((other.kind, other.id, other.name))
+    """Everything that points at ``flow``: other flows (from the unified reference table) and registered providers."""
+    found = [(ref.kind or ref.type, ref.id, ref.name) for ref in references_to(db, flow.tenant_id, "flow", flow.id)]
     for provider in REFERENCE_PROVIDERS:
         found.extend(provider(db, flow))
     return found

@@ -9,6 +9,8 @@ import { AssistantBasicsPanel } from './AssistantBasicsPanel'
 import { AssistantNav } from './AssistantNav'
 import type { NavKey } from './AssistantNav'
 import { CapabilityPicker } from './CapabilityPicker'
+import type { Selection } from './CapabilityPicker'
+import { DependenciesTab } from './DependenciesTab'
 import { ChannelsPage } from '../channels/ChannelsPage'
 import { OpenApiCard } from '../channels/OpenApiCard'
 import { PublishDialog } from './PublishDialog'
@@ -193,9 +195,9 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
             <h2>{t('capabilities.title', { count: mounts?.total ?? 0 })}</h2>
             <button
               className="secondary-button"
-              disabled={!(can('assistants:edit') && assistant.can_edit && mounts?.mountable_kinds.includes('kb'))}
+              disabled={!(can('assistants:edit') && assistant.can_edit && (mounts?.mountable_kinds.length ?? 0) > 0)}
               onClick={() => setMounting(true)}
-              title={mounts?.mountable_kinds.includes('kb') ? undefined : t('capabilities.soonHint')}
+              title={(mounts?.mountable_kinds.length ?? 0) > 0 ? undefined : t('capabilities.soonHint')}
               type="button"
             >{t('capabilities.mount')}</button>
           </header>
@@ -237,9 +239,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
           <OpenApiCard assistantId={assistant.id} />
         </div>
       )}
-      {tab === 'dependencies' && (
-        <div className="detail-card"><p className="assistants-empty-filtered">{t('soonTab', { name: t(`tabs.${tab}`) })}</p></div>
-      )}
+      {tab === 'dependencies' && <DependenciesTab assistantId={assistant.id} tenantId={tenantId} />}
 
       </div>
       </div>
@@ -298,11 +298,17 @@ function MountDialog({
   onSaved: () => void
 }) {
   const { t } = useTranslation('assistants')
-  const current = mounts?.groups.find((group) => group.kind === 'kb')?.items ?? []
-  const [ids, setIds] = useState<string[]>(assistant.config.mounts?.kb ?? [])
+  const current = mounts?.groups.flatMap((group) => group.items) ?? []
+  const [selected, setSelected] = useState<Selection>(() => ({ ...(assistant.config.mounts ?? {}) }) as Selection)
   const [names, setNames] = useState<Record<string, string>>(Object.fromEntries(current.map((item) => [item.id, item.name])))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // Settings of a capability that is no longer mounted go with it.
+  function keptSettings() {
+    const mounted = new Set(Object.values(selected).flat())
+    return Object.fromEntries(Object.entries(assistant.config.mount_settings ?? {}).filter(([id]) => mounted.has(id)))
+  }
 
   async function save() {
     setSaving(true)
@@ -320,7 +326,7 @@ function MountDialog({
             color: assistant.color,
             visibility: assistant.visibility,
             visible_org_ids: assistant.visible_org_ids,
-            config: { ...assistant.config, mounts: { ...(assistant.config.mounts ?? {}), kb: ids } },
+            config: { ...assistant.config, mounts: { ...(assistant.config.mounts ?? {}), ...selected }, mount_settings: keptSettings() },
             row_version: assistant.row_version,
           }),
         },
@@ -337,7 +343,7 @@ function MountDialog({
     <div className="modal-backdrop confirm-backdrop" onClick={onClose} role="presentation">
       <div aria-labelledby="mount-title" aria-modal="true" className="create-modal mount-dialog" onClick={(event) => event.stopPropagation()} role="dialog">
         <h2 id="mount-title">{t('picker.title')}</h2>
-        <CapabilityPicker names={names} onChange={(next, nextNames) => { setIds(next); setNames(nextNames) }} selected={ids} tenantId={tenantId} />
+        <CapabilityPicker names={names} onChange={(next, nextNames) => { setSelected(next); setNames(nextNames) }} selected={selected} tenantId={tenantId} />
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="confirm-actions">
           <button className="secondary-button" disabled={saving} onClick={onClose} type="button">{t('picker.cancel')}</button>

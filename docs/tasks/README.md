@@ -102,7 +102,7 @@
 | [T-065](./T-065-human-review-node.md) | 人工审核节点 | T-062、T-022、T-023 | — | 待开发 | | |
 | [T-066](./T-066-agent-teams.md) | 多智能体协作（一层叶子智能体） | T-061 | — | 待开发 | | 2026-11-10 改写：取消协作组与五种模式 |
 | [T-067](./T-067-agent-terminology-navigation.md) | 术语统一与导航改版（助理 → 智能体） | T-003 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-067-agent-terminology`；只改用户可见文案与导航，不改表、接口、权限码 |
-| [T-070](./T-070-capability-catalog.md) | 能力目录、挂载选择器与引用完整性 | T-033、T-060 | — | 待开发 | | 2026-11-10：类型改为叶子智能体与流程连接，引用方加门户应用 |
+| [T-070](./T-070-capability-catalog.md) | 能力目录、挂载选择器与引用完整性 | T-033、T-060 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-070-capability-catalog`；2026-11-10：类型改为叶子智能体与流程连接，引用方加门户应用 |；现仅知识库注册，其余类型随 T-066 / T-072–T-075 |
 | [T-071](./T-071-tool-executor.md) | 受控工具执行器（出口网关） | T-001、T-054 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-071-tool-executor`；安全关键 |；尚无 provider，运行时调用在 T-061 |
 | [T-072](./T-072-mcp.md) | MCP 连接 | T-070、T-071、T-022 | — | 待开发 | | |
 | [T-073](./T-073-api-plugins.md) | API 插件 | T-072 | — | 待开发 | | |

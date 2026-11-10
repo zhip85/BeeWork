@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from beework.capabilities import MOUNT_RESOLVERS, MountItem
+from beework.capability_catalog import references_to
 from beework.knowledge import REFERENCE_COUNTERS, content_stats, derive_status
-from beework.models.assistants import Assistant, AssistantVersion
 from beework.models.knowledge import KnowledgeBase
 from beework.runtime.dsl import KnowledgeBaseRef
 
@@ -54,19 +54,8 @@ def mounted_kb_ids(config: dict | None) -> set[str]:
 
 
 def count_references(db: Session, kb: KnowledgeBase) -> int:
-    """Assistants whose draft or live version mounts the knowledge base."""
-    target = str(kb.id)
-    count = 0
-    for assistant in db.scalars(
-        select(Assistant).where(Assistant.tenant_id == kb.tenant_id, Assistant.deleted_at.is_(None))
-    ):
-        in_live = False
-        if assistant.live_version_id is not None:
-            live = db.get(AssistantVersion, assistant.live_version_id)
-            in_live = bool(live and target in mounted_kb_ids((live.snapshot or {}).get("config")))
-        if target in mounted_kb_ids(assistant.draft_config) or in_live:
-            count += 1
-    return count
+    """Assistants whose draft or live version mounts the knowledge base (from the unified reference table, T-070)."""
+    return len(references_to(db, kb.tenant_id, "kb", kb.id))
 
 
 REFERENCE_COUNTERS.append(count_references)

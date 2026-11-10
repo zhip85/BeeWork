@@ -13,6 +13,7 @@ export type AssistantConfig = {
   suggested_questions: boolean
   feedback_enabled: boolean
   mounts: Record<string, string[]>
+  mount_settings?: Record<string, { tools: string[]; delegate: string }>
   oc: Record<string, unknown>
 }
 
