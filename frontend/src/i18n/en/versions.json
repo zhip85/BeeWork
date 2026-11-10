@@ -1,6 +1,6 @@
 {
   "publish": {
-    "title": "Publish assistant",
+    "title": "Publish agent",
     "subtitle": "Publishing creates an immutable v{{version}} and replaces the live version.",
     "loading": "Checking…",
     "loadFailed": "Could not load the publish preview",
@@ -19,7 +19,7 @@
     "warnings": "High-impact findings and notices (do not block publishing)",
     "submitForApproval": "Submit v{{version}} for approval",
     "submitted": "Submitted to the approval center",
-    "pendingExists": "This assistant already has a pending publish request.",
+    "pendingExists": "This agent already has a pending publish request.",
     "viewApproval": "View request",
     "replaceBody": "There is already a pending request. Withdraw it and submit again?",
     "replaceConfirm": "Withdraw and resubmit",
@@ -28,13 +28,13 @@
       "tenant_admin": "tenant admin",
       "security_officer": "security officer",
       "knowledge_owner": "knowledge owner",
-      "assistant_owner": "assistant owner"
+      "assistant_owner": "agent owner"
     }
   },
   "page": {
     "title": "Version history",
     "subtitle": "Immutable published versions and configuration snapshots.",
-    "back": "Back to assistants",
+    "back": "Back to agents",
     "loading": "Loading versions…",
     "loadFailed": "Could not load versions",
     "empty": "Nothing has been published yet",

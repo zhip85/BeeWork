@@ -4221,3 +4221,6 @@ tr.policy-off td { opacity: 0.55; }
 .assistant-card.clickable, .data-table tr.clickable { cursor: pointer; }
 .assistant-card.clickable:hover { border-color: #1f6a43; }
 .data-table tr.clickable:hover { background: #f6f9f6; }
+
+/* Navigation groups (T-067) */
+.nav-group-caption { margin: 14px 0 6px; padding: 0 11px; color: #82958b; font-size: var(--fs-2xs); font-weight: 600; letter-spacing: 0.9px; }

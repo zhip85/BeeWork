@@ -31,7 +31,7 @@ router = APIRouter()
 
 
 AUDIT_CATEGORIES = {
-    "assistants": "助手",
+    "assistants": "智能体",
     "security": "安全",
     "members_permissions": "成员与权限",
     "billing": "计费",

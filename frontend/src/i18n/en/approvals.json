@@ -95,19 +95,19 @@
     "hint": "The second level is always the tenant admin; if a level has no approver other than the requester it escalates to tenant admins.",
     "readOnly": "Only tenant admins can change approval policies.",
     "events": {
-      "publish": "Publish assistants to production",
+      "publish": "Publish agents to production",
       "channel": "Connect a new external channel",
       "byok": "Add or rotate your own model keys",
       "kb": "Publish knowledge base updates",
       "skill": "Enable third-party Skill / MCP",
-      "rule": "Assistant rule changes (OC / rule library / glossary)",
+      "rule": "Agent rule changes (OC / rule library / glossary)",
       "export": "Data export"
     },
     "roles": {
       "tenant_admin": "Tenant admin",
       "security_officer": "Security officer",
       "knowledge_owner": "Knowledge owner",
-      "assistant_owner": "Assistant owner"
+      "assistant_owner": "Agent owner"
     }
   }
 }

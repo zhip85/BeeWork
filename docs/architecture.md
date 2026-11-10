@@ -156,6 +156,10 @@ def update_note(note_id: UUID, payload: NoteWriteRequest,
 
 测试骨架（`backend/tests/test_note.py`）：每个写接口至少覆盖 ① 成功且写入审计；② 校验失败（空名称/重名 → 400/409）；③ 无权限角色 → 403；④ 跨租户或组织范围外 → 404；⑤ 过期 `row_version` → 409 `conflict.stale`；⑥ 列表 `limit=101` → 422、`offset` 超出 → 空 `items` 且 `total` 正确。参考 `tests/test_conventions.py` 与 `tests/test_tenant_auth.py` 的 SQLite 夹具。
 
+#### 术语与内部标识对应（2026-11-10 起）
+
+用户看到的只有“智能体 / Agent”（原“助理”）。内部标识不改：表 `assistants`、路径 `/assistants`、权限模块 `assistants:*`、审计动作 `assistant.*`、i18n key `assistants.*` 都指**智能体**；表 `agents`、权限模块 `agents:*` 指 **Chatflow / Workflow（界面称“流程画布”）**。新增文案一律写“智能体”，不要在用户可见文本里出现“助理 / 助手 / Assistant”；LLM 提示词与历史迁移文件不在此列。已写入审计表的旧记录描述保持原文。
+
 ### 3.3 审计
 
 - PRD GLB-088：**所有写操作写审计**。`db.add(AuditEvent(tenant_id=..., actor_user_id=..., action="domain.verb", details={...}))`，与业务写入同一事务。

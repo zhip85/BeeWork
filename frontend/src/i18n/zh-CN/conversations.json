@@ -1,7 +1,7 @@
 {
   "title": "会话记录",
   "subtitle": "只读。点击会话查看完整对话。",
-  "back": "返回助理",
+  "back": "返回智能体",
   "loading": "正在加载会话…",
   "loadFailed": "无法加载会话",
   "empty": "还没有会话",
@@ -37,7 +37,7 @@
     "trace": "调用链",
     "role": {
       "user": "用户",
-      "assistant": "助理",
+      "assistant": "智能体",
       "human_agent": "人工坐席",
       "system": "系统"
     },

@@ -60,7 +60,7 @@ class ChannelResponse(BaseModel):
     type: str
     name: str
     assistant_id: UUID
-    assistant_name: str | None  # None: the assistant was deleted (“助手不可用”)
+    assistant_name: str | None  # None: the assistant was deleted (“智能体不可用”)
     environment: str
     allowed_origins: list[str]
     experience: ExperienceOverrides

@@ -139,16 +139,16 @@ def submit_oc(
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> VersionDetail | PendingApproval:
-    """OC-004: 201 with the new version when the “助理规则变更” policy is off, 202 with the pending approval otherwise.
+    """OC-004: 201 with the new version when the “智能体规则变更” policy is off, 202 with the pending approval otherwise.
     The new version is the live snapshot with only its OC replaced."""
     from beework.api.assistant_versions import _version_response
 
     assistant = _load_for_write(db, membership, assistant_id)
     if assistant.status == "disabled":
-        raise ApiError(409, "assistant.invalid_transition", "已停用的助理需先启用才能提交 OC 变更")
+        raise ApiError(409, "assistant.invalid_transition", "已停用的智能体需先启用才能提交 OC 变更")
     live = live_version(db, assistant)
     if live is None:
-        raise ApiError(409, "assistant.not_published", "请先发布助理，再提交 OC 变更")
+        raise ApiError(409, "assistant.not_published", "请先发布智能体，再提交 OC 变更")
     draft = assistant_oc.draft_oc(assistant)
     diff = diff_snapshots(live.snapshot, assistant_oc.with_oc(live.snapshot, draft))
     if not diff:

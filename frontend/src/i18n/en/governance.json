@@ -45,7 +45,7 @@
     "blockMessage": "Block message",
     "blockMessagePlaceholder": "Shown to the user when blocked; leave empty for the default message.",
     "enforced": "Enforced",
-    "enforcedHint": "Tenants and assistants cannot switch an enforced rule off (they may edit its content). Adding, switching off or retiring one needs a second platform administrator.",
+    "enforcedHint": "Tenants and agents cannot switch an enforced rule off (they may edit its content). Adding, switching off or retiring one needs a second platform administrator.",
     "enabled": "Enabled",
     "reason": "Reason",
     "reasonHint": "Shown to the reviewer.",
@@ -114,7 +114,7 @@
     "recommended": "Recommended"
   },
   "levelHint": {
-    "enforced": "Tenants and assistants cannot disable or relax it.",
+    "enforced": "Tenants and agents cannot disable or relax it.",
     "recommended": "On by default; tenants may switch it off."
   },
   "scope": {
@@ -144,18 +144,18 @@
     "platform_inherited": "Inherited from platform",
     "tenant": "Tenant",
     "tenant_modified": "Tenant · modified",
-    "assistant": "Assistant",
-    "assistant_modified": "Assistant · modified"
+    "assistant": "Agent",
+    "assistant_modified": "Agent · modified"
   },
   "inheritedNotice": {
     "platform": "",
     "tenant": "This rule is inherited from the platform. Saving makes it a tenant rule; the platform rule does not change.",
-    "assistant": "This rule is inherited. Saving makes it an assistant rule; the upper rule does not change."
+    "assistant": "This rule is inherited. Saving makes it an agent rule; the upper rule does not change."
   },
   "tenant": {
     "kicker": "Settings · Rule library",
     "title": "Tenant PII rules",
-    "subtitle": "Maintain this tenant's PII rules on top of the platform baseline; they apply to every assistant that references the global rules.",
+    "subtitle": "Maintain this tenant's PII rules on top of the platform baseline; they apply to every agent that references the global rules.",
     "new": "New tenant rule",
     "editTitle": "Edit rule",
     "chainLabel": "Inheritance chain",
@@ -170,7 +170,7 @@
       "tenant": "Tenant level only"
     },
     "table": "Tenant rules",
-    "priority": "Priority: assistant > tenant > platform; a lock marks an enforced platform rule that cannot be switched off.",
+    "priority": "Priority: agent > tenant > platform; a lock marks an enforced platform rule that cannot be switched off.",
     "empty": "No rules match.",
     "submittedForApproval": "Submitted for approval; it takes effect once approved.",
     "approvalHint": "Rule changes need approval in this tenant: they take effect only after approval.",
@@ -190,17 +190,17 @@
     "chainPlatformCounts": "{{total}} PII rules · {{enforced}} enforced",
     "chainTenant": "Tenant rule library",
     "chainTenantCounts": "{{inherited}} inherited · {{own}} tenant-level",
-    "chainAssistant": "This assistant",
-    "chainAssistantCounts": "{{inherited}} inherited · {{own}} assistant-level · {{effective}} in force",
+    "chainAssistant": "This agent",
+    "chainAssistantCounts": "{{inherited}} inherited · {{own}} agent-level · {{effective}} in force",
     "detection": "PII detection",
     "detectionHint": "When off, every rule that is not enforced is disabled; enforced platform rules always apply.",
     "useGlobal": "Reference global PII rules",
-    "useGlobalHint": "Inherit the tenant rule library; when off only enforced platform rules and the assistant's own rules remain. Not available while detection is off.",
+    "useGlobalHint": "Inherit the tenant rule library; when off only enforced platform rules and the agent's own rules remain. Not available while detection is off.",
     "scope": {
       "all": "All rules in force",
-      "assistant": "Assistant level only"
+      "assistant": "Agent level only"
     },
-    "new": "New assistant rule",
+    "new": "New agent rule",
     "editTitle": "Edit rule"
   }
 }

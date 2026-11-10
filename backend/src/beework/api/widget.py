@@ -144,7 +144,7 @@ def create_session(payload: WidgetSessionRequest, request: Request, db: Session 
     )
 
 
-@router.post("/widget/chat", response_model=ChatResponse, summary="访客与助理对话")
+@router.post("/widget/chat", response_model=ChatResponse, summary="访客与智能体对话")
 def widget_chat(
     payload: WidgetChatRequest,
     request: Request,

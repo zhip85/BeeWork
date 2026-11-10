@@ -228,9 +228,9 @@ class AssistantTests(unittest.TestCase):
             "/api/v1/assistants", json={"draft": True, "description": "", "config": {}}, headers=headers
         )
         self.assertEqual(first.status_code, 201, first.text)
-        self.assertEqual(first.json()["name"], "未命名助理")
+        self.assertEqual(first.json()["name"], "未命名智能体")
         second = self.client.post("/api/v1/assistants", json={"draft": True}, headers=headers)
-        self.assertEqual(second.json()["name"], "未命名助理 2")
+        self.assertEqual(second.json()["name"], "未命名智能体 2")
         self.assertEqual(self.client.post("/api/v1/assistants", json={}, headers=headers).status_code, 400)
 
     def test_permissions_and_cross_tenant_isolation(self) -> None:

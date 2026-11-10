@@ -23,7 +23,7 @@ from beework.runtime.oc import OCConfig
 
 ACTION = "assistant.oc_change"
 OBJECT_TYPE = "assistant_oc"  # distinct from "assistant" so an OC request never shows the assistant as “审批中”
-EVENT = "rule"  # approval policy event “助理规则变更”
+EVENT = "rule"  # approval policy event “智能体规则变更”
 
 STAGES = ("pii", "memory", "glossary", "rewrite", "routing", "components")
 STAGE_GROUPS = {
@@ -89,12 +89,12 @@ def apply_oc_change(db, context: ApplyContext) -> None:
         .with_for_update()
     )
     if assistant is None:
-        raise blocked("助理已被删除，无法生效")
+        raise blocked("智能体已被删除，无法生效")
     if assistant.status == "disabled":
-        raise blocked("助理已停用，请启用后重试")
+        raise blocked("智能体已停用，请启用后重试")
     live = live_version(db, assistant)
     if live is None:
-        raise blocked("助理尚未发布，请先发布助理")
+        raise blocked("智能体尚未发布，请先发布智能体")
     payload: dict[str, Any] = context.payload
     oc = OCConfig.model_validate(payload["oc"])
     requester = db.get(User, context.requester_id) if context.requester_id else None
@@ -108,7 +108,7 @@ def apply_oc_change(db, context: ApplyContext) -> None:
     if recipients:
         notify(
             db, tenant_id=assistant.tenant_id, recipient_ids=recipients, type="assistant.published",
-            title=f"助理“{assistant.name}”的 OC 变更已生效 v{version.version}", link=f"/assistants/{assistant.id}/versions",
+            title=f"智能体“{assistant.name}”的 OC 变更已生效 v{version.version}", link=f"/assistants/{assistant.id}/versions",
             params={"name": assistant.name, "version": version.version},
         )
 
@@ -131,7 +131,7 @@ def _glossary_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
     from beework.governance.glossary_runtime import assistant_view
 
     _, chain = assistant_view(db, assistant.tenant_id, oc.glossary)
-    return f"平台 → 租户 → 助手三级继承 · {chain['effective']} 条生效"
+    return f"平台 → 租户 → 智能体三级继承 · {chain['effective']} 条生效"
 
 
 def _rewrite_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:

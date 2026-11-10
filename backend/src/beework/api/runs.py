@@ -42,9 +42,9 @@ def _admit(db: Session, membership: Membership, assistant: Assistant) -> None:
     if tenant is None or tenant.status not in SERVING_TENANT_STATUSES or tenant_access_mode(
         tenant.status, membership.role
     ) != "full":
-        raise ApiError(409, "runtime.tenant_unavailable", "企业工作区当前不可运行助理")
+        raise ApiError(409, "runtime.tenant_unavailable", "企业工作区当前不可运行智能体")
     if assistant.status == "disabled":
-        raise ApiError(409, "runtime.assistant_disabled", "助理已停用")
+        raise ApiError(409, "runtime.assistant_disabled", "智能体已停用")
     environment = db.scalar(
         select(TenantModelEnvironment).where(
             TenantModelEnvironment.tenant_id == membership.tenant_id,
@@ -104,7 +104,7 @@ def create_debug_run(
     elif payload.target == "live":
         version = live_version(db, assistant)
         if version is None:
-            raise ApiError(409, "runtime.not_published", "助理还没有已发布的版本")
+            raise ApiError(409, "runtime.not_published", "智能体还没有已发布的版本")
     if version is not None:
         dsl = AssistantDSLv1.model_validate(version.snapshot["dsl"])  # the frozen snapshot, never the draft
         model_id = version.snapshot.get("model_id")
@@ -116,7 +116,7 @@ def create_debug_run(
         model_id = assistant.draft_config.get("model_id")
     models, _ = _enabled_chat_models(db, membership.tenant_id)
     if str(model_id) not in {str(model.id) for model, _ in models}:
-        raise ApiError(409, "runtime.model_unavailable", "助理所选模型未在当前环境启用")
+        raise ApiError(409, "runtime.model_unavailable", "智能体所选模型未在当前环境启用")
     enforce_quota(db, membership.tenant_id, "monthly_points", 1, "本月模型点数已用完，请联系平台升级或等待下月重置")
     ensure_environment_active(db, membership.tenant_id, MODEL_ENVIRONMENT)
     if len(payload.message.strip()) > dsl.limits.max_input_chars:

@@ -28,3 +28,20 @@
 ## 不在范围
 
 - 智能体创建方式：**已确认（2026-11-10）保持“简化新建弹窗 + 详情页就地编辑”**，不恢复原型的 4 步向导；本任务只改弹窗与详情页里的术语。
+
+## 完成记录
+
+**改动文件**
+- 前端：`i18n/{zh-CN,en}/*.json`（全部用户可见值“助理 / 助手 / Assistant”→“智能体 / Agent”；`knowledge.json` 的“助理与智能体引用”改为“智能体与流程引用”）、`Dashboard.tsx`、`AuditLogPage.tsx`、`RoleManagementPanel.tsx` 的写死文案、`App.tsx` 导航（分组：工作台 / 构建：智能体、知识库、流程画布、能力目录 / 发布与运营：渠道、审批中心 / 管理）、`nav.json` 增加 `group.*`、`flowStudio`（原“编排中心”占位入口改为“流程画布”，路径 `/flow-studio`，权限 `agents:view`）、`App.css` 分组标题样式。
+- 后端：27 个 `.py` 文件里的用户可见中文（错误信息、审计动作描述、审计分类、权限模块名、网页挂件报错、开放 API 说明）；`rbac.py` 中 `assistants` 模块名为“智能体”、`agents` 模块名为“流程画布”；`static/widget.js` 报错文案；测试里 5 处断言文案同步。
+- 文档：`architecture.md` 新增“术语与内部标识对应”一节。
+
+**验证**：ruff；`./scripts/test-postgres.sh` 全量 709 项通过（含迁移升降级）；前端 `tsc -b`、lint、`i18n:check`、`style:check`、build 通过；无头 Chrome 看过智能体列表与详情页、新导航分组。
+**是否连过真实第三方引擎**：不涉及。
+
+**未改动（有意）**：表名、接口路径、权限码、审计动作名、i18n key；发给大模型的提示词（`runtime/rewrite.py`、`memory.py`、`test_cases.py` 评测提示词）；历史迁移文件；`scripts/` 里的 e2e 测试数据。
+
+**遗留问题**
+- 已写入审计表的旧记录描述保持“创建助理”等原文；已有智能体里保存的问候语等用户数据不改。
+- 管理端“AI 门户”导航入口留给 T-140；`/portal` 路径留给员工端 T-142。
+- 开发库里 `entitlements` 等已落库的套餐描述仍是旧文案（迁移不可改，新建套餐用新文案）。

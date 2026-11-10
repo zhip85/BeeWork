@@ -11,7 +11,7 @@ from beework.models import TenantModelEnvironment
 from beework.models.assistants import Assistant
 from beework.schemas.assistant_checks import CheckIssue
 
-UNNAMED = "未命名助理"
+UNNAMED = "未命名智能体"
 
 
 def check_assistant(
@@ -31,18 +31,18 @@ def check_assistant(
     issues: list[CheckIssue] = []
 
     if not name or name.startswith(UNNAMED):
-        issues.append(CheckIssue(code="name_missing", severity="blocker", message="请先为助理命名", target="basic"))
+        issues.append(CheckIssue(code="name_missing", severity="blocker", message="请先为智能体命名", target="basic"))
     if not description:
         issues.append(CheckIssue(code="description_missing", severity="blocker", message="请填写使用场景 / 简介", target="basic"))
 
     model_id = config.get("model_id")
     if not model_id:
-        issues.append(CheckIssue(code="runtime.model_unavailable", severity="blocker", message="助理尚未选择模型", target="basic"))
+        issues.append(CheckIssue(code="runtime.model_unavailable", severity="blocker", message="智能体尚未选择模型", target="basic"))
     elif str(model_id) not in enabled_model_ids:
         issues.append(CheckIssue(code="runtime.model_unavailable", severity="blocker", message="所选模型未在当前环境启用", target="basic"))
 
     if not (config.get("prompt") or "").strip():
-        issues.append(CheckIssue(code="runtime.prompt_missing", severity="blocker", message="助理尚未填写提示词", target="basic"))
+        issues.append(CheckIssue(code="runtime.prompt_missing", severity="blocker", message="智能体尚未填写提示词", target="basic"))
 
     env = db.scalar(
         select(TenantModelEnvironment).where(

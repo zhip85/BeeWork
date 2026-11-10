@@ -129,7 +129,7 @@ export function RoleManagementPanel({
         {roles.map((role) => (
           <article className={`role-card${role.is_active ? '' : ' is-inactive'}`} key={role.key}>
             <div className="role-card-heading">
-              <div><strong>{role.name}</strong><small>{role.is_builtin ? '系统内置' : role.scope === 'tenant' ? '全企业范围' : role.scope === 'assistant' ? '指定助理范围' : '部门范围'}</small></div>
+              <div><strong>{role.name}</strong><small>{role.is_builtin ? '系统内置' : role.scope === 'tenant' ? '全企业范围' : role.scope === 'assistant' ? '指定智能体范围' : '部门范围'}</small></div>
               {!role.is_active && <span className="role-inactive-label">已停用</span>}
             </div>
             <p>{role.description || '未填写角色说明'}</p>
@@ -196,7 +196,7 @@ export function RoleManagementPanel({
               >
                 <option value="tenant">全企业</option>
                 <option value="organization">指定部门及下级</option>
-                <option value="assistant">指定助理</option>
+                <option value="assistant">指定智能体</option>
               </select>
             </label>
             <fieldset className="role-assistant-picker">
@@ -218,8 +218,8 @@ export function RoleManagementPanel({
             </fieldset>
             {draft.scope === 'assistant' && (
               <fieldset className="role-assistant-picker">
-                <legend>授权助理</legend>
-                {assistantChoices.length === 0 && <small>暂无可选助理</small>}
+                <legend>授权智能体</legend>
+                {assistantChoices.length === 0 && <small>暂无可选智能体</small>}
                 {assistantChoices.map((item) => (
                   <label className="wizard-radio" key={item.id}>
                     <input
@@ -235,7 +235,7 @@ export function RoleManagementPanel({
                     {item.name}
                   </label>
                 ))}
-                <small>助理范围角色只能配置工作台与助理权限。</small>
+                <small>智能体范围角色只能配置工作台与智能体权限。</small>
               </fieldset>
             )}
             {draft.scope === 'organization' && (

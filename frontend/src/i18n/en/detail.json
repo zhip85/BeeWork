@@ -1,9 +1,9 @@
 {
-  "back": "Assistants",
+  "back": "Agents",
   "loading": "Loading…",
-  "loadFailed": "Could not load the assistant",
+  "loadFailed": "Could not load the agent",
   "subtitle": "{{org}} · v{{version}}",
-  "tabsLabel": "Assistant tabs",
+  "tabsLabel": "Agent tabs",
   "test": "Test",
   "publish": "Publish update",
   "published": "Published v{{version}}",
@@ -12,7 +12,7 @@
   "soonTab": "“{{name}}” is coming soon",
   "metricsPending": "Call volume, success rate and other metrics appear once conversation records go live.",
   "versionsHint": "View, compare, restore or roll back published versions.",
-  "conversationsHint": "Browse this assistant's conversations and messages.",
+  "conversationsHint": "Browse this agent's conversations and messages.",
   "tabs": {
     "overview": "Overview",
     "capabilities": "Capabilities",
@@ -94,7 +94,7 @@
     }
   },
   "submitted": "Submitted to the approval center",
-  "navLabel": "Assistant setup",
+  "navLabel": "Agent setup",
   "nav": {
     "overview": "Overview",
     "basics": "Basics",

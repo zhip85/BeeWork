@@ -3,8 +3,7 @@
   "manage": "Manage",
   "mainNav": "Main navigation",
   "dashboard": "Dashboard",
-  "assistants": "Assistants",
-  "workflows": "Orchestration",
+  "assistants": "Agents",
   "knowledge": "Knowledge",
   "capabilities": "Capabilities",
   "operations": "Operations & Audit",
@@ -24,5 +23,10 @@
   "readonlyBanner": "This workspace is currently \"{{status}}\": view and export only; all changes are paused. Contact the platform to restore access.",
   "approvals": "Approvals",
   "pendingApprovals": "{{count}} awaiting your approval",
-  "channels": "Channels"
+  "channels": "Channels",
+  "flowStudio": "Flow Studio",
+  "group": {
+    "build": "Build",
+    "run": "Run & operate"
+  }
 }

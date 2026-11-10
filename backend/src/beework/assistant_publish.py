@@ -41,9 +41,9 @@ def apply_publish(db, context: ApplyContext) -> None:
         .with_for_update()
     )
     if assistant is None:
-        raise blocked("助理已被删除，无法发布")
+        raise blocked("智能体已被删除，无法发布")
     if assistant.status == "disabled":
-        raise blocked("助理已停用，请启用后重试")
+        raise blocked("智能体已停用，请启用后重试")
     models, _ = _enabled_chat_models(db, assistant.tenant_id)
     issues = check_assistant(
         db, assistant, enabled_model_ids={str(m.id) for m, _ in models}, environment=MODEL_ENVIRONMENT,
@@ -68,6 +68,6 @@ def apply_publish(db, context: ApplyContext) -> None:
     if recipients:
         notify(
             db, tenant_id=assistant.tenant_id, recipient_ids=recipients, type="assistant.published",
-            title=f"助理“{assistant.name}”已发布 v{version.version}", link=f"/assistants/{assistant.id}/versions",
+            title=f"智能体“{assistant.name}”已发布 v{version.version}", link=f"/assistants/{assistant.id}/versions",
             params={"name": assistant.name, "version": version.version},
         )

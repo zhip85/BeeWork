@@ -19,10 +19,12 @@ ROLE_LABELS = {
     "auditor": "审计员",
 }
 
+# Naming since 2026-11-10 (T-067): the user-facing name of the product is “智能体”. The ``assistants`` module is the
+# agent (formerly “助理”); the ``agents`` module governs Chatflow / Workflow, shown as “流程画布”. Codes stay unchanged.
 PERMISSION_CATALOG: dict[str, PermissionModule] = {
     "dashboard": {"label": "工作台", "actions": ["view"]},
-    "assistants": {"label": "助理", "actions": ["view", "edit", "publish", "delete", "test"]},
-    "agents": {"label": "智能体", "actions": ["view", "edit", "publish", "delete"]},
+    "assistants": {"label": "智能体", "actions": ["view", "edit", "publish", "delete", "test"]},
+    "agents": {"label": "流程画布", "actions": ["view", "edit", "publish", "delete"]},
     "knowledge": {"label": "知识库与文档", "actions": ["view", "edit", "publish", "delete"]},
     "faq": {"label": "FAQ", "actions": ["view", "edit", "publish", "delete"]},
     "capabilities": {"label": "能力", "actions": ["view", "edit", "publish", "delete"]},
@@ -156,7 +158,7 @@ def require_tenant_permission(permission: str):
                 if custom_role.scope == "assistant" and (
                     permission.split(":", 1)[0] not in ASSISTANT_SCOPE_MODULES
                 ):
-                    raise HTTPException(status_code=403, detail="助理范围角色只能访问其指定的助理")
+                    raise HTTPException(status_code=403, detail="智能体范围角色只能访问其指定的智能体")
                 if custom_role.scope == "organization":
                     ensure_organization_scope(
                         membership,

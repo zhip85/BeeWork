@@ -103,11 +103,11 @@ def apply_publish(db, context: ApplyContext) -> None:
         )
     )
     if assistant is None:
-        raise ApiError(409, "channel.publish_blocked", "绑定的助理已被删除，无法发布")
+        raise ApiError(409, "channel.publish_blocked", "绑定的智能体已被删除，无法发布")
     if assistant.status == "disabled":
-        raise ApiError(409, "channel.publish_blocked", "绑定的助理已停用，请启用后重试")
+        raise ApiError(409, "channel.publish_blocked", "绑定的智能体已停用，请启用后重试")
     if channel.environment == "production" and assistant.live_version_id is None:
-        raise ApiError(409, "channel.publish_blocked", "生产环境的渠道需要先发布助理")
+        raise ApiError(409, "channel.publish_blocked", "生产环境的渠道需要先发布智能体")
     snapshot = dict(context.payload["snapshot"])
     snapshot["overrides"] = dict(context.payload.get("overrides") or {})
     channel.published_snapshot = snapshot

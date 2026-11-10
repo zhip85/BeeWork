@@ -114,4 +114,4 @@ class AssistantVersion(Base, TenantOwnedMixin):
 
 @event.listens_for(AssistantVersion, "before_update")
 def _forbid_version_update(_mapper, _connection, _target) -> None:
-    raise ValueError("助理版本是不可变的，不能修改")
+    raise ValueError("智能体版本是不可变的，不能修改")
