@@ -15,7 +15,7 @@ from beework.models.assistants import Assistant
 from beework.models.conversations import Conversation, EndUser, Message
 from beework.models.jobs import RunEvent
 from beework.models.runtime import Run
-from beework.pii import redact_text
+from beework.pii import redact_for_tenant
 from beework.usage import NON_BILLABLE_CONVERSATION_SOURCES
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ def start_conversation(
 
 def store_text(db: Session, tenant_id: UUID, text: str) -> str:
     """Text as it must be persisted under the tenant's PII policy."""
-    return redact_text(text) if get_policy(db, tenant_id).redact_pii else text
+    return redact_for_tenant(db, tenant_id, text) if get_policy(db, tenant_id).redact_pii else text
 
 
 def append_message(

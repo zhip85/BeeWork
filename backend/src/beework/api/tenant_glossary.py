@@ -33,6 +33,7 @@ from beework.schemas.versions import ApprovalInfo
 
 router = APIRouter()
 MAX_IMPORT_BYTES = 1_000_000
+MAX_IMPORT_ROWS = 500  # the tenant import is applied row by row inside one request
 
 
 class _Absent:
@@ -221,7 +222,7 @@ async def import_tenant_terms(
             text = data.decode("gb18030")
         except UnicodeDecodeError as exc:
             raise ApiError(422, "tenant_glossary.invalid", "文件编码无法识别，请使用 UTF-8 保存") from exc
-    parsed = parse_terms(text)
+    parsed = parse_terms(text, max_rows=MAX_IMPORT_ROWS)
     if not parsed.terms and not parsed.errors:
         raise ApiError(422, "tenant_glossary.invalid", "没有识别到术语")
     existing = {item.term.key for item in service.tenant_view(db, membership.tenant_id).terms}

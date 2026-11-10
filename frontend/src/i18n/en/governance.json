@@ -50,7 +50,8 @@
     "reason": "Reason",
     "reasonHint": "Shown to the reviewer.",
     "ruleset": "Rule set reference",
-    "retentionDays": "Retention days"
+    "retentionDays": "Retention days",
+    "nameRequired": "Enter a rule name"
   },
   "matchType": {
     "regex": "Regex",
@@ -182,5 +183,24 @@
       "deleted": "Rule deleted",
       "settings": "Settings saved"
     }
+  },
+  "assistant": {
+    "chainLabel": "Inheritance chain",
+    "chainPlatform": "SaaS platform baseline · read-only",
+    "chainPlatformCounts": "{{total}} PII rules · {{enforced}} enforced",
+    "chainTenant": "Tenant rule library",
+    "chainTenantCounts": "{{inherited}} inherited · {{own}} tenant-level",
+    "chainAssistant": "This assistant",
+    "chainAssistantCounts": "{{inherited}} inherited · {{own}} assistant-level · {{effective}} in force",
+    "detection": "PII detection",
+    "detectionHint": "When off, every rule that is not enforced is disabled; enforced platform rules always apply.",
+    "useGlobal": "Reference global PII rules",
+    "useGlobalHint": "Inherit the tenant rule library; when off only enforced platform rules and the assistant's own rules remain. Not available while detection is off.",
+    "scope": {
+      "all": "All rules in force",
+      "assistant": "Assistant level only"
+    },
+    "new": "New assistant rule",
+    "editTitle": "Edit rule"
   }
 }

@@ -51,9 +51,77 @@ class OCTests(test_versions.VersionTests):
         self.assertEqual((state["has_changes"], state["diff"]), (False, []))
         self.assertEqual([s["stage"] for s in state["stages"]], ["pii", "memory", "glossary", "rewrite", "routing", "components"])
         self.assertEqual([s["index"] for s in state["stages"]], [1, 2, 3, 4, 5, 6])
-        self.assertEqual({s["available"] for s in state["stages"]}, {False})  # the stage tasks have not landed
+        self.assertEqual({s["stage"] for s in state["stages"] if s["available"]}, {"pii"})  # the other stage tasks have not landed
         self.assertEqual((state["assistant"]["name"], state["assistant"]["live_version"], state["assistant"]["can_edit"]), ("Helper", None, True))
         self.assertEqual(state["approval"]["approver_role"], "security_officer")  # default of “助理规则变更”
+
+    def test_the_pii_summary_counts_baseline_tenant_and_assistant_input_rules(self) -> None:
+        from beework.models.governance import SecurityBaselineRule
+        from beework.models.tenant_rules import TenantPiiRule
+
+        with self.session_factory.begin() as db:
+            db.add(SecurityBaselineRule(name="内容安全", category="content_safety", stage="output", level="enforced", scope="all", status="enabled", action="block", match_type="keyword", pattern="x"))
+            db.add(SecurityBaselineRule(name="仅中国区", category="content_safety", stage="input", level="enforced", scope="region_cn", status="enabled", action="block", match_type="keyword", pattern="y"))
+            db.add(TenantPiiRule(tenant_id=self.ids["tenant"], name="会员号", pattern="AC", enabled=True))
+        row = next(s for s in self.get_oc().json()["stages"] if s["stage"] == "pii")
+        self.assertEqual(row["summary"], "2 条生效规则 · PII 开启 · 平台强制基线不受开关影响")  # one baseline row applies + one tenant rule
+        self.save_oc({"pii": {"enabled": False, "rules": [{"id": "a1", "name": "工号", "pattern": "EMP", "stage": "input"}, {"id": "a2", "name": "输出", "pattern": "x", "stage": "output"}]}})
+        row = next(s for s in self.get_oc().json()["stages"] if s["stage"] == "pii")
+        self.assertEqual(row["summary"], "3 条生效规则 · PII 关闭 · 平台强制基线不受开关影响")  # + the assistant's enabled input rule
+
+    def test_the_pii_preview_folds_the_layers_without_saving(self) -> None:
+        from beework.models.governance import PlatformPiiRule
+        from beework.models.tenant_rules import TenantPiiRule
+
+        with self.session_factory.begin() as db:
+            db.add_all([
+                PlatformPiiRule(name="身份证号", pattern="id", enforced=True, sort_order=0),
+                PlatformPiiRule(name="手机号", pattern="phone", sort_order=1),
+            ])
+            db.add(TenantPiiRule(tenant_id=self.ids["tenant"], name="会员号", pattern="AC"))
+        url = f"/api/v1/assistants/{self.aid}/oc/pii/preview"
+        base = self.client.post(url, json={"pii": {}}, headers=self.admin)
+        self.assertEqual(base.status_code, 200, base.text)
+        body = base.json()
+        self.assertEqual({i["name"]: (i["label"], i["enforced"]) for i in body["items"]}, {"身份证号": ("platform_inherited", True), "手机号": ("platform_inherited", False), "会员号": ("tenant", False)})
+        self.assertEqual(body["chain"], {"platform_total": 2, "platform_enforced": 1, "tenant_inherited": 2, "tenant_level": 1, "assistant_inherited": 3, "assistant_level": 0, "effective": 3})
+        phone_key = next(i["key"] for i in body["items"] if i["name"] == "手机号")
+        draft = {"pii": {"enabled": False, "rules": [
+            {"id": "o1", "from_id": phone_key, "name": "手机号", "pattern": "mine", "enabled": True},
+            {"id": "a1", "name": "工号", "pattern": "EMP"},
+        ]}}
+        folded = self.client.post(url, json=draft, headers=self.admin).json()
+        by_name = {i["name"]: i for i in folded["items"]}
+        self.assertEqual((by_name["手机号"]["label"], by_name["手机号"]["restorable"], by_name["手机号"]["pattern"]), ("assistant_modified", True, "mine"))
+        self.assertEqual((by_name["工号"]["label"], by_name["工号"]["deletable"]), ("assistant", True))
+        self.assertEqual((by_name["身份证号"]["enabled"], by_name["手机号"]["enabled"], by_name["手机号"]["switched_off"]), (True, False, True))  # detection off
+        self.assertEqual(folded["chain"]["effective"], 1)
+        self.assertEqual(self.refresh()["config"]["oc"]["pii"]["rules"], [])  # nothing was saved
+        stopped = self.client.post(url, json={"pii": {"use_global": False}}, headers=self.admin).json()
+        self.assertEqual([i["name"] for i in stopped["items"]], ["身份证号"])  # only the enforced rule remains
+
+    def test_the_pii_preview_and_saving_validate_assistant_rules(self) -> None:
+        url = f"/api/v1/assistants/{self.aid}/oc/pii/preview"
+        for rule in ({"id": "a", "name": "坏", "pattern": "(["}, {"id": "a", "name": " ", "pattern": "x"}, {"id": "a", "name": "空", "pattern": ""}, {"id": "a", "name": "x" * 81, "pattern": "x"}, {"id": "a", "name": "y", "pattern": "x", "action": "bogus"}):
+            self.assertEqual(self.client.post(url, json={"pii": {"rules": [rule]}}, headers=self.admin).status_code, 422, rule)
+        state = self.get_oc().json()
+        bad = {**state["oc"], "pii": {**state["oc"]["pii"], "rules": [{"id": "a", "name": "坏", "pattern": "(["}]}}
+        self.assertEqual(self.client.put(self.oc_url(), json={"oc": bad, "row_version": state["row_version"]}, headers=self.admin).status_code, 422)
+        good = {**state["oc"], "pii": {**state["oc"]["pii"], "rules": [{"id": "a", "name": "工号", "pattern": "EMP", "action": "block", "block_message": "禁止"}]}}
+        saved = self.client.put(self.oc_url(), json={"oc": good, "row_version": state["row_version"]}, headers=self.admin)
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertEqual(saved.json()["oc"]["pii"]["rules"][0]["block_message"], "禁止")
+        many = {**state["oc"], "pii": {"rules": [{"id": f"r{i}", "name": f"n{i}", "pattern": "x"} for i in range(101)]}}
+        self.assertEqual(self.client.put(self.oc_url(), json={"oc": many, "row_version": saved.json()["row_version"]}, headers=self.admin).status_code, 422)
+
+    def test_the_pii_preview_respects_permissions_and_tenants(self) -> None:
+        url = f"/api/v1/assistants/{self.aid}/oc/pii/preview"
+        viewer = self.login("viewer@example.com")
+        self.assertEqual(self.client.post(url, json={"pii": {}}, headers=viewer).status_code, 200)
+        other = self.login("other@example.com", self.ids["other"])
+        self.assertEqual(self.client.post(url, json={"pii": {}}, headers=other).status_code, 404)
+        self.client.cookies.clear()
+        self.assertEqual(self.client.post(url, json={"pii": {}}).status_code, 401)
 
     def test_a_registered_stage_summary_shows_up(self) -> None:
         from beework import assistant_oc

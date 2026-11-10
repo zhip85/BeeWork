@@ -46,6 +46,12 @@ class RuntimeState(TypedDict, total=False):
     retrieval_mode: str
     text: str
     usage: dict[str, int | None]
+    # PII / safety stages (T-055): a blocked input skips everything up to the egress; hits never carry matched text.
+    blocked: bool
+    block_message: str
+    pii_hits: list[dict[str, Any]]
+    pii_failures: list[dict[str, str]]
+    pii_last: dict[str, Any]
 
 
 class StageClock:
@@ -84,6 +90,9 @@ class RuntimeDeps:
     span: Callable[[str], AbstractContextManager] = lambda name: nullcontext()
     # Long-term memory snippets for the current message (the memory stage calls it; T-056a wires it).
     memory: Callable[[str], list[dict[str, str]]] = lambda query: []
+    # The PII / safety rules in force for this run, and whether the reply is held back for the output rules (T-055).
+    pii_rules: list[Any] = field(default_factory=list)
+    hold_output: bool = False
     clock: StageClock = field(default_factory=StageClock)
 
 
@@ -150,6 +159,8 @@ def _execute(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
     """Run the routed target. For ``assistant``: knowledge retrieval, then the model."""
 
     def node(state: RuntimeState) -> RuntimeState:
+        if state.get("blocked"):
+            return {}  # the input rules answered already: no retrieval, no model call
         writer = get_stream_writer()
         update: RuntimeState = {}
         bases = deps.resolve_bases([base.kb_id for base in dsl.knowledge.bases]) if dsl.knowledge.bases else []
@@ -183,7 +194,8 @@ def _execute(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
                 text = chunk.content if isinstance(chunk.content, str) else ""
                 if text:
                     parts.append(text)
-                    writer({"type": "token", "text": text})
+                    if not deps.hold_output:  # output rules may rewrite the reply: it is sent once they have run
+                        writer({"type": "token", "text": text})
                 meta = getattr(chunk, "usage_metadata", None)
                 if meta:
                     usage = {"input": meta.get("input_tokens"), "output": meta.get("output_tokens")}
@@ -222,6 +234,8 @@ def _instrumented(name: str, node: Node, deps: RuntimeDeps) -> Node:
         data: dict[str, Any] = {"type": "step", "name": name, "status": "completed", "duration_ms": elapsed}
         if name == "execute":
             data["retrieval_mode"] = result.get("retrieval_mode")
+        if name in ("pii_input", "pii_output") and result.get("pii_last") is not None:
+            data.update({key: value for key, value in result["pii_last"].items() if value})
         writer(data)
         return result
 

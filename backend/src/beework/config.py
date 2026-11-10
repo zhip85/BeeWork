@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     # PRD PLT-052 asks for a second platform admin to review suspend / delete. Switched off by decision (2026-11-09):
     # lifecycle changes apply directly. Set TENANT_LIFECYCLE_REVIEW=true to bring the review back.
     tenant_lifecycle_review: bool = False
+    # PII / safety detectors (T-055). Both are optional: an unconfigured detector is reported as such and fails open.
+    presidio_analyzer_url: str = ""  # e.g. http://presidio-analyzer:3000 (compose profile `pii`)
+    presidio_language: str = "en"
+    safety_judge_model: str = ""  # a LiteLLM model alias used by LLM-judge rules
+    safety_judge_timeout_seconds: float = 1.5
     # PLT-071: adding, switching off or retiring an enforced platform PII / baseline rule needs a second administrator.
     platform_rule_review: bool = True
     app_origin: str = "http://localhost:5173"

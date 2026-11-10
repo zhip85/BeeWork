@@ -7,7 +7,7 @@ from beework.runtime.dsl import AssistantDSLv1
 @register_stage("memory")
 def memory_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
     def node(state: RuntimeState) -> RuntimeState:
-        if not dsl.oc.memory.long_term.enabled:
+        if state.get("blocked") or not dsl.oc.memory.long_term.enabled:
             return {}
         return {"memory": deps.memory(state["input"])}
 

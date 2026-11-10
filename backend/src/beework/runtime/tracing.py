@@ -5,7 +5,7 @@ The trace id is derived from the run id, so a run can always be located in Langf
 """
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -19,12 +19,14 @@ logger = logging.getLogger(__name__)
 
 # Set while a run of a tenant that redacts personal information is traced (SET-070).
 _REDACT_TRACES: ContextVar[bool] = ContextVar("redact_traces", default=False)
+# How trace text is redacted while ``_REDACT_TRACES`` is set: the tenant's rules (T-055), else the fixed patterns.
+_REDACTOR: ContextVar[Callable[[str], str] | None] = ContextVar("trace_redactor", default=None)
 
 
 def _mask(data: Any) -> Any:
     from beework.pii import redact_data
 
-    return redact_data(data) if _REDACT_TRACES.get() else data
+    return redact_data(data, _REDACTOR.get()) if _REDACT_TRACES.get() else data
 
 
 @dataclass
@@ -51,9 +53,12 @@ class TraceHandle:
 
 
 @contextmanager
-def trace_run(run_id: UUID, *, metadata: dict[str, str], redact: bool = False) -> Iterator[TraceHandle]:
+def trace_run(
+    run_id: UUID, *, metadata: dict[str, str], redact: bool = False, redactor: Callable[[str], str] | None = None
+) -> Iterator[TraceHandle]:
     handle = TraceHandle()
     redact_token = _REDACT_TRACES.set(redact)
+    redactor_token = _REDACTOR.set(redactor)
     span_context = None
     client = None
     if langfuse_configured():
@@ -98,3 +103,4 @@ def trace_run(run_id: UUID, *, metadata: dict[str, str], redact: bool = False) -
             except Exception:
                 logger.warning("Langfuse span close failed for run %s", run_id, exc_info=True)
         _REDACT_TRACES.reset(redact_token)
+        _REDACTOR.reset(redactor_token)

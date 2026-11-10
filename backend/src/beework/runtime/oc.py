@@ -5,9 +5,10 @@ T-058 routing, T-059 components) extend the sub-models. Defaults here make an as
 configuration behave exactly as before, and unknown keys are rejected so typos never pass silently.
 """
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MemoryType = Literal["preference", "history", "fact"]
 
@@ -16,8 +17,41 @@ class _Section(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class PiiConfig(_Section):
+class AssistantPiiRule(_Section):
+    """An assistant-level PII rule: its own (``from_id`` empty) or an override of an inherited rule (``from_id`` = its key)."""
+
+    id: str = Field(min_length=1, max_length=64)
+    from_id: str | None = Field(default=None, max_length=64)
+    name: str = Field(max_length=200)
+    match_type: Literal["regex", "keyword", "classifier", "llm_judge"] = "regex"
+    pattern: str = Field(default="", max_length=4000)
+    stage: Literal["both", "input", "output"] = "both"
+    action: Literal["mask", "block", "flag"] = "mask"
+    block_message: str = Field(default="", max_length=600)
     enabled: bool = True
+
+    @model_validator(mode="after")
+    def check(self) -> "AssistantPiiRule":
+        self.name = self.name.strip()
+        if not self.name or len(self.name) > 80:
+            raise ValueError("规则名称不能为空且不超过 80 个字符")
+        self.pattern = self.pattern.strip()
+        if self.match_type in ("regex", "keyword") and not self.pattern:
+            raise ValueError("请填写匹配内容")
+        if self.match_type == "regex":
+            try:
+                re.compile(self.pattern)
+            except re.error as exc:
+                raise ValueError(f"正则表达式无效：{exc}") from exc
+        if self.action != "block":
+            self.block_message = ""
+        return self
+
+
+class PiiConfig(_Section):
+    enabled: bool = True  # “PII 个人信息检测”: off disables every rule that is not enforced (OC-010)
+    use_global: bool = True  # “引用全局 PII 规则”: off keeps only enforced rules plus the assistant's own
+    rules: list[AssistantPiiRule] = Field(default_factory=list, max_length=100)
 
 
 class ShortTermMemory(_Section):

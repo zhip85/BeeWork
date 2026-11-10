@@ -16,6 +16,7 @@ from beework.compliance import get_policy
 from beework.conversations import append_message, history_for_run
 from beework.faqs import record_hits as record_faq_hits
 from beework.gateway_sync import tenant_gateway_key
+from beework.governance.runtime_policy import build_policy
 from beework.integrations.knowledge_engine import KnowledgeEngineError
 from beework.integrations.litellm import GatewayError
 from beework.knowledge_mounts import resolve_knowledge_bases
@@ -24,14 +25,18 @@ from beework.models import Tenant, TenantModelEnvironment
 from beework.models.conversations import Conversation
 from beework.models.jobs import RunEvent
 from beework.models.runtime import Run
-from beework.pii import redact_text
+from beework.pii import make_redactor, redact_for_tenant
 from beework.runtime import (
     memory_stage as _memory_stage,  # noqa: F401  (registers the memory stage)
+)
+from beework.runtime import (
+    pii_stage as _pii_stage,  # noqa: F401  (registers the pii_input / pii_output stages)
 )
 from beework.runtime.compiler import RuntimeDeps, StageClock, compile_assistant
 from beework.runtime.dsl import AssistantDSLv1, KnowledgeBaseRef
 from beework.runtime.errors import RunCancelled, RunTimedOut, RuntimeFailure
 from beework.runtime.llm import build_chat_model
+from beework.runtime.pii_stage import holds_output
 from beework.runtime.retrieval import EngineRetriever, Retriever
 from beework.runtime.tracing import TraceHandle, trace_run
 from beework.worker.events import publish_run_event
@@ -174,13 +179,13 @@ def scrub_run_content(db: Session, run: Run) -> None:
     if not get_policy(db, run.tenant_id).redact_pii:
         return
     if run.input and isinstance(run.input.get("message"), str):
-        run.input = {**run.input, "message": redact_text(run.input["message"])}
+        run.input = {**run.input, "message": redact_for_tenant(db, run.tenant_id, run.input["message"])}
     if run.output and isinstance(run.output.get("text"), str):
-        run.output = {**run.output, "text": redact_text(run.output["text"])}
+        run.output = {**run.output, "text": redact_for_tenant(db, run.tenant_id, run.output["text"])}
     db.execute(delete(RunEvent).where(RunEvent.run_id == run.id, RunEvent.type == "token"))
     for event in db.scalars(select(RunEvent).where(RunEvent.run_id == run.id, RunEvent.type == "done")):
         if isinstance(event.data.get("text"), str):
-            event.data = {**event.data, "text": redact_text(event.data["text"])}
+            event.data = {**event.data, "text": redact_for_tenant(db, run.tenant_id, event.data["text"])}
     db.commit()
 
 
@@ -264,8 +269,9 @@ def _execute_run(
 
         final: dict[str, Any] = {}
         redact = get_policy(db, run.tenant_id).redact_pii
+        pii_rules = build_policy(db, run.tenant_id, dsl.oc.pii)  # platform and tenant rules are read now, the assistant's from the snapshot
         history = history_for_run(db, run, dsl.limits.history_messages)
-        with trace_run(run.id, metadata=run_metadata(run), redact=redact) as trace:
+        with trace_run(run.id, metadata=run_metadata(run), redact=redact, redactor=make_redactor(pii_rules)) as trace:
             trace_url = trace.trace_url
             traces.append(trace)
             graph = compile_assistant(
@@ -280,6 +286,8 @@ def _execute_run(
                     span=trace.span,
                     clock=clock,
                     memory=memory_context,
+                    pii_rules=pii_rules,
+                    hold_output=holds_output(pii_rules),
                 ),
             )
             for mode, payload in graph.stream(
@@ -320,6 +328,7 @@ def _execute_run(
         for c in final.get("context", [])
     ]
     retrieval = {"mode": final.get("retrieval_mode", "none"), "citations": citations}
+    pii = {"hits": final.get("pii_hits", []), "failures": final.get("pii_failures", []), "blocked": bool(final.get("blocked"))}
     faq_documents = [c.get("document_id", "") for c in final.get("context", []) if c.get("kind") == "faq"]
     run.tokens_in, run.tokens_out = usage.get("input"), usage.get("output")
     run.retrieval_mode = retrieval["mode"]
@@ -339,7 +348,7 @@ def _execute_run(
         record_faq_hits(db, run.tenant_id, run.id, faq_documents)
     _finish(
         db, run, "succeeded", "done",
-        {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url},
-        started=started, output={"text": text, "usage": usage, "retrieval": retrieval}, trace_url=trace_url,
+        {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url, "pii": pii},
+        started=started, output={"text": text, "usage": usage, "retrieval": retrieval, "pii": pii}, trace_url=trace_url,
         timings=clock,
     )

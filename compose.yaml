@@ -38,6 +38,9 @@ services:
       BOOTSTRAP_PLATFORM_ADMIN_PASSWORD: ${BOOTSTRAP_PLATFORM_ADMIN_PASSWORD:-BeeWork-Platform-2026!}
       LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-beework-local-only-master}
+      PRESIDIO_ANALYZER_URL: ${PRESIDIO_ANALYZER_URL:-}
+      PRESIDIO_LANGUAGE: ${PRESIDIO_LANGUAGE:-en}
+      SAFETY_JUDGE_MODEL: ${SAFETY_JUDGE_MODEL:-}
       KNOWLEDGE_ENGINE: ${KNOWLEDGE_ENGINE:-dify}
       RAGFLOW_BASE_URL: ${RAGFLOW_BASE_URL:-}
       RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:-}
@@ -84,6 +87,9 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-beework-local-only-master}
+      PRESIDIO_ANALYZER_URL: ${PRESIDIO_ANALYZER_URL:-}
+      PRESIDIO_LANGUAGE: ${PRESIDIO_LANGUAGE:-en}
+      SAFETY_JUDGE_MODEL: ${SAFETY_JUDGE_MODEL:-}
       KNOWLEDGE_ENGINE: ${KNOWLEDGE_ENGINE:-dify}
       RAGFLOW_BASE_URL: ${RAGFLOW_BASE_URL:-}
       RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:-}
@@ -108,6 +114,14 @@ services:
   # without a real instance; see scripts/fake_ragflow.py. For Dify: KNOWLEDGE_ENGINE=dify DIFY_BASE_URL=http://ragflow-fake:9380/v1.
   #   RAGFLOW_BASE_URL=http://ragflow-fake:9380 RAGFLOW_API_KEY=fake-ragflow-key \
   #     docker compose --profile fake-ragflow up -d ragflow-fake api worker
+  # Optional PII classifier (T-055): `docker compose --profile pii up -d presidio-analyzer`, then set
+  # PRESIDIO_ANALYZER_URL=http://presidio-analyzer:3000 for api and worker. Not started by default (it needs ~1.5 GB RAM).
+  presidio-analyzer:
+    profiles: ["pii"]
+    image: mcr.microsoft.com/presidio-analyzer:latest
+    ports:
+      - "127.0.0.1:5002:3000"
+
   ragflow-fake:
     profiles: ["fake-ragflow"]
     image: python:3.12-slim  # the fake only uses the standard library
@@ -124,6 +138,9 @@ services:
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     environment:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-beework-local-only-master}
+      PRESIDIO_ANALYZER_URL: ${PRESIDIO_ANALYZER_URL:-}
+      PRESIDIO_LANGUAGE: ${PRESIDIO_LANGUAGE:-en}
+      SAFETY_JUDGE_MODEL: ${SAFETY_JUDGE_MODEL:-}
       # Encrypts provider keys stored in LiteLLM's own database; keep it stable.
       LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-sk-beework-local-only-salt}
       DATABASE_URL: postgresql://${POSTGRES_USER:-beework}:${POSTGRES_PASSWORD:-beework_local_only}@postgres:5432/litellm
