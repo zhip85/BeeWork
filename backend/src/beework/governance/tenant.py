@@ -1,6 +1,6 @@
 """Tenant PII rule library (T-052, SET-050–054): the tenant layer of the PII inheritance.
 
-Every change goes through ``submit_change`` with the “助理规则变更” policy: applied at once while the policy is off,
+Every change goes through ``submit_change`` with the “智能体规则变更” policy: applied at once while the policy is off,
 otherwise it becomes an approval request whose executor (``tenant.pii_rules``) writes the same change.
 """
 
@@ -26,7 +26,7 @@ from beework.models.tenant_rules import TenantPiiRule, TenantPiiSettings
 
 ACTION = "tenant.pii_rules"
 OBJECT_TYPE = "tenant_pii_rule"
-EVENT = "rule"  # approval policy event “助理规则变更”
+EVENT = "rule"  # approval policy event “智能体规则变更”
 MAX_TENANT_RULES = 200
 FIELDS = ("name", "match_type", "pattern", "stage", "action", "block_message", "enabled")
 

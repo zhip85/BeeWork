@@ -65,10 +65,10 @@ def dsl_from_draft(assistant: Assistant, db: Session | None = None) -> Assistant
         raise ValueError("dsl_from_draft needs a database session to resolve mounted knowledge bases")
     model_id = config.get("model_id")
     if not model_id:
-        raise RuntimeFailure("runtime.model_unavailable", "助理尚未选择模型")
+        raise RuntimeFailure("runtime.model_unavailable", "智能体尚未选择模型")
     prompt = (config.get("prompt") or "").strip()
     if not prompt:
-        raise RuntimeFailure("runtime.prompt_missing", "助理尚未填写提示词")
+        raise RuntimeFailure("runtime.prompt_missing", "智能体尚未填写提示词")
     return AssistantDSLv1(
         prompt=prompt,
         model_alias=model_alias(UUID(str(model_id))),

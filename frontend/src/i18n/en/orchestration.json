@@ -1,9 +1,9 @@
 {
   "title": "Orchestration control (OC)",
   "subtitle": "Configure the governed request pipeline and the single egress gateway.",
-  "back": "Back to assistant",
+  "back": "Back to agent",
   "navLabel": "OC stages",
-  "assistant": "Assistant",
+  "assistant": "Agent",
   "notPublished": "Not published",
   "status": {
     "draft": "Draft",
@@ -27,7 +27,7 @@
   "stages": {
     "pii": {
       "name": "PII rules",
-      "subtitle": "Platform · tenant · assistant"
+      "subtitle": "Platform · tenant · agent"
     },
     "memory": {
       "name": "Memory",
@@ -35,7 +35,7 @@
     },
     "glossary": {
       "name": "Glossary",
-      "subtitle": "Platform · tenant · assistant"
+      "subtitle": "Platform · tenant · agent"
     },
     "rewrite": {
       "name": "Query rewrite",
@@ -65,9 +65,9 @@
   "leave": "Discard and leave",
   "stay": "Keep editing",
   "submitTitle": "OC change · {{name}}",
-  "publishFirst": "Publish the assistant first, then submit OC changes.",
+  "publishFirst": "Publish the agent first, then submit OC changes.",
   "noChanges": "The OC draft matches the live version.",
-  "approvalRequired": "Approval required: once approved it goes live as a new assistant version containing only the OC changes. If rejected the draft is kept.",
+  "approvalRequired": "Approval required: once approved it goes live as a new agent version containing only the OC changes. If rejected the draft is kept.",
   "approvalOff": "No approval flow is configured: it takes effect immediately and contains only the OC changes.",
   "note": "Change note (optional)",
   "submitted": "Submitted for approval",
@@ -81,28 +81,28 @@
   "draftDiffers": "The OC draft differs from the live version and has not been submitted.",
   "inSync": "The OC draft matches the live version.",
   "glossary": {
-    "hint": "The assistant glossary adjusts the platform industry and tenant glossaries. At runtime, aliases expand the search query and the definitions of matched terms go into the prompt.",
+    "hint": "The agent glossary adjusts the platform industry and tenant glossaries. At runtime, aliases expand the search query and the definitions of matched terms go into the prompt.",
     "chainLabel": "Inheritance chain",
     "none": "None inherited",
     "chainIndustry": "Platform industry glossaries",
     "chainIndustryCounts": "{{names}} · {{count}} terms",
     "chainTenant": "Tenant glossary",
     "chainTenantCounts": "{{total}} in total · {{own}} tenant-level",
-    "chainAssistant": "This assistant",
-    "chainAssistantCounts": "{{inherited}} inherited · {{own}} assistant-level · {{effective}} in effect",
+    "chainAssistant": "This agent",
+    "chainAssistantCounts": "{{inherited}} inherited · {{own}} agent-level · {{effective}} in effect",
     "useTenant": "Inherit the tenant glossary",
-    "useTenantHint": "When off, only this assistant's own terms are used.",
+    "useTenantHint": "When off, only this agent's own terms are used.",
     "scope": {
       "all": "All terms",
-      "assistant": "Assistant-level only"
+      "assistant": "Agent-level only"
     },
-    "new": "New assistant term",
+    "new": "New agent term",
     "edit": "Edit",
     "delete": "Delete",
     "restore": "Restore inherited value",
     "editTitle": "Edit term",
     "empty": "No terms",
-    "hiddenCount": "{{count}} inherited terms removed for this assistant",
+    "hiddenCount": "{{count}} inherited terms removed for this agent",
     "restoreAll": "Restore all",
     "col": {
       "term": "Standard term",
@@ -114,22 +114,22 @@
       "industry_inherited": "Platform",
       "tenant": "Tenant",
       "tenant_modified": "Tenant · modified",
-      "assistant": "Assistant",
-      "assistant_modified": "Assistant · modified"
+      "assistant": "Agent",
+      "assistant_modified": "Agent · modified"
     },
     "aliasesHint": "Separate with commas, up to 20.",
-    "inheritedNotice": "This term is inherited. Saving makes it an override for this assistant; upper layers are unchanged.",
+    "inheritedNotice": "This term is inherited. Saving makes it an override for this agent; upper layers are unchanged.",
     "confirm": "OK",
     "deleteTitle": "Delete term",
-    "deleteOwnBody": "Delete the assistant term “{{name}}”?",
-    "hideBody": "“{{name}}” will be hidden for this assistant; upper layers are unaffected. Use “Restore all” to bring it back."
+    "deleteOwnBody": "Delete the agent term “{{name}}”?",
+    "hideBody": "“{{name}}” will be hidden for this agent; upper layers are unaffected. Use “Restore all” to bring it back."
   },
   "rewrite": {
     "hint": "Rewriting is used for routing and retrieval only; the conversation keeps the user's original text. If it times out (1.5 s) or fails, the original question is used.",
     "enable": "Enable question rewriting",
     "enableHint": "When off, the original question goes straight to routing; alias expansion is unaffected.",
     "model": "Rewrite model",
-    "modelDefault": "Use the assistant's model",
+    "modelDefault": "Use the agent's model",
     "modelHint": "Only chat models enabled for this tenant can be chosen.",
     "lowConfidence": "Only rewrite when intent confidence is low",
     "lowConfidenceHint": "Routing decides by confidence; when off, every question is rewritten.",

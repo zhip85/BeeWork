@@ -365,7 +365,7 @@ def _validate_role_scope(
         if extra_modules:
             raise HTTPException(
                 status_code=422,
-                detail=f"助理范围角色只能配置工作台与助理权限，不能包含：{'、'.join(extra_modules)}",
+                detail=f"智能体范围角色只能配置工作台与智能体权限，不能包含：{'、'.join(extra_modules)}",
             )
         found = set(
             db.scalars(
@@ -377,7 +377,7 @@ def _validate_role_scope(
             )
         )
         if found != set(scope_assistant_ids or []):
-            raise HTTPException(status_code=404, detail="角色范围中的助理不属于当前企业")
+            raise HTTPException(status_code=404, detail="角色范围中的智能体不属于当前企业")
         return
     if scope != "organization" or scope_organization_id is None:
         raise HTTPException(status_code=422, detail="组织范围角色必须指定组织")

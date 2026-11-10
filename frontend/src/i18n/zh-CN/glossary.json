@@ -85,7 +85,7 @@
   "tenant": {
     "kicker": "设置 · 术语表",
     "title": "租户术语表",
-    "subtitle": "在行业术语表之上维护本租户的术语；对本租户下所有助手生效。",
+    "subtitle": "在行业术语表之上维护本租户的术语；对本租户下所有智能体生效。",
     "new": "新增租户术语",
     "chainLabel": "继承链",
     "none": "未继承",
@@ -99,7 +99,7 @@
     "moveEarlier": "前移",
     "moveLater": "后移",
     "termsTitle": "租户术语",
-    "termsHint": "对本租户下所有助手生效。",
+    "termsHint": "对本租户下所有智能体生效。",
     "scope": {
       "all": "全部术语",
       "tenant": "仅租户级"

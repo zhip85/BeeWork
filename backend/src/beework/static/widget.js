@@ -79,7 +79,7 @@
         if (name === 'start') { conversationId = payload.conversation_id; write(STORE.conversation, conversationId) }
         else if (name === 'delta') handlers.delta(payload.text)
         else if (name === 'done') { handlers.done(payload.message.content); return }
-        else if (name === 'error') throw new Error(payload.message || '助理暂时无法回答')
+        else if (name === 'error') throw new Error(payload.message || '智能体暂时无法回答')
       }
     }
   }

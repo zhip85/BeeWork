@@ -33,7 +33,7 @@ QUOTA_KEYS = (
 PLAN_DEFAULTS: dict[str, dict] = {
     "standard": {
         "name": "标准版",
-        "description": "助理、知识库、FAQ、组件；网页挂件与 API 渠道。",
+        "description": "智能体、知识库、FAQ、组件；网页挂件与 API 渠道。",
         "price_text": "$499 / 月",
         "entitlements": {
             "external_flows": False, "mcp": False, "skills": False,

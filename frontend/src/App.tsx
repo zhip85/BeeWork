@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   ArrowRight,
@@ -59,13 +59,13 @@ import './App.css'
 import './design-system.css'
 
 const navigation = [
-  { labelKey: 'dashboard', to: '/', icon: LayoutDashboard, end: true, permission: 'dashboard:view' },
-  { labelKey: 'assistants', to: '/assistants', icon: Bot, permission: 'assistants:view' },
-  { labelKey: 'workflows', to: '/workflows', icon: Workflow, permission: 'orchestration:view' },
-  { labelKey: 'knowledge', to: '/knowledge', icon: BookOpen, permission: 'knowledge:view' },
-  { labelKey: 'capabilities', to: '/capabilities', icon: Boxes, permission: 'capabilities:view' },
-  { labelKey: 'approvals', to: '/approvals', icon: ClipboardCheck, permission: 'approvals:view' },
-  { labelKey: 'channels', to: '/channels', icon: Radio, permission: 'channels:view' },
+  { labelKey: 'dashboard', to: '/', icon: LayoutDashboard, end: true, permission: 'dashboard:view', group: '' },
+  { labelKey: 'assistants', to: '/assistants', icon: Bot, permission: 'assistants:view', group: 'build' },
+  { labelKey: 'knowledge', to: '/knowledge', icon: BookOpen, permission: 'knowledge:view', group: 'build' },
+  { labelKey: 'flowStudio', to: '/flow-studio', icon: Workflow, permission: 'agents:view', group: 'build' },
+  { labelKey: 'capabilities', to: '/capabilities', icon: Boxes, permission: 'capabilities:view', group: 'build' },
+  { labelKey: 'channels', to: '/channels', icon: Radio, permission: 'channels:view', group: 'run' },
+  { labelKey: 'approvals', to: '/approvals', icon: ClipboardCheck, permission: 'approvals:view', group: 'run' },
 ]
 
 // Navigation entries with their own page; every other entry still shows the placeholder (listing them here is what
@@ -302,17 +302,19 @@ function App() {
 
         <div className="nav-caption">{t('nav:workspace')}</div>
         <nav className="primary-nav" aria-label={t('nav:mainNav')}>
-          {navigation.filter((item) => hasPermission(item.permission) || (item.to === '/approvals' && approvalsInvolved)).map(({ labelKey, to, icon: Icon, end }) => (
+          {navigation.filter((item) => hasPermission(item.permission) || (item.to === '/approvals' && approvalsInvolved)).map(({ labelKey, to, icon: Icon, end, group }, index, visible) => (
+            <Fragment key={to}>
+            {group && visible[index - 1]?.group !== group && <div className="nav-group-caption">{t(`nav:group.${group}`)}</div>}
             <NavLink
               className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
               end={end}
-              key={to}
               to={to}
             >
               <Icon size={18} strokeWidth={1.8} />
               <span>{t(`nav:${labelKey}`)}</span>
               {to === '/approvals' && pendingApprovals > 0 && <b className="nav-badge" aria-label={t('nav:pendingApprovals', { count: pendingApprovals })}>{pendingApprovals}</b>}
             </NavLink>
+            </Fragment>
           ))}
         </nav>
 

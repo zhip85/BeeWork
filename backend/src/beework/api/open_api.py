@@ -29,8 +29,8 @@ from beework.schemas.open_api import ChatRequest, ChatResponse, MessageOut, Mess
 router = APIRouter(prefix="/v1", tags=["open-api"])
 
 OPEN_API_DESCRIPTION = (
-    "BeeWork 开放 API：用租户 API 密钥调用助理。认证：`Authorization: Bearer bw_live_...`（生产）/ `bw_test_...`（开发、预发）。"
-    "生产环境的密钥调用助理的已发布版本，开发/预发环境的密钥调用最新草稿。超过套餐 QPS 返回 429 与 `Retry-After`。"
+    "BeeWork 开放 API：用租户 API 密钥调用智能体。认证：`Authorization: Bearer bw_live_...`（生产）/ `bw_test_...`（开发、预发）。"
+    "生产环境的密钥调用智能体的已发布版本，开发/预发环境的密钥调用最新草稿。超过套餐 QPS 返回 429 与 `Retry-After`。"
     "错误统一为 `{\"error\": {\"code\": \"...\", \"message\": \"...\"}}`。"
 )
 
@@ -38,7 +38,7 @@ OPEN_API_DESCRIPTION = (
 @router.post(
     "/assistants/{assistant_id}/chat",
     response_model=ChatResponse,
-    summary="与助理对话",
+    summary="与智能体对话",
     responses={200: {"content": {"text/event-stream": {}}, "description": "stream=true 时返回 SSE：start / delta / done / error"}},
 )
 def chat(

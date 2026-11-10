@@ -85,7 +85,7 @@
   "tenant": {
     "kicker": "Settings · Glossary",
     "title": "Tenant glossary",
-    "subtitle": "Maintain this tenant's terms on top of the industry glossaries; they apply to every assistant of the tenant.",
+    "subtitle": "Maintain this tenant's terms on top of the industry glossaries; they apply to every agent of the tenant.",
     "new": "New tenant term",
     "chainLabel": "Inheritance chain",
     "none": "none inherited",
@@ -99,7 +99,7 @@
     "moveEarlier": "Move earlier",
     "moveLater": "Move later",
     "termsTitle": "Tenant terms",
-    "termsHint": "Applies to every assistant of this tenant.",
+    "termsHint": "Applies to every agent of this tenant.",
     "scope": {
       "all": "All terms",
       "tenant": "Tenant level only"

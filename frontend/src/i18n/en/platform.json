@@ -36,7 +36,7 @@
     "overage": "Overage policy",
     "unlimited": "Unlimited",
     "quotaNames": {
-      "assistants": "Assistants",
+      "assistants": "Agents",
       "seats": "Seats",
       "monthly_points": "Monthly points",
       "storage_gb": "Storage (GB)",

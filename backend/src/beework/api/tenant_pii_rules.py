@@ -60,7 +60,7 @@ def _submit(
     db: Session, membership: Membership, response: Response, *, operation: str, key: UUID | None,
     fields: dict[str, Any] | None, title: str, kind: str | None = None,
 ) -> MutationResponse:
-    """Apply now when the “助理规则变更” policy is off (SET-053), otherwise open an approval request."""
+    """Apply now when the “智能体规则变更” policy is off (SET-053), otherwise open an approval request."""
     # Validate before queueing so an approver is never asked to approve something that cannot be applied.
     service.precheck(db, membership.tenant_id, operation, key, fields)
     diff = service.diff_for(db, membership.tenant_id, operation, key, fields)

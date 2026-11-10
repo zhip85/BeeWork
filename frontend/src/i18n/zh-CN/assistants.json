@@ -1,15 +1,15 @@
 {
-  "title": "助理",
+  "title": "智能体",
   "subtitle": "构建、测试并发布覆盖所有渠道的 AI 体验。",
-  "new": "新建助理",
-  "loadFailed": "无法加载助理",
+  "new": "新建智能体",
+  "loadFailed": "无法加载智能体",
   "retry": "重试",
-  "loading": "正在加载助理…",
-  "empty": "还没有助理",
-  "emptyFiltered": "没有匹配的助理",
-  "emptyHint": "从空白开始创建你的第一个 AI 助理。",
+  "loading": "正在加载智能体…",
+  "empty": "还没有智能体",
+  "emptyFiltered": "没有匹配的智能体",
+  "emptyHint": "从空白开始创建你的第一个 AI 智能体。",
   "stats": {
-    "total": "助理总数",
+    "total": "智能体总数",
     "published": "已发布",
     "draft": "草稿",
     "monthlyConversations": "月会话量",
@@ -18,7 +18,7 @@
     "notAvailable": "—"
   },
   "filters": {
-    "search": "搜索助理...",
+    "search": "搜索智能体...",
     "status": "状态：全部",
     "statusAll": "全部",
     "organization": "组织",
@@ -49,12 +49,12 @@
     "open": "打开",
     "version": "v{{version}} · {{time}}更新",
     "readOnly": "只读",
-    "newTitle": "新建助理",
+    "newTitle": "新建智能体",
     "newHint": "从空白或模板开始",
     "metrics": "调用量与成功率将在会话功能上线后显示"
   },
   "list": {
-    "assistant": "助理",
+    "assistant": "智能体",
     "status": "状态",
     "organization": "所属组织",
     "updated": "更新",
@@ -73,18 +73,18 @@
     "detail": "查看详情"
   },
   "toast": {
-    "copied": "助理已复制",
-    "deleted": "助理已删除",
-    "disabled": "助理已停用",
-    "enabled": "助理已启用",
+    "copied": "智能体已复制",
+    "deleted": "智能体已删除",
+    "disabled": "智能体已停用",
+    "enabled": "智能体已启用",
     "draftSaved": "草稿已保存",
-    "created": "助理已创建",
-    "saved": "助理已保存"
+    "created": "智能体已创建",
+    "saved": "智能体已保存"
   },
   "confirm": {
-    "deleteTitle": "删除助理",
+    "deleteTitle": "删除智能体",
     "deleteBody": "删除“{{name}}”？此操作不可撤销。",
-    "disableTitle": "停用助理",
+    "disableTitle": "停用智能体",
     "disableBody": "停用“{{name}}”后，全部渠道将停止服务。",
     "cancel": "取消",
     "confirm": "确认",
@@ -95,16 +95,16 @@
     "keepEditing": "继续编辑"
   },
   "wizard": {
-    "kickerNew": "新建助理",
-    "kickerEdit": "编辑助理",
-    "titleNew": "创建 AI 助理",
-    "titleEdit": "编辑 AI 助理",
+    "kickerNew": "新建智能体",
+    "kickerEdit": "编辑智能体",
+    "titleNew": "创建 AI 智能体",
+    "titleEdit": "编辑 AI 智能体",
     "close": "关闭",
     "cancel": "取消",
     "back": "上一步",
     "next": "继续",
     "saveDraft": "保存草稿",
-    "create": "创建助手",
+    "create": "创建智能体",
     "save": "保存",
     "saving": "保存中…",
     "steps": {
@@ -124,18 +124,18 @@
       "salesHint": "线索筛选与个性化推荐。",
       "soon": "即将开放",
       "browse": "浏览模板市场中的全部模板",
-      "quotaReached": "已达套餐上限（{{used}}/{{limit}}），无法再创建助理。",
-      "quotaSoft": "已超出套餐助理数上限，超出部分将计入账单。"
+      "quotaReached": "已达套餐上限（{{used}}/{{limit}}），无法再创建智能体。",
+      "quotaSoft": "已超出套餐智能体数上限，超出部分将计入账单。"
     },
     "basics": {
-      "name": "AI 助手名称",
-      "namePlaceholder": "保险代理人成长助手",
+      "name": "AI 智能体名称",
+      "namePlaceholder": "保险代理人成长智能体",
       "description": "使用场景 / 简介说明",
       "descriptionPlaceholder": "专注于帮助保险代理人提升销售技能…",
       "organization": "所属组织",
       "organizationLocked": "创建后只有企业管理员可变更所属组织。",
       "category": "分类",
-      "prompt": "助理提示词",
+      "prompt": "智能体提示词",
       "chars": "当前字符数：{{count}} / {{max}}",
       "aiSuggest": "AI 生成建议",
       "aiSuggestSoon": "该功能即将开放",
@@ -151,7 +151,7 @@
       "visibilitySpecified": "指定组织",
       "visibilityAll": "全部组织",
       "visibleOrgs": "可见的组织",
-      "defaultPrompt": "# 核心身份\n你是一位专业、友好的企业服务助手，具备深厚的业务知识，能够耐心细致地对待每个问题并主动提供解决方案。\n\n## 人格特征\n- 语气：专业但不生硬，友好但不随意\n- 表达：清晰简洁，逻辑性强\n- 态度：积极正面，解决问题导向\n\n# 行为规范\n1. 始终使用礼貌、专业的语言\n2. 不讨论政治、宗教等敏感话题\n3. 遇到不确定的信息时明确告知用户"
+      "defaultPrompt": "# 核心身份\n你是一位专业、友好的企业服务智能体，具备深厚的业务知识，能够耐心细致地对待每个问题并主动提供解决方案。\n\n## 人格特征\n- 语气：专业但不生硬，友好但不随意\n- 表达：清晰简洁，逻辑性强\n- 态度：积极正面，解决问题导向\n\n# 行为规范\n1. 始终使用礼貌、专业的语言\n2. 不讨论政治、宗教等敏感话题\n3. 遇到不确定的信息时明确告知用户"
     },
     "capabilities": {
       "title": "挂载能力",
@@ -167,7 +167,7 @@
     },
     "experience": {
       "greeting": "欢迎语",
-      "defaultGreeting": "你好！我是你的 AI 助手，今天有什么可以帮你？",
+      "defaultGreeting": "你好！我是你的 AI 智能体，今天有什么可以帮你？",
       "suggested": "推荐问题",
       "suggestedHint": "向用户展示 AI 生成的开场问题",
       "feedback": "赞踩反馈",
@@ -179,13 +179,13 @@
       "en": "English"
     },
     "errors": {
-      "nameRequired": "请填写助理名称",
+      "nameRequired": "请填写智能体名称",
       "descriptionRequired": "请填写使用场景",
-      "promptRequired": "请填写助理提示词",
+      "promptRequired": "请填写智能体提示词",
       "modelRequired": "请选择模型",
       "saveFailed": "保存失败"
     },
-    "createHint": "先填写这几项即可创建，提示词、能力、编排和渠道创建后在助手页里继续配置。"
+    "createHint": "先填写这几项即可创建，提示词、能力、编排和渠道创建后在智能体页里继续配置。"
   },
   "picker": {
     "title": "挂载能力",

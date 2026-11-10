@@ -1,9 +1,9 @@
 {
-  "back": "助理",
+  "back": "智能体",
   "loading": "加载中…",
-  "loadFailed": "无法加载助理",
+  "loadFailed": "无法加载智能体",
   "subtitle": "{{org}} · v{{version}}",
-  "tabsLabel": "助理页签",
+  "tabsLabel": "智能体页签",
   "test": "测试",
   "publish": "发布更新",
   "published": "已发布 v{{version}}",
@@ -12,7 +12,7 @@
   "soonTab": "“{{name}}”即将开放",
   "metricsPending": "调用量、成功率等指标将在会话记录上线后显示。",
   "versionsHint": "查看、对比、恢复或回滚已发布的版本。",
-  "conversationsHint": "查看该助理的会话与消息记录。",
+  "conversationsHint": "查看该智能体的会话与消息记录。",
   "tabs": {
     "overview": "概览",
     "capabilities": "能力",
@@ -94,7 +94,7 @@
     }
   },
   "submitted": "已提交至审批中心",
-  "navLabel": "助手配置",
+  "navLabel": "智能体配置",
   "nav": {
     "overview": "概览",
     "basics": "基础",

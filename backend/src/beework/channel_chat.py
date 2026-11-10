@@ -77,9 +77,9 @@ def resolve_target(db: Session, tenant: Tenant, assistant_id: UUID, environment:
         )
     )
     if assistant is None:  # another tenant's assistant looks exactly like a missing one
-        raise ApiError(404, "assistant_not_found", "未找到指定助理")
+        raise ApiError(404, "assistant_not_found", "未找到指定智能体")
     if assistant.status == "disabled":
-        raise ApiError(409, "assistant_disabled", "助理已停用")
+        raise ApiError(409, "assistant_disabled", "智能体已停用")
     config = db.scalar(
         select(TenantModelEnvironment).where(
             TenantModelEnvironment.tenant_id == tenant.id, TenantModelEnvironment.environment == environment
@@ -94,7 +94,7 @@ def resolve_target(db: Session, tenant: Tenant, assistant_id: UUID, environment:
     if environment == "production":
         version = live_version(db, assistant)
         if version is None:
-            raise ApiError(409, "assistant_not_published", "助理还没有已发布的版本")
+            raise ApiError(409, "assistant_not_published", "智能体还没有已发布的版本")
         dsl = AssistantDSLv1.model_validate(version.snapshot["dsl"])  # the frozen snapshot, never the draft
         model_id, version_id, label = version.snapshot.get("model_id"), version.id, f"v{version.version}"
     else:
@@ -107,7 +107,7 @@ def resolve_target(db: Session, tenant: Tenant, assistant_id: UUID, environment:
 
     models, _ = _enabled_chat_models(db, tenant.id, environment)
     if str(model_id) not in {str(model.id) for model, _ in models}:
-        raise ApiError(503, "service_unavailable", "助理所选模型当前不可用")
+        raise ApiError(503, "service_unavailable", "智能体所选模型当前不可用")
     if len(message.strip()) > dsl.limits.max_input_chars:
         raise ApiError(422, "invalid_request", f"message：长度不能超过 {dsl.limits.max_input_chars} 个字符")
     if get_usage_counter("monthly_points") is not None and not check_quota(db, tenant.id, "monthly_points", 1).allowed:
@@ -228,12 +228,12 @@ def wait_for_reply(bind, run_id: UUID, *, timeout_seconds: int) -> dict:
                 elif event["type"] == "done":
                     return {"content": event["data"].get("text", text), "usage": _usage(event["data"]), "citations": _citations(event["data"])}
                 elif event["type"] == "error":
-                    raise ApiError(502, "run_failed", event["data"].get("message", "助理运行失败"))
+                    raise ApiError(502, "run_failed", event["data"].get("message", "智能体运行失败"))
                 elif event["type"] == "cancelled":
                     raise ApiError(409, "run_cancelled", "运行已取消")
             if time.monotonic() > deadline:
-                raise ApiError(504, "timeout", "助理响应超时")
-    raise ApiError(504, "timeout", "助理响应超时")
+                raise ApiError(504, "timeout", "智能体响应超时")
+    raise ApiError(504, "timeout", "智能体响应超时")
 
 
 def _citations(done: dict) -> list[dict]:
@@ -265,8 +265,8 @@ def relay_events(bind, run_id: UUID, conversation_id: UUID, *, timeout_seconds: 
                 yield frame("done", {"message": {"role": "assistant", "content": event["data"].get("text", "")}, "usage": _usage(event["data"]), "citations": _citations(event["data"])})
                 return
             elif event["type"] in ("error", "cancelled"):
-                yield frame("error", {"code": event["data"].get("code", event["type"]), "message": event["data"].get("message", "助理运行失败")})
+                yield frame("error", {"code": event["data"].get("code", event["type"]), "message": event["data"].get("message", "智能体运行失败")})
                 return
             if time.monotonic() > deadline:
-                yield frame("error", {"code": "timeout", "message": "助理响应超时"})
+                yield frame("error", {"code": "timeout", "message": "智能体响应超时"})
                 return

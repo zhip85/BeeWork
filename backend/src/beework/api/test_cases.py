@@ -125,7 +125,7 @@ def create_test_case(
 ) -> TestCaseResponse:
     assistant = _load_for_write(db, membership, assistant_id)
     if _count(db, assistant) >= MAX_CASES_PER_ASSISTANT:
-        raise ApiError(409, "test_case.limit", f"每个助理最多 {MAX_CASES_PER_ASSISTANT} 个测试用例")
+        raise ApiError(409, "test_case.limit", f"每个智能体最多 {MAX_CASES_PER_ASSISTANT} 个测试用例")
     case = AssistantTestCase(
         tenant_id=assistant.tenant_id, assistant_id=assistant.id, name=payload.name, input=payload.input,
         expected=payload.expected, type=payload.type, created_by=_actor_name(db, membership),
@@ -178,7 +178,7 @@ def copy_test_case(
     assistant = _load_for_write(db, membership, assistant_id)
     source = _case_of(db, assistant, case_id)
     if _count(db, assistant) >= MAX_CASES_PER_ASSISTANT:
-        raise ApiError(409, "test_case.limit", f"每个助理最多 {MAX_CASES_PER_ASSISTANT} 个测试用例")
+        raise ApiError(409, "test_case.limit", f"每个智能体最多 {MAX_CASES_PER_ASSISTANT} 个测试用例")
     copy = AssistantTestCase(
         tenant_id=assistant.tenant_id, assistant_id=assistant.id, name=f"{source.name}（副本）"[:100], input=source.input,
         expected=source.expected, type=source.type, created_by=_actor_name(db, membership),
@@ -228,7 +228,7 @@ def start_test_run(
         raise ApiError(404, "not_found", "未找到指定测试用例")
     # The busy check comes after the case rows are locked: a concurrent start waits here, then sees the first batch.
     if _active_run(db, assistant) is not None:
-        raise ApiError(409, "test_run.busy", "该助理已有测试正在运行，请等待结束")
+        raise ApiError(409, "test_run.busy", "该智能体已有测试正在运行，请等待结束")
     if not cases:
         raise ApiError(422, "test_run.empty", "没有可运行的测试用例")
     if payload.version_id is not None:

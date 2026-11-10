@@ -95,19 +95,19 @@
     "hint": "两级审批的第二级固定为租户管理员；审批人为空或只有申请人时，自动升级到租户管理员。",
     "readOnly": "仅企业管理员可修改审批策略。",
     "events": {
-      "publish": "发布助手到生产环境",
+      "publish": "发布智能体到生产环境",
       "channel": "接入新的外部渠道",
       "byok": "添加或轮换自有模型密钥",
       "kb": "发布知识库更新",
       "skill": "启用第三方 Skill / MCP",
-      "rule": "助理规则变更（OC / 规则库 / 术语表）",
+      "rule": "智能体规则变更（OC / 规则库 / 术语表）",
       "export": "数据导出"
     },
     "roles": {
       "tenant_admin": "租户管理员",
       "security_officer": "安全负责人",
       "knowledge_owner": "知识负责人",
-      "assistant_owner": "助理负责人"
+      "assistant_owner": "智能体负责人"
     }
   }
 }

@@ -517,7 +517,7 @@ class VersionTests(unittest.TestCase):
             db.get(Assistant, UUID(self.aid)).status = "disabled"
         self.drain()
         failed = self.client.get(f"/api/v1/approvals/{approval_id}", headers=self.admin).json()
-        self.assertEqual((failed["apply_status"], failed["apply_error"]), ("failed", "助理已停用，请启用后重试"))
+        self.assertEqual((failed["apply_status"], failed["apply_error"]), ("failed", "智能体已停用，请启用后重试"))
 
     def test_a_lone_admin_cannot_submit_and_the_policy_can_be_turned_off(self) -> None:
         self.require_approval()
