@@ -115,3 +115,13 @@ def apply_oc_change(db, context: ApplyContext) -> None:
 
 def assistant_id_of(value: str | UUID) -> UUID:
     return value if isinstance(value, UUID) else UUID(value)
+
+
+def _pii_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
+    from beework.governance.runtime_policy import overview_count
+
+    count = overview_count(db, assistant.tenant_id, oc.pii)
+    return f"{count} 条生效规则 · PII {'开启' if oc.pii.enabled else '关闭'} · 平台强制基线不受开关影响"
+
+
+register_summary("pii", _pii_summary)

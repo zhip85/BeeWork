@@ -50,7 +50,8 @@
     "reason": "变更原因",
     "reasonHint": "复核人会看到这段说明。",
     "ruleset": "规则集引用",
-    "retentionDays": "保留天数"
+    "retentionDays": "保留天数",
+    "nameRequired": "请填写规则名称"
   },
   "matchType": {
     "regex": "正则 Regex",
@@ -182,5 +183,24 @@
       "deleted": "已删除规则",
       "settings": "设置已保存"
     }
+  },
+  "assistant": {
+    "chainLabel": "继承链",
+    "chainPlatform": "SaaS 平台安全基线 · 只读",
+    "chainPlatformCounts": "{{total}} 条 PII 规则 · {{enforced}} 条强制",
+    "chainTenant": "租户规则库",
+    "chainTenantCounts": "{{inherited}} 条继承 · {{own}} 条租户级",
+    "chainAssistant": "本助理",
+    "chainAssistantCounts": "{{inherited}} 条继承 · {{own}} 条助手级 · {{effective}} 条生效",
+    "detection": "PII 个人信息检测",
+    "detectionHint": "关闭后所有非强制规则停用；平台强制规则始终生效。",
+    "useGlobal": "引用全局 PII 规则",
+    "useGlobalHint": "继承租户规则库；关闭后仅保留平台强制规则和助手规则。检测关闭时不可切换。",
+    "scope": {
+      "all": "全部生效规则",
+      "assistant": "仅助手级"
+    },
+    "new": "新增助手规则",
+    "editTitle": "编辑规则"
   }
 }

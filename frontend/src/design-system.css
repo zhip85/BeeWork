@@ -409,3 +409,7 @@ table { border-collapse: collapse; }
 .governance-inherit small { color: var(--muted); font-size: var(--fs-xs); font-weight: var(--fw-regular); }
 .governance-table-title { margin: 12px 0 2px; }
 @media (max-width: 800px) { .governance-chain { grid-template-columns: 1fr; } }
+
+.governance-stage { display: grid; gap: 12px; }
+.governance-chain-three { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 800px) { .governance-chain-three { grid-template-columns: 1fr; } }
