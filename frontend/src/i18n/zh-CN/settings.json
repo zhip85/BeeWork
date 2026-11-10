@@ -5,7 +5,8 @@
     "approvals": "审批策略",
     "usage": "订阅与用量",
     "api": "API 密钥",
-    "rules": "规则库"
+    "rules": "规则库",
+    "glossary": "术语表"
   },
   "privacy": {
     "title": "数据与隐私",

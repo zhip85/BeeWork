@@ -163,6 +163,13 @@ class GlossaryApiTests(unittest.TestCase):
             f"{GLOSSARIES}/{glossary_id}/terms/import", params=params, content=text.encode(), headers={**self.csrf, "Content-Type": "text/plain"}
         )
 
+    def inherit(self, slug: str, *glossary_ids: str) -> None:
+        from beework.models.tenant_glossary import TenantGlossarySettings
+
+        with self.session_factory.begin() as db:
+            tenant_id = db.scalar(select(Tenant.id).where(Tenant.slug == slug))
+            db.add(TenantGlossarySettings(tenant_id=tenant_id, glossary_ids=list(glossary_ids)))
+
     def audit_actions(self) -> list[str]:
         with self.session_factory() as db:
             return [a.action for a in db.scalars(select(AuditEvent).order_by(AuditEvent.created_at)) if not a.action.startswith("auth.")]
@@ -199,14 +206,15 @@ class GlossaryApiTests(unittest.TestCase):
         created = self.glossary()
         self.assertEqual(created.status_code, 201, created.text)
         glossary = created.json()
-        self.assertEqual((glossary["industry_name"], glossary["term_count"], glossary["tenant_count"]), ("保险", 0, 1))
+        self.assertEqual((glossary["industry_name"], glossary["term_count"], glossary["tenant_count"]), ("保险", 0, 0))
+        self.inherit("insurer", glossary["id"])
         self.assertEqual(self.glossary(name="保险").status_code, 409)
         self.assertEqual(self.glossary(name="Retail", industry="banking").status_code, 201)
         self.assertEqual(self.glossary(name="retail", industry="banking").status_code, 409)  # names are unique ignoring case
         self.assertEqual(self.glossary(name="  ").status_code, 422)
         self.assertEqual(self.glossary(name="x", industry="nope").status_code, 422)
         renamed = self.client.put(f"{GLOSSARIES}/{glossary['id']}", json={**glossary, "name": "保险业", "industry_code": "banking"}, headers=self.csrf)
-        self.assertEqual((renamed.json()["name"], renamed.json()["industry_name"], renamed.json()["tenant_count"]), ("保险业", "银行金融", 1))
+        self.assertEqual((renamed.json()["name"], renamed.json()["industry_name"], renamed.json()["tenant_count"]), ("保险业", "银行金融", 1))  # the count follows the tenants that selected it
         stale = self.client.put(f"{GLOSSARIES}/{glossary['id']}", json={**glossary, "name": "再改"}, headers=self.csrf)
         self.assertEqual((stale.status_code, stale.json()["code"]), (409, "conflict.stale"))
         self.assertEqual([g["name"] for g in self.client.get(GLOSSARIES).json()], ["保险业", "Retail"])
@@ -214,14 +222,15 @@ class GlossaryApiTests(unittest.TestCase):
     def test_deleting_a_glossary_that_tenants_inherit_needs_confirmation(self) -> None:
         glossary = self.glossary().json()
         self.term(glossary["id"])
+        self.inherit("insurer", glossary["id"])
         blocked = self.client.delete(f"{GLOSSARIES}/{glossary['id']}", headers=self.csrf)
         self.assertEqual((blocked.status_code, blocked.json()["code"]), (409, "glossary.in_use"))
         self.assertIn("1 个租户", blocked.json()["detail"])
         self.assertEqual(self.client.delete(f"{GLOSSARIES}/{glossary['id']}", params={"confirm": "true"}, headers=self.csrf).status_code, 204)
         with self.session_factory() as db:
             self.assertEqual(db.scalars(select(PlatformTerm)).all(), [])  # the terms went with it
-        empty = self.glossary(name="空库", industry="general_office")  # one tenant ("Plain") is of this industry too
-        self.assertEqual(self.client.delete(f"{GLOSSARIES}/{empty.json()['id']}", headers=self.csrf).status_code, 409)
+        empty = self.glossary(name="空库", industry="general_office")  # nobody inherits it: no confirmation needed
+        self.assertEqual(self.client.delete(f"{GLOSSARIES}/{empty.json()['id']}", headers=self.csrf).status_code, 204)
 
     # -- terms --------------------------------------------------------------------
 
@@ -327,6 +336,27 @@ class GlossaryApiTests(unittest.TestCase):
         self.client.put(f"{INDUSTRIES}/banking", json={"name_zh": "银行金融", "name_en": "Banking", "status": "disabled"}, headers=self.csrf)
         disabled = self.client.patch(f"/api/v1/platform/tenants/{plain_id}", json={"industry": "banking"}, headers=self.csrf)
         self.assertEqual(disabled.status_code, 422)  # a disabled industry cannot be assigned any more
+
+    def test_a_new_tenant_inherits_the_glossaries_of_its_industry(self) -> None:
+        from beework.models.tenant_glossary import TenantGlossarySettings
+
+        mine = self.glossary(name="银行库", industry="banking").json()
+        self.glossary(name="保险库二", industry="insurance")
+        created = self.client.post(
+            "/api/v1/platform/tenants",
+            json={"name": "NewBank", "slug": "new-bank", "seat_limit": 5, "industry": "banking", "admin_email": "nb@example.com", "admin_name": "N", "admin_password": "a-long-safe-password"},
+            headers=self.csrf,
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        no_match = self.client.post(
+            "/api/v1/platform/tenants",
+            json={"name": "NewPlain", "slug": "new-plain", "seat_limit": 5, "admin_email": "np@example.com", "admin_name": "N", "admin_password": "a-long-safe-password"},
+            headers=self.csrf,
+        )
+        with self.session_factory() as db:
+            row = db.get(TenantGlossarySettings, UUID(created.json()["id"]))
+            self.assertEqual(row.glossary_ids, [mine["id"]])  # SET-061: provisioning presets the inheritance from the industry
+            self.assertIsNone(db.get(TenantGlossarySettings, UUID(no_match.json()["id"])))  # no glossary for its industry: none
 
     def test_the_finance_distribution_scope_follows_the_tenant_industry(self) -> None:
         with self.session_factory() as db:

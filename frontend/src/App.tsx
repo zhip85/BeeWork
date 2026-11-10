@@ -49,6 +49,7 @@ import { KnowledgeListPage } from './pages/knowledge/KnowledgeListPage'
 import { ApiKeysPage } from './pages/settings/ApiKeysPage'
 import { ApprovalPoliciesPage } from './pages/settings/ApprovalPoliciesPage'
 import { DataPrivacyPage } from './pages/settings/DataPrivacyPage'
+import { TenantGlossaryPage } from './pages/settings/TenantGlossaryPage'
 import { TenantPiiRulesPage } from './pages/settings/TenantPiiRulesPage'
 import { TenantModelSettingsPage } from './pages/settings/TenantModelSettingsPage'
 import { UsagePage } from './pages/settings/UsagePage'
@@ -139,6 +140,8 @@ function App() {
       ? t('settings:tabs.privacy')
       : location.pathname === '/settings/rules'
       ? t('settings:tabs.rules')
+      : location.pathname === '/settings/glossary'
+      ? t('settings:tabs.glossary')
       : location.pathname === '/settings'
       ? t('nav:modelSettings')
       : t(`nav:${navigation.find((item) =>
@@ -402,6 +405,7 @@ function App() {
             <Route path="/approvals" element={canSeeApprovals && activeTenant ? <ApprovalsPage key={activeTenant.id} onChanged={() => setApprovalsTick((value) => value + 1)} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/usage" element={hasPermission('settings:view') && activeTenant ? <UsagePage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/approvals" element={hasPermission('settings:view') && activeTenant ? <ApprovalPoliciesPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={isTenantAdmin && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/settings/glossary" element={hasPermission('settings:view') && activeTenant ? <TenantGlossaryPage key={activeTenant.id} tenantId={activeTenant.id} canDelete={hasPermission('settings:delete') && activeTenant.access_mode === 'full'} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/rules" element={hasPermission('settings:view') && activeTenant ? <TenantPiiRulesPage key={activeTenant.id} tenantId={activeTenant.id} canDelete={hasPermission('settings:delete') && activeTenant.access_mode === 'full'} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/privacy" element={hasPermission('settings:view') && activeTenant ? <DataPrivacyPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/assistants/:assistantId" element={hasPermission('assistants:view') && activeTenant ? <AssistantDetailPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
