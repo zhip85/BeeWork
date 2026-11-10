@@ -1,6 +1,6 @@
 {
   "publish": {
-    "title": "发布助理",
+    "title": "发布智能体",
     "subtitle": "发布后生成不可变的 v{{version}}，并替换线上版本。",
     "loading": "正在检查…",
     "loadFailed": "无法加载发布预览",
@@ -19,7 +19,7 @@
     "warnings": "高影响与提示（不阻止发布）",
     "submitForApproval": "提交审批 v{{version}}",
     "submitted": "已提交至审批中心",
-    "pendingExists": "该助理已有待审批的发布申请。",
+    "pendingExists": "该智能体已有待审批的发布申请。",
     "viewApproval": "查看申请",
     "replaceBody": "已有待审批的申请，是否撤回并重新提交？",
     "replaceConfirm": "撤回并重新提交",
@@ -28,13 +28,13 @@
       "tenant_admin": "租户管理员",
       "security_officer": "安全负责人",
       "knowledge_owner": "知识负责人",
-      "assistant_owner": "助理负责人"
+      "assistant_owner": "智能体负责人"
     }
   },
   "page": {
     "title": "版本历史",
     "subtitle": "不可变的发布版本与配置快照。",
-    "back": "返回助理",
+    "back": "返回智能体",
     "loading": "正在加载版本…",
     "loadFailed": "无法加载版本",
     "empty": "还没有发布过版本",

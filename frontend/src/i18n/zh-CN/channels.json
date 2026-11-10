@@ -1,6 +1,6 @@
 {
   "title": "渠道",
-  "subtitle": "把助理接入网站等对外入口。渠道只服务已发布的快照，草稿不会影响线上。",
+  "subtitle": "把智能体接入网站等对外入口。渠道只服务已发布的快照，草稿不会影响线上。",
   "embeddedTitle": "渠道",
   "loadFailed": "无法加载渠道",
   "saveFailed": "保存失败",
@@ -15,7 +15,7 @@
   "delete": "删除",
   "enable": "启用",
   "disable": "停用",
-  "assistantMissing": "助手不可用",
+  "assistantMissing": "智能体不可用",
   "unpublished": "有未发布修改",
   "inApproval": "审批中",
   "saved": "渠道已保存",
@@ -38,7 +38,7 @@
   },
   "columns": {
     "channel": "渠道",
-    "assistant": "助手",
+    "assistant": "智能体",
     "environment": "环境",
     "version": "已发布版本",
     "status": "状态"
@@ -50,16 +50,16 @@
   "fields": {
     "name": "渠道名称",
     "namePlaceholder": "例如：官网在线客服",
-    "assistant": "绑定助手",
-    "assistantHint": "每个渠道只绑定一个助手。",
+    "assistant": "绑定智能体",
+    "assistantHint": "每个渠道只绑定一个智能体。",
     "environment": "环境",
-    "environmentHint": "生产环境使用助理已发布版本；开发/预发环境使用最新草稿。",
+    "environmentHint": "生产环境使用智能体已发布版本；开发/预发环境使用最新草稿。",
     "origins": "允许嵌入的网站",
     "originsHint": "每行一个，形如 https://www.example.com；只有这些网站可以使用挂件（仅 localhost 可用 http）。",
     "color": "品牌主色",
-    "assistantName": "助手名称",
+    "assistantName": "智能体名称",
     "welcome": "欢迎语",
-    "inherit": "留空则继承助理 / 平台默认"
+    "inherit": "留空则继承智能体 / 平台默认"
   },
   "publish": {
     "action": "发布",
@@ -83,7 +83,7 @@
   },
   "openApi": {
     "title": "开放 API",
-    "intro": "用租户 API 密钥从自己的系统调用这个助理。",
+    "intro": "用租户 API 密钥从自己的系统调用这个智能体。",
     "endpoint": "接口",
     "auth": "认证",
     "authHint": "在 设置 → API 密钥 创建",
@@ -98,7 +98,7 @@
   },
   "keys": {
     "title": "API 密钥",
-    "subtitle": "供自有系统调用助手；密钥仅在创建时显示一次。",
+    "subtitle": "供自有系统调用智能体；密钥仅在创建时显示一次。",
     "create": "创建 API 密钥",
     "creating": "创建中…",
     "name": "名称",

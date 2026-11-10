@@ -192,7 +192,7 @@ def _diff(channel: ChannelInstance, snapshot: dict[str, Any], overrides: dict[st
         for key, label in rows
         if live.get(key) != snapshot[key]
     ]
-    for key, label in (("primary_color", "主色"), ("assistant_name", "助手名称"), ("welcome", "欢迎语")):
+    for key, label in (("primary_color", "主色"), ("assistant_name", "智能体名称"), ("welcome", "欢迎语")):
         before = (live.get("experience") or {}).get(key)
         if before != snapshot["experience"][key]:
             changes.append({"section": "channel", "field": label, "from": before, "to": snapshot["experience"][key]})
@@ -213,20 +213,20 @@ def publish_channel(
     channel = _load(db, membership, channel_id, lock=True)
     assistant = assistant_of(db, channel)
     if assistant is None:
-        raise ApiError(409, "channel.publish_blocked", "绑定的助理已被删除，请改绑其他助理")
+        raise ApiError(409, "channel.publish_blocked", "绑定的智能体已被删除，请改绑其他智能体")
     if not channel.allowed_origins:
         raise ApiError(422, "channel.incomplete", "请至少填写一个允许嵌入的域名")
     if assistant.status == "disabled":
-        raise ApiError(409, "channel.publish_blocked", "绑定的助理已停用")
+        raise ApiError(409, "channel.publish_blocked", "绑定的智能体已停用")
     if channel.environment == "production" and assistant.live_version_id is None:
-        raise ApiError(409, "channel.publish_blocked", "生产环境的渠道需要先发布助理（开发/预发环境使用最新草稿）")
+        raise ApiError(409, "channel.publish_blocked", "生产环境的渠道需要先发布智能体（开发/预发环境使用最新草稿）")
     snapshot = build_snapshot(channel, assistant)
     overrides = dict(channel.experience or {})
     result = submit_change(
         db, tenant_id=membership.tenant_id, event="channel", action=ACTION, object_type="channel", object_id=channel.id,
         title=f"发布渠道 {channel.name} {version_label(channel.version_seq + 1)}",
         payload={"snapshot": snapshot, "overrides": overrides}, change_diff=_diff(channel, snapshot, overrides),
-        description=f"网站渠道，绑定助理“{assistant.name}”", requester_id=membership.user_id,
+        description=f"网站渠道，绑定智能体“{assistant.name}”", requester_id=membership.user_id,
         organization_id=assistant.organization_id, owner_user_id=assistant.owner_id, replace_pending=payload.replace_pending,
     )
     db.commit()
@@ -292,7 +292,7 @@ def rotate_site_key(
 
 # An assistant that still has channels cannot be deleted (AST-010).
 assistants_api.DELETE_BLOCKERS.append(
-    lambda db, assistant: "该助理仍被渠道绑定，请先删除相关渠道"
+    lambda db, assistant: "该智能体仍被渠道绑定，请先删除相关渠道"
     if db.scalar(select(ChannelInstance.id).where(ChannelInstance.assistant_id == assistant.id, ChannelInstance.tenant_id == assistant.tenant_id).limit(1))
     else None
 )

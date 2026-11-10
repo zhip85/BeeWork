@@ -1,6 +1,6 @@
 {
   "title": "Channels",
-  "subtitle": "Connect assistants to your website. A channel only serves its published snapshot; drafts never affect what is live.",
+  "subtitle": "Connect agents to your website. A channel only serves its published snapshot; drafts never affect what is live.",
   "embeddedTitle": "Channels",
   "loadFailed": "Could not load channels",
   "saveFailed": "Could not save",
@@ -15,7 +15,7 @@
   "delete": "Delete",
   "enable": "Enable",
   "disable": "Disable",
-  "assistantMissing": "Assistant unavailable",
+  "assistantMissing": "Agent unavailable",
   "unpublished": "Unpublished changes",
   "inApproval": "In approval",
   "saved": "Channel saved",
@@ -38,7 +38,7 @@
   },
   "columns": {
     "channel": "Channel",
-    "assistant": "Assistant",
+    "assistant": "Agent",
     "environment": "Environment",
     "version": "Published version",
     "status": "Status"
@@ -50,14 +50,14 @@
   "fields": {
     "name": "Name",
     "namePlaceholder": "e.g. Website support",
-    "assistant": "Assistant",
-    "assistantHint": "A channel serves exactly one assistant.",
+    "assistant": "Agent",
+    "assistantHint": "A channel serves exactly one agent.",
     "environment": "Environment",
-    "environmentHint": "Production serves the assistant's published version; development and staging serve the latest draft.",
+    "environmentHint": "Production serves the agent's published version; development and staging serve the latest draft.",
     "origins": "Allowed websites",
     "originsHint": "One per line, like https://www.example.com. Only these sites can use the widget (http only for localhost).",
     "color": "Brand color",
-    "assistantName": "Assistant name",
+    "assistantName": "Agent name",
     "welcome": "Welcome message",
     "inherit": "Leave empty to inherit"
   },
@@ -83,7 +83,7 @@
   },
   "openApi": {
     "title": "Open API",
-    "intro": "Call this assistant from your own systems with a tenant API key.",
+    "intro": "Call this agent from your own systems with a tenant API key.",
     "endpoint": "Endpoint",
     "auth": "Authentication",
     "authHint": "Create one in Settings → API keys",
@@ -98,7 +98,7 @@
   },
   "keys": {
     "title": "API keys",
-    "subtitle": "For your own systems to call assistants; a key is shown only once, when created.",
+    "subtitle": "For your own systems to call agents; a key is shown only once, when created.",
     "create": "Create API key",
     "creating": "Creating…",
     "name": "Name",

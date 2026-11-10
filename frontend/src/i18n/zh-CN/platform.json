@@ -36,7 +36,7 @@
     "overage": "超额策略",
     "unlimited": "不限",
     "quotaNames": {
-      "assistants": "助理数",
+      "assistants": "智能体数",
       "seats": "席位",
       "monthly_points": "月度点数",
       "storage_gb": "存储（GB）",

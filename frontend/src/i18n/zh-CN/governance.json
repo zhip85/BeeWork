@@ -45,7 +45,7 @@
     "blockMessage": "拦截提示信息",
     "blockMessagePlaceholder": "命中拦截时向用户展示的提示，留空则使用默认提示。",
     "enforced": "强制执行",
-    "enforcedHint": "租户与助手不可停用强制规则（可修改内容）。新增、停用或下线强制规则需第二名平台管理员复核。",
+    "enforcedHint": "租户与智能体不可停用强制规则（可修改内容）。新增、停用或下线强制规则需第二名平台管理员复核。",
     "enabled": "启用",
     "reason": "变更原因",
     "reasonHint": "复核人会看到这段说明。",
@@ -114,7 +114,7 @@
     "recommended": "推荐"
   },
   "levelHint": {
-    "enforced": "租户与助手不可停用或放宽。",
+    "enforced": "租户与智能体不可停用或放宽。",
     "recommended": "默认生效，租户可停用。"
   },
   "scope": {
@@ -144,18 +144,18 @@
     "platform_inherited": "平台继承",
     "tenant": "租户级",
     "tenant_modified": "租户级 · 已修改",
-    "assistant": "助手级",
-    "assistant_modified": "助手级 · 已修改"
+    "assistant": "智能体级",
+    "assistant_modified": "智能体级 · 已修改"
   },
   "inheritedNotice": {
     "platform": "",
     "tenant": "该规则继承自平台，保存后成为租户级规则，平台规则不会改变。",
-    "assistant": "该规则继承自上级，保存后成为助手级规则，上级规则不会改变。"
+    "assistant": "该规则继承自上级，保存后成为智能体级规则，上级规则不会改变。"
   },
   "tenant": {
     "kicker": "设置 · 规则库",
     "title": "租户 PII 规则",
-    "subtitle": "在平台安全基线之上维护本租户的 PII 规则；对本租户所有引用全局规则的助理生效。",
+    "subtitle": "在平台安全基线之上维护本租户的 PII 规则；对本租户所有引用全局规则的智能体生效。",
     "new": "新增租户规则",
     "editTitle": "编辑规则",
     "chainLabel": "继承链",
@@ -170,7 +170,7 @@
       "tenant": "仅租户级"
     },
     "table": "租户规则",
-    "priority": "优先级：助手 > 租户 > 平台；带锁规则为平台强制，不可停用。",
+    "priority": "优先级：智能体 > 租户 > 平台；带锁规则为平台强制，不可停用。",
     "empty": "没有符合条件的规则。",
     "submittedForApproval": "已提交审批，通过后生效。",
     "approvalHint": "当前租户开启了“规则变更”审批：变更会先进入审批，通过后才生效。",
@@ -190,17 +190,17 @@
     "chainPlatformCounts": "{{total}} 条 PII 规则 · {{enforced}} 条强制",
     "chainTenant": "租户规则库",
     "chainTenantCounts": "{{inherited}} 条继承 · {{own}} 条租户级",
-    "chainAssistant": "本助理",
-    "chainAssistantCounts": "{{inherited}} 条继承 · {{own}} 条助手级 · {{effective}} 条生效",
+    "chainAssistant": "本智能体",
+    "chainAssistantCounts": "{{inherited}} 条继承 · {{own}} 条智能体级 · {{effective}} 条生效",
     "detection": "PII 个人信息检测",
     "detectionHint": "关闭后所有非强制规则停用；平台强制规则始终生效。",
     "useGlobal": "引用全局 PII 规则",
-    "useGlobalHint": "继承租户规则库；关闭后仅保留平台强制规则和助手规则。检测关闭时不可切换。",
+    "useGlobalHint": "继承租户规则库；关闭后仅保留平台强制规则和智能体规则。检测关闭时不可切换。",
     "scope": {
       "all": "全部生效规则",
-      "assistant": "仅助手级"
+      "assistant": "仅智能体级"
     },
-    "new": "新增助手规则",
+    "new": "新增智能体规则",
     "editTitle": "编辑规则"
   }
 }

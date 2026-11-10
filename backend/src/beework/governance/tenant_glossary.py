@@ -1,7 +1,7 @@
 """Tenant glossary (T-053, SET-060–063): the tenant layer of the term inheritance.
 
 Terms are never copied from the platform: an inherited term is read from the platform at query time, so platform edits
-reach every tenant that has not overridden or hidden the term. Changes go through the “助理规则变更” approval policy,
+reach every tenant that has not overridden or hidden the term. Changes go through the “智能体规则变更” approval policy,
 exactly like the tenant PII rules (T-052).
 """
 
@@ -28,7 +28,7 @@ from beework.models.tenant_glossary import TenantGlossarySettings, TenantTerm
 
 ACTION = "tenant.glossary"
 OBJECT_TYPE = "tenant_term"
-EVENT = "rule"  # approval policy event “助理规则变更”
+EVENT = "rule"  # approval policy event “智能体规则变更”
 MAX_TENANT_TERMS = 2000
 
 

@@ -202,7 +202,7 @@ export function AuditLogPage({
         <label>分类
           <select value={filters.category} onChange={(event) => updateFilter('category', event.target.value)}>
             <option value="">全部分类</option>
-            <option value="assistants">助手</option>
+            <option value="assistants">智能体</option>
             <option value="security">安全</option>
             <option value="members_permissions">成员与权限</option>
             <option value="billing">计费</option>
@@ -236,7 +236,7 @@ export function AuditLogPage({
                 <tr key={entry.id}>
                   <td><span className={`audit-result ${entry.result}`}><i />{entry.result === 'success' ? '成功' : entry.result === 'warning' ? '告警' : '失败'}</span></td>
                   <td><time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString('zh-CN', { hour12: false })}</time></td>
-                  <td><span className="audit-category">{({ assistants: '助手', security: '安全', members_permissions: '成员与权限', billing: '计费', developer: '开发者' } as Record<string, string>)[entry.category] ?? entry.category}</span></td>
+                  <td><span className="audit-category">{({ assistants: '智能体', security: '安全', members_permissions: '成员与权限', billing: '计费', developer: '开发者' } as Record<string, string>)[entry.category] ?? entry.category}</span></td>
                   <td><span className="audit-actor"><strong>{entry.actor_name}</strong><small>{entry.actor_email ?? '系统操作'} · {entry.description}</small></span></td>
                   <td>{entry.source_ip ?? '—'}</td>
                   <td><details className="audit-details"><summary>查看</summary><pre>{JSON.stringify(entry.details, null, 2)}</pre></details></td>

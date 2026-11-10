@@ -237,7 +237,7 @@ def publish_assistant(
     """201 with the new version when the publish policy is off; 202 with the pending approval otherwise."""
     assistant = _load_for_write(db, membership, assistant_id)
     if assistant.status == "disabled":
-        raise ApiError(409, "assistant.invalid_transition", "已停用的助理需先启用才能发布")
+        raise ApiError(409, "assistant.invalid_transition", "已停用的智能体需先启用才能发布")
     preview, snapshot = _preview(db, assistant)
     if preview.blockers:
         raise ApiError(409, "assistant.publish_blocked", "；".join(b.message for b in preview.blockers))
@@ -361,7 +361,7 @@ def rollback_to_version(
     Like publishing, this goes through the publish approval policy (RUL-001)."""
     assistant = _load_for_write(db, membership, assistant_id)
     if assistant.status == "disabled":
-        raise ApiError(409, "assistant.invalid_transition", "已停用的助理需先启用才能回滚")
+        raise ApiError(409, "assistant.invalid_transition", "已停用的智能体需先启用才能回滚")
     target = _version_of(db, assistant, version_id)
     if target.id == assistant.live_version_id:
         raise ApiError(409, "assistant.no_changes", "该版本已经是线上版本")

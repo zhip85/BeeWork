@@ -28,14 +28,14 @@ export function Dashboard({ user, tenant }: { user: CurrentUser; tenant: TenantM
           <p>{tenant?.name ?? '企业工作区'} · 让企业知识与 AI 能力协同起来。</p>
         </div>
         <button className="primary-button" type="button" onClick={() => setCreateOpen(true)}>
-          <Plus size={17} /> 创建助理
+          <Plus size={17} /> 创建智能体
         </button>
       </section>
 
       <section className="metric-grid" aria-label="运行概况">
         <MetricCard label="本月会话" value="24,860" delta="+12.8%" icon={<Activity size={17} />} data={[34, 52, 40, 66, 48, 77, 58, 90]} />
         <MetricCard label="平均解决率" value="86.4%" delta="+4.2%" icon={<Check size={17} />} data={[42, 37, 58, 49, 68, 56, 76, 88]} />
-        <MetricCard label="活跃助理" value="12" detail="共 16 个已创建" icon={<Bot size={17} />} />
+        <MetricCard label="活跃智能体" value="12" detail="共 16 个已创建" icon={<Bot size={17} />} />
         <MetricCard label="模型点数" value="1.28M" detail="本月已使用 64%" icon={<Sparkles size={17} />} />
       </section>
 
@@ -44,14 +44,14 @@ export function Dashboard({ user, tenant }: { user: CurrentUser; tenant: TenantM
           <div className="panel-heading">
             <div>
               <div className="section-kicker">正在工作</div>
-              <h2>热门助理</h2>
+              <h2>热门智能体</h2>
             </div>
-            <Link className="quiet-link" to="/assistants">全部助理 <ArrowRight size={15} /></Link>
+            <Link className="quiet-link" to="/assistants">全部智能体 <ArrowRight size={15} /></Link>
           </div>
           <div className="assistant-list">
             <AssistantRow initials="客" color="lilac" name="客户服务团队" subtitle="处理订单、售后与常见咨询" calls="8,420" rate="94.8%" trend="up" />
-            <AssistantRow initials="保" color="amber" name="保单咨询助手" subtitle="解答保险条款与保障范围" calls="5,136" rate="91.2%" trend="up" />
-            <AssistantRow initials="财" color="mint" name="财务流程助理" subtitle="发票归集与报销政策指引" calls="3,208" rate="88.6%" trend="down" />
+            <AssistantRow initials="保" color="amber" name="保单咨询智能体" subtitle="解答保险条款与保障范围" calls="5,136" rate="91.2%" trend="up" />
+            <AssistantRow initials="财" color="mint" name="财务流程智能体" subtitle="发票归集与报销政策指引" calls="3,208" rate="88.6%" trend="down" />
           </div>
           <div className="panel-footnote"><span className="live-pulse" />数据更新于 2 分钟前</div>
         </div>
@@ -67,7 +67,7 @@ export function Dashboard({ user, tenant }: { user: CurrentUser; tenant: TenantM
           <div className="run-flow">
             <div className="flow-node flow-source"><span className="flow-icon"><FileText size={15} /></span><span><strong>用户请求</strong><small>24,860 次进入</small></span><span className="flow-check"><Check size={12} /></span></div>
             <div className="flow-link"><span /></div>
-            <div className="flow-node"><span className="flow-icon violet"><Bot size={15} /></span><span><strong>助理编排</strong><small>12 个助理处理中</small></span><span className="flow-check"><Check size={12} /></span></div>
+            <div className="flow-node"><span className="flow-icon violet"><Bot size={15} /></span><span><strong>智能体编排</strong><small>12 个智能体处理中</small></span><span className="flow-check"><Check size={12} /></span></div>
             <div className="flow-link"><span /></div>
             <div className="flow-node"><span className="flow-icon gold"><BookOpen size={15} /></span><span><strong>知识与工具</strong><small>命中率 92.6%</small></span><span className="flow-check"><Check size={12} /></span></div>
             <div className="flow-link"><span /></div>
@@ -100,7 +100,7 @@ export function Dashboard({ user, tenant }: { user: CurrentUser; tenant: TenantM
         </div>
       </section>
       <footer className="page-footer"><span>BeeWork TAP · 企业 AI 工作台</span><span>开发预览 · 运行数据为示例</span></footer>
-      {createOpen && <CreateModal title="创建助理" onClose={() => setCreateOpen(false)} />}
+      {createOpen && <CreateModal title="创建智能体" onClose={() => setCreateOpen(false)} />}
     </>
   )
 }

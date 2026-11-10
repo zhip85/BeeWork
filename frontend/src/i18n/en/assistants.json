@@ -1,15 +1,15 @@
 {
-  "title": "Assistants",
+  "title": "Agents",
   "subtitle": "Build, test and publish AI experiences across every channel.",
-  "new": "New assistant",
-  "loadFailed": "Could not load assistants",
+  "new": "New agent",
+  "loadFailed": "Could not load agents",
   "retry": "Retry",
-  "loading": "Loading assistants…",
-  "empty": "No assistants yet",
-  "emptyFiltered": "No matching assistants",
-  "emptyHint": "Start from scratch to create your first AI assistant.",
+  "loading": "Loading agents…",
+  "empty": "No agents yet",
+  "emptyFiltered": "No matching agents",
+  "emptyHint": "Start from scratch to create your first AI agent.",
   "stats": {
-    "total": "Total assistants",
+    "total": "Total agents",
     "published": "Published",
     "draft": "Drafts",
     "monthlyConversations": "Monthly conversations",
@@ -18,7 +18,7 @@
     "notAvailable": "—"
   },
   "filters": {
-    "search": "Search assistants...",
+    "search": "Search agents...",
     "status": "Status: All",
     "statusAll": "All",
     "organization": "Organization",
@@ -49,12 +49,12 @@
     "open": "Open",
     "version": "v{{version}} · updated {{time}}",
     "readOnly": "Read-only",
-    "newTitle": "New assistant",
+    "newTitle": "New agent",
     "newHint": "Start from scratch or a template",
     "metrics": "Usage and success rate appear once conversations go live"
   },
   "list": {
-    "assistant": "Assistant",
+    "assistant": "Agent",
     "status": "Status",
     "organization": "Organization",
     "updated": "Updated",
@@ -73,18 +73,18 @@
     "detail": "Details"
   },
   "toast": {
-    "copied": "Assistant duplicated",
-    "deleted": "Assistant deleted",
-    "disabled": "Assistant disabled",
-    "enabled": "Assistant enabled",
+    "copied": "Agent duplicated",
+    "deleted": "Agent deleted",
+    "disabled": "Agent disabled",
+    "enabled": "Agent enabled",
     "draftSaved": "Draft saved",
-    "created": "Assistant created",
-    "saved": "Assistant saved"
+    "created": "Agent created",
+    "saved": "Agent saved"
   },
   "confirm": {
-    "deleteTitle": "Delete assistant",
+    "deleteTitle": "Delete agent",
     "deleteBody": "Delete \"{{name}}\"? This cannot be undone.",
-    "disableTitle": "Disable assistant",
+    "disableTitle": "Disable agent",
     "disableBody": "After disabling \"{{name}}\", every channel stops serving it.",
     "cancel": "Cancel",
     "confirm": "Confirm",
@@ -95,16 +95,16 @@
     "keepEditing": "Keep editing"
   },
   "wizard": {
-    "kickerNew": "New assistant",
-    "kickerEdit": "Edit assistant",
-    "titleNew": "Create an AI assistant",
-    "titleEdit": "Edit AI assistant",
+    "kickerNew": "New agent",
+    "kickerEdit": "Edit agent",
+    "titleNew": "Create an AI agent",
+    "titleEdit": "Edit AI agent",
     "close": "Close",
     "cancel": "Cancel",
     "back": "Back",
     "next": "Continue",
     "saveDraft": "Save draft",
-    "create": "Create assistant",
+    "create": "Create agent",
     "save": "Save",
     "saving": "Saving…",
     "steps": {
@@ -124,18 +124,18 @@
       "salesHint": "Lead qualification and personalized recommendations.",
       "soon": "Coming soon",
       "browse": "Browse all templates in the marketplace",
-      "quotaReached": "Plan limit reached ({{used}}/{{limit}}); no more assistants can be created.",
-      "quotaSoft": "You are over the plan's assistant limit; the excess is billed."
+      "quotaReached": "Plan limit reached ({{used}}/{{limit}}); no more agents can be created.",
+      "quotaSoft": "You are over the plan's agent limit; the excess is billed."
     },
     "basics": {
-      "name": "Assistant name",
+      "name": "Agent name",
       "namePlaceholder": "Insurance agent coach",
       "description": "Use case / summary",
       "descriptionPlaceholder": "Helps insurance agents sharpen their sales skills…",
       "organization": "Organization",
       "organizationLocked": "Only workspace admins can change the organization after creation.",
       "category": "Category",
-      "prompt": "Assistant prompt",
+      "prompt": "Agent prompt",
       "chars": "Characters: {{count}} / {{max}}",
       "aiSuggest": "AI suggestion",
       "aiSuggestSoon": "Coming soon",
@@ -151,7 +151,7 @@
       "visibilitySpecified": "Specific organizations",
       "visibilityAll": "All organizations",
       "visibleOrgs": "Visible to",
-      "defaultPrompt": "# Core identity\nYou are a professional, friendly enterprise service assistant with deep business knowledge. You treat every question patiently and offer solutions proactively.\n\n## Personality\n- Tone: professional but not stiff, friendly but not casual\n- Style: clear, concise and logical\n- Attitude: positive and solution oriented\n\n# Rules of conduct\n1. Always use polite, professional language\n2. Do not discuss politics, religion or other sensitive topics\n3. Say so plainly when you are unsure"
+      "defaultPrompt": "# Core identity\nYou are a professional, friendly enterprise service agent with deep business knowledge. You treat every question patiently and offer solutions proactively.\n\n## Personality\n- Tone: professional but not stiff, friendly but not casual\n- Style: clear, concise and logical\n- Attitude: positive and solution oriented\n\n# Rules of conduct\n1. Always use polite, professional language\n2. Do not discuss politics, religion or other sensitive topics\n3. Say so plainly when you are unsure"
     },
     "capabilities": {
       "title": "Mounted capabilities",
@@ -179,13 +179,13 @@
       "en": "English"
     },
     "errors": {
-      "nameRequired": "Enter an assistant name",
+      "nameRequired": "Enter an agent name",
       "descriptionRequired": "Describe the use case",
-      "promptRequired": "Enter the assistant prompt",
+      "promptRequired": "Enter the agent prompt",
       "modelRequired": "Choose a model",
       "saveFailed": "Save failed"
     },
-    "createHint": "Fill in these few fields to create. Prompt, capabilities, orchestration and channels are set on the assistant page afterwards."
+    "createHint": "Fill in these few fields to create. Prompt, capabilities, orchestration and channels are set on the agent page afterwards."
   },
   "picker": {
     "title": "Mount capabilities",

@@ -3,8 +3,7 @@
   "manage": "管理",
   "mainNav": "主导航",
   "dashboard": "工作台",
-  "assistants": "助理",
-  "workflows": "编排中心",
+  "assistants": "智能体",
   "knowledge": "知识库",
   "capabilities": "能力目录",
   "operations": "运营与审计",
@@ -25,5 +24,9 @@
   "approvals": "审批中心",
   "pendingApprovals": "{{count}} 条待审批",
   "channels": "渠道",
-  "agents": "智能体"
+  "flowStudio": "流程画布",
+  "group": {
+    "build": "构建",
+    "run": "发布与运营"
+  }
 }

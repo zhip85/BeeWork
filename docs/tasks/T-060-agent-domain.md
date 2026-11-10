@@ -26,26 +26,12 @@
 
 - [ ] 测试：同类型重名被拒、不同类型可重名；已可用对象保存草稿后可用配置不变；含失效引用不能设为可用；环被拒绝；跨租户 404；运营不能编辑（403）。
 
-## 完成记录
+## 需求变更（2026-11-10，返工）
 
-**改动文件**
-- 后端：`models/agents.py`（`agents` 表）、`schemas/agents.py`（`AgentConfigV1` / `FlowConfigV1` 等带 `dsl_version: 1` 的配置结构）、`agent_service.py`（配置解析与预置节点、配置检查 AGT-028、引用查询、环检测、`agent` / `chatflow` / `flow` 挂载解析器）、`api/agents.py`；在 `models/__init__.py`、`api/__init__.py` 各注册一行；审计动作 `agent.*` 归入“助手”分类。迁移 `0038_agents`（可降级）。
-- 前端：`pages/agents/`（`AgentsPage`、`AgentCreatePage`、`AgentEditorPage`、`AgentIcon`、`types`）、`i18n/{zh-CN,en}/agents.json`、导航“智能体”与三条路由、样式追加在 `App.css`。
-- 测试：新增 `tests/test_agents.py`（33 项）；`test_versions` / `test_knowledge_retrieval` 里两处断言的 `mountable_kinds` 随解析器注册改为 `["agent","chatflow","flow","kb"]`。
+依据演进 PRD（`docs/PRD-ai-portal-and-agent-evolution.md`）与原型 `docs/ai-portal-prototype.html`：
 
-**接口**：`GET /agents`（`kind`、`q`、分页）、`GET /agents/summary`、`POST /agents`、`GET/PUT /agents/{id}`（`row_version`）、`GET /agents/{id}/checks`、`GET /agents/{id}/references`、`POST /agents/{id}/make-available | disable | enable`、`DELETE /agents/{id}`（软删除）。权限 `agents:view/edit/publish/delete`（已在 rbac 中，运营 / 查看者 / 审计员只读）。
-
-**验证**：ruff；`./scripts/test-postgres.sh`（迁移升降级 + 全量 742 项，首轮仅上述两处断言需随解析器更新，更新后通过）；前端 `tsc -b`、lint、`i18n:check`、`style:check`、build；无头 Chrome 看过列表、创建页、编辑器与检查栏，并在开发库实际创建了一条智能体。验收标准逐项有测试：同类型重名被拒 / 不同类型可重名；可用后保存草稿，可用配置不变；含失效引用不能设为可用；自引用与环被拒；跨租户 404；运营 403。
-**是否连过真实第三方引擎**：不涉及。
-
-**可逆决定**
-- 已可用的对象保存草稿后状态保持“可用”（页面提示有未设为可用的草稿修改）；按状态机字面改成“草稿”会让引用方立刻失效，与 AGT-024 / RUL-002 矛盾。
-- 智能体不带组织归属（PRD 4.5 无该字段），不做组织范围过滤。
-- 渠道 / 技能 / 工具引用在能力目录（T-070 起）就绪前一律视为失效。
-- 协作组检查：至少连接 2 个智能体，主控需在其中。
-
-**遗留问题**
-- 编辑器主体（指令与资源、编排、会话设置、输入输出、触发、试运行）按规格是占位，由 T-061–T-064 实现；当前编辑器只能改名称、状态和可用配置，保存草稿不会改动配置。
-- 节点完整性规则（AGT-045）留有注册点 `agent_service.NODE_RULES`，由 T-062 填充。
-- 运行时嵌套深度 ≤ 5（RUL-014）未做，待运行时任务。
-- 开发库里留有一条演示用“Support agent T060”。
+1. **本任务改为“流程画布”的领域基础**：只管理 Chatflow 与 Workflow。“智能体 / Agent”就是现有助理（T-067），不再在 `agents` 表里建 `kind=agent` 的记录；`is_team`、`AgentConfigV1`、协作组检查删除（多智能体改为 T-066 的一层叶子协作）。表名 `agents` 与权限码 `agents:*` 保留（内部标识，界面上称“流程画布”）。
+2. **入口**：导航“构建 → 流程画布”，路由 `/flow-studio`（列表，`?type=chatflow|workflow`）、`/flow-studio/new`、`/flow-studio/:id`；页头“FLOW STUDIO / 流程画布 / 独立设计并发布可复用流程，供本平台或外部系统调用。”；两张类型卡（Chatflow、Workflow），默认 Chatflow。删除第一版在导航中的“智能体”入口。
+3. **发布与版本**（演进 PRD 6.8）：“设为可用”改为“**发布流程**”，状态文案 草稿 / 已发布 / 已停用；每次发布生成不可变版本（`flow_versions`：版本号、快照、操作者、时间、变更说明），`available_config` 指向最新发布版本的快照；卡片显示版本号与“已发布 · API 可调用”。支持“复制为草稿”。
+4. **引用**：Chatflow / Workflow 不再被智能体直接挂载，而是经能力中心的**流程连接**（T-075）被引用；引用查询需包含流程连接，删除 / 停用时列出引用数。节点里的“智能体”目标改为现有智能体（`assistants`，调用其线上版本）。环检测只在流程之间（Workflow 节点引用 Workflow / Chatflow）。
+5. 第一版代码在分支 `task/T-060-agent-domain`（提交 aa95402，未合入 main），返工在该分支上继续，完成检查与验收标准按本节更新：同类型重名被拒 / 不同类型可重名；发布后再保存草稿不影响已发布版本；含失效引用不能发布；环被拒；跨租户 404；运营 403。

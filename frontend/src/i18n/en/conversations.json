@@ -1,7 +1,7 @@
 {
   "title": "Conversations",
   "subtitle": "Read only. Select a conversation to see the full dialogue.",
-  "back": "Back to assistants",
+  "back": "Back to agents",
   "loading": "Loading conversations…",
   "loadFailed": "Could not load conversations",
   "empty": "No conversations yet",
@@ -37,7 +37,7 @@
     "trace": "Trace",
     "role": {
       "user": "User",
-      "assistant": "Assistant",
+      "assistant": "Agent",
       "human_agent": "Human agent",
       "system": "System"
     },

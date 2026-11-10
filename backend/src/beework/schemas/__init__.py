@@ -467,9 +467,9 @@ class CreateRoleRequest(BaseModel):
     def validate_scope_assistants(cls, value: list[UUID], info):
         scope = info.data.get("scope")
         if scope == "assistant" and not value:
-            raise ValueError("助理范围角色必须指定助理")
+            raise ValueError("智能体范围角色必须指定智能体")
         if scope != "assistant" and value:
-            raise ValueError("只有助理范围角色可以指定助理")
+            raise ValueError("只有智能体范围角色可以指定智能体")
         return list(dict.fromkeys(value))
 
     @field_validator("permissions")

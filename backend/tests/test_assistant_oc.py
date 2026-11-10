@@ -53,7 +53,7 @@ class OCTests(test_versions.VersionTests):
         self.assertEqual([s["index"] for s in state["stages"]], [1, 2, 3, 4, 5, 6])
         self.assertEqual({s["stage"] for s in state["stages"] if s["available"]}, {"pii", "glossary", "rewrite"})  # memory, routing and components have not landed on this branch
         self.assertEqual((state["assistant"]["name"], state["assistant"]["live_version"], state["assistant"]["can_edit"]), ("Helper", None, True))
-        self.assertEqual(state["approval"]["approver_role"], "security_officer")  # default of “助理规则变更”
+        self.assertEqual(state["approval"]["approver_role"], "security_officer")  # default of “智能体规则变更”
 
     def test_the_pii_summary_counts_baseline_tenant_and_assistant_input_rules(self) -> None:
         from beework.models.governance import SecurityBaselineRule

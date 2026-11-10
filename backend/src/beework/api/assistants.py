@@ -47,11 +47,11 @@ from beework.schemas.assistants import (
 router = APIRouter()
 
 MODEL_ENVIRONMENT = "production"  # until T-006 adds the environment switcher
-UNNAMED = "未命名助理"
+UNNAMED = "未命名智能体"
 
 # Callbacks that return a reason string when something (e.g. a channel binding, T-040) blocks deletion.
 DELETE_BLOCKERS: list[Callable[[Session, Assistant], str | None]] = [
-    lambda db, assistant: "该助理有待审批的发布申请，请先在审批中心撤回"
+    lambda db, assistant: "该智能体有待审批的发布申请，请先在审批中心撤回"
     if pending_request(db, assistant.tenant_id, "assistant", assistant.id)
     else None
 ]
@@ -143,7 +143,7 @@ def _load(db: Session, membership: Membership, assistant_id: UUID, *, lock: bool
         statement = statement.with_for_update()
     assistant = db.scalar(statement)
     if assistant is None:
-        raise ApiError(404, "not_found", "未找到指定助理")
+        raise ApiError(404, "not_found", "未找到指定智能体")
     return assistant
 
 
@@ -152,7 +152,7 @@ def _load_for_write(
 ) -> Assistant:
     assistant = _load(db, membership, assistant_id, lock=lock)
     if not _can_edit(membership, assistant, db):
-        raise ApiError(403, "auth.forbidden", "当前角色无权修改此助理")
+        raise ApiError(403, "auth.forbidden", "当前角色无权修改此智能体")
     return assistant
 
 
@@ -201,7 +201,7 @@ def _validate_organization(db: Session, membership: Membership, organization_id:
     if role is None or role.scope == "tenant":
         return
     if role.scope != "organization" or role.scope_organization_id is None:
-        raise ApiError(403, "auth.forbidden", "当前角色无权创建助理")
+        raise ApiError(403, "auth.forbidden", "当前角色无权创建智能体")
     if organization_id not in organization_subtree(db, membership.tenant_id, role.scope_organization_id):
         raise ApiError(404, "not_found", "未找到指定组织")
 
@@ -261,7 +261,7 @@ def _ensure_name_free(db: Session, tenant_id: UUID, name: str, exclude_id: UUID 
     if exclude_id is not None:
         statement = statement.where(Assistant.id != exclude_id)
     if db.scalar(statement.limit(1)) is not None:
-        raise ApiError(409, "assistant.name_taken", f"助理名称已存在：{name}")
+        raise ApiError(409, "assistant.name_taken", f"智能体名称已存在：{name}")
 
 
 def _unique_unnamed(db: Session, tenant_id: UUID) -> str:
@@ -291,7 +291,7 @@ def _resolve_name_and_required(
         if not payload.description.strip():
             raise ApiError(422, "validation.invalid", "请填写使用场景 / 简介")
         if not payload.config.prompt.strip():
-            raise ApiError(422, "validation.invalid", "请填写助理提示词")
+            raise ApiError(422, "validation.invalid", "请填写智能体提示词")
     return name
 
 
@@ -474,7 +474,7 @@ def create_assistant(
 ) -> AssistantResponse:
     role = _scoped_role(db, membership)
     if role is not None and role.scope == "assistant":
-        raise ApiError(403, "auth.forbidden", "助理范围角色不能创建新助理")
+        raise ApiError(403, "auth.forbidden", "智能体范围角色不能创建新智能体")
     lock_tenant(db, membership.tenant_id)
     organization_id = payload.organization_id or membership.organization_id
     _validate_organization(db, membership, organization_id)
@@ -483,7 +483,7 @@ def create_assistant(
     config = payload.config.model_copy(deep=True)
     _fill_default_model(db, membership, config, relaxed=payload.draft)
     _validate_config(db, membership, config)
-    enforce_quota(db, membership.tenant_id, "assistants", message="已达套餐助理数上限，请联系平台升级")
+    enforce_quota(db, membership.tenant_id, "assistants", message="已达套餐智能体数上限，请联系平台升级")
 
     actor = _actor_name(db, membership)
     assistant = Assistant(
@@ -570,8 +570,8 @@ def copy_assistant(
     source = _load_for_write(db, membership, assistant_id, lock=False)
     role = _scoped_role(db, membership)
     if role is not None and role.scope == "assistant":
-        raise ApiError(403, "auth.forbidden", "助理范围角色不能创建新助理")
-    enforce_quota(db, membership.tenant_id, "assistants", message="已达套餐助理数上限，请联系平台升级")
+        raise ApiError(403, "auth.forbidden", "智能体范围角色不能创建新智能体")
+    enforce_quota(db, membership.tenant_id, "assistants", message="已达套餐智能体数上限，请联系平台升级")
     suffix = "（副本）"
     base = source.name[: 50 - len(suffix)] + suffix
     name, index = base, 1
@@ -659,7 +659,7 @@ def delete_assistant(
 ) -> Response:
     assistant = _load_for_write(db, membership, assistant_id)
     if assistant.status not in {"draft", "disabled"}:
-        raise ApiError(409, "assistant.invalid_transition", "仅草稿或已停用的助理可以删除")
+        raise ApiError(409, "assistant.invalid_transition", "仅草稿或已停用的智能体可以删除")
     for blocker in DELETE_BLOCKERS:
         reason = blocker(db, assistant)
         if reason:

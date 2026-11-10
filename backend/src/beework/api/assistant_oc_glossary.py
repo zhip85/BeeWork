@@ -117,7 +117,7 @@ def _model(db: Session, tenant_id: UUID, assistant_id: UUID, config: RewriteConf
         raise ApiError(409, "runtime.gateway_not_ready", "该环境尚未配置模型")
     model_id = config.model_id or (str(assistant_model_id) if assistant_model_id else None)
     if not model_id:
-        raise ApiError(409, "rewrite.model_missing", "请先选择改写模型，或为助理选择模型")
+        raise ApiError(409, "rewrite.model_missing", "请先选择改写模型，或为智能体选择模型")
     metadata = {"tenant_id": str(tenant_id), "assistant_id": str(assistant_id), "source": "debug", "purpose": "rewrite_test"}
     try:
         api_key = tenant_gateway_key(environment)

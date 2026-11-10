@@ -3,8 +3,7 @@
   "manage": "Manage",
   "mainNav": "Main navigation",
   "dashboard": "Dashboard",
-  "assistants": "Assistants",
-  "workflows": "Orchestration",
+  "assistants": "Agents",
   "knowledge": "Knowledge",
   "capabilities": "Capabilities",
   "operations": "Operations & Audit",
@@ -25,5 +24,9 @@
   "approvals": "Approvals",
   "pendingApprovals": "{{count}} awaiting your approval",
   "channels": "Channels",
-  "agents": "Agents"
+  "flowStudio": "Flow Studio",
+  "group": {
+    "build": "Build",
+    "run": "Run & operate"
+  }
 }

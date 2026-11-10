@@ -1,9 +1,9 @@
 {
   "title": "编排控制 OC",
   "subtitle": "配置受治理的请求管线与唯一出口网关。",
-  "back": "返回助理详情",
+  "back": "返回智能体详情",
   "navLabel": "OC 阶段",
-  "assistant": "助理",
+  "assistant": "智能体",
   "notPublished": "未发布",
   "status": {
     "draft": "草稿",
@@ -27,7 +27,7 @@
   "stages": {
     "pii": {
       "name": "PII 规则",
-      "subtitle": "平台 · 租户 · 助手"
+      "subtitle": "平台 · 租户 · 智能体"
     },
     "memory": {
       "name": "记忆",
@@ -35,7 +35,7 @@
     },
     "glossary": {
       "name": "术语表",
-      "subtitle": "平台 · 租户 · 助手"
+      "subtitle": "平台 · 租户 · 智能体"
     },
     "rewrite": {
       "name": "问题改写",
@@ -65,9 +65,9 @@
   "leave": "放弃并离开",
   "stay": "继续编辑",
   "submitTitle": "OC 变更 · {{name}}",
-  "publishFirst": "请先发布助理，再提交 OC 变更。",
+  "publishFirst": "请先发布智能体，再提交 OC 变更。",
   "noChanges": "OC 草稿与线上版本没有差异。",
-  "approvalRequired": "需要审批：通过后作为助理新版本生效，只包含 OC 的修改，驳回则草稿保留。",
+  "approvalRequired": "需要审批：通过后作为智能体新版本生效，只包含 OC 的修改，驳回则草稿保留。",
   "approvalOff": "未配置审批流：提交后立即生效，只包含 OC 的修改。",
   "note": "变更说明（可选）",
   "submitted": "已提交审批",
@@ -81,28 +81,28 @@
   "draftDiffers": "OC 草稿与线上版本不同，尚未提交。",
   "inSync": "OC 草稿与线上版本一致。",
   "glossary": {
-    "hint": "助手术语表在平台行业术语表、租户术语表之上再做一层调整；运行时用术语别名扩展检索词，并把命中术语的定义写入提示词。",
+    "hint": "智能体术语表在平台行业术语表、租户术语表之上再做一层调整；运行时用术语别名扩展检索词，并把命中术语的定义写入提示词。",
     "chainLabel": "继承链",
     "none": "未继承",
     "chainIndustry": "平台行业术语表",
     "chainIndustryCounts": "{{names}} · {{count}} 条",
     "chainTenant": "租户术语表",
     "chainTenantCounts": "共 {{total}} 条 · 租户级 {{own}} 条",
-    "chainAssistant": "本助手",
-    "chainAssistantCounts": "{{inherited}} 条继承 · {{own}} 条助手级 · 共 {{effective}} 条生效",
+    "chainAssistant": "本智能体",
+    "chainAssistantCounts": "{{inherited}} 条继承 · {{own}} 条智能体级 · 共 {{effective}} 条生效",
     "useTenant": "继承租户术语表",
-    "useTenantHint": "关闭后只使用本助手自己的术语。",
+    "useTenantHint": "关闭后只使用本智能体自己的术语。",
     "scope": {
       "all": "全部术语",
-      "assistant": "仅助手级"
+      "assistant": "仅智能体级"
     },
-    "new": "新增助手术语",
+    "new": "新增智能体术语",
     "edit": "编辑",
     "delete": "删除",
     "restore": "恢复为继承值",
     "editTitle": "编辑术语",
     "empty": "暂无术语",
-    "hiddenCount": "本助手已删除 {{count}} 条继承术语",
+    "hiddenCount": "本智能体已删除 {{count}} 条继承术语",
     "restoreAll": "全部恢复",
     "col": {
       "term": "标准术语",
@@ -114,22 +114,22 @@
       "industry_inherited": "平台继承",
       "tenant": "租户级",
       "tenant_modified": "租户级 · 已修改",
-      "assistant": "助手级",
-      "assistant_modified": "助手级 · 已修改"
+      "assistant": "智能体级",
+      "assistant_modified": "智能体级 · 已修改"
     },
     "aliasesHint": "用顿号或逗号分隔，最多 20 个。",
-    "inheritedNotice": "该术语继承自上层，保存后成为本助手的覆盖值，上层术语表不会改变。",
+    "inheritedNotice": "该术语继承自上层，保存后成为本智能体的覆盖值，上层术语表不会改变。",
     "confirm": "确定",
     "deleteTitle": "删除术语",
-    "deleteOwnBody": "确定删除助手术语“{{name}}”？",
-    "hideBody": "“{{name}}”将从本助手隐藏，上层术语表不受影响；之后可用“全部恢复”找回。"
+    "deleteOwnBody": "确定删除智能体术语“{{name}}”？",
+    "hideBody": "“{{name}}”将从本智能体隐藏，上层术语表不受影响；之后可用“全部恢复”找回。"
   },
   "rewrite": {
     "hint": "问题改写只用于路由与检索，对话里保留用户原文。改写超时（1.5 秒）或失败时自动使用原问题。",
     "enable": "启用问题改写",
     "enableHint": "关闭时原问题直接进入路由；别名扩展不受影响。",
     "model": "改写模型",
-    "modelDefault": "使用助手的模型",
+    "modelDefault": "使用智能体的模型",
     "modelHint": "仅可选择本租户已启用的对话模型。",
     "lowConfidence": "仅在意图置信度低时改写",
     "lowConfidenceHint": "由路由阶段按置信度决定是否改写；关闭后每条问题都会改写。",

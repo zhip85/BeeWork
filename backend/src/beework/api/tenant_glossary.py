@@ -86,7 +86,7 @@ def _submit(
     db: Session, membership: Membership, response: Response, *, operation: str, key: UUID | None, fields: dict[str, Any] | None,
     title: str, kind: str | None = None,
 ) -> TenantGlossaryMutation:
-    """Apply now when the “助理规则变更” policy is off, otherwise open an approval request (as for the PII rules)."""
+    """Apply now when the “智能体规则变更” policy is off, otherwise open an approval request (as for the PII rules)."""
     service.precheck(db, membership.tenant_id, operation, key, fields)
     result = submit_change(
         db, tenant_id=membership.tenant_id, event=service.EVENT, action=service.ACTION, object_type=service.OBJECT_TYPE,

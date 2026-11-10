@@ -287,7 +287,7 @@ def run_batch(
     gate = batch.target.get("kind") == "snapshot"
     try:
         if assistant is None:
-            raise RuntimeFailure("not_found", "助理已被删除")
+            raise RuntimeFailure("not_found", "智能体已被删除")
         dsl, version_id, label = resolve_target(db, assistant, batch.target)
         judge = (judge_factory or default_judge)(db, batch.tenant_id)
     except Exception as exc:  # noqa: BLE001 - the batch records why nothing ran

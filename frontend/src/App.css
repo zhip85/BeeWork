@@ -4270,3 +4270,5 @@ tr.policy-off td { opacity: 0.55; }
 .agents-tab-list li { padding: 4px 12px; border-radius: 999px; background: #eef3f0; font-size: var(--fs-sm); }
 .agents-pending { margin: 0; color: #5d6c65; font-size: var(--fs-sm); }
 .agents-guardrail { display: flex; gap: 6px; align-items: center; margin: 10px 0 0; color: #3e5a4d; font-size: var(--fs-sm); }
+/* Navigation groups (T-067) */
+.nav-group-caption { margin: 14px 0 6px; padding: 0 11px; color: #82958b; font-size: var(--fs-2xs); font-weight: 600; letter-spacing: 0.9px; }
