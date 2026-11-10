@@ -78,6 +78,13 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "model_catalog.tested": "测试模型连通性",
     "model_environment.tested": "测试环境模型调用",
     "job.retried": "重试后台任务",
+    "flow.created": "创建流程",
+    "flow.draft_saved": "保存流程草稿",
+    "flow.published": "发布流程版本",
+    "flow.duplicated": "复制流程为草稿",
+    "flow.disabled": "停用流程",
+    "flow.enabled": "启用流程",
+    "flow.deleted": "删除流程",
     "assistant.created": "创建智能体",
     "assistant.draft_saved": "保存智能体草稿",
     "assistant.updated": "更新智能体草稿",
@@ -571,7 +578,7 @@ class AuditEvent(Base):
     def set_audit_metadata(self, _key: str, action: str) -> str:
         if action.startswith(("membership.", "role.", "organization.")):
             self.category = "members_permissions"
-        elif action.startswith(("assistant.", "channel.")):
+        elif action.startswith(("assistant.", "channel.", "flow.")):
             self.category = "assistants"
         elif action.startswith("api_key."):
             self.category = "developer"
@@ -717,6 +724,7 @@ def prevent_audit_event_mutation(session, _flush_context, _instances) -> None:
 # Alembic autogenerate and `Base.metadata.create_all` see its tables.
 # from beework.models import assistants  # noqa: E402,F401  (example)
 from beework.models import (  # noqa: E402,F401
+    agents,
     approvals,
     assistants,
     channels,
