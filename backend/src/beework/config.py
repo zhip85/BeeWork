@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     safety_judge_timeout_seconds: float = 1.5
     # PLT-071: adding, switching off or retiring an enforced platform PII / baseline rule needs a second administrator.
     platform_rule_review: bool = True
+    # T-071: tool calls (MCP, API plugins, flow connections) only reach public https hosts. Local development may allow
+    # http and loopback / private addresses with ALLOW_INSECURE_TOOL_URLS=true; never switch it on in production.
+    allow_insecure_tool_urls: bool = False
     app_origin: str = "http://localhost:5173"
     bootstrap_tenant_name: str = "Acme 科技"
     bootstrap_tenant_slug: str = "acme"
