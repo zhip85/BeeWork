@@ -8,6 +8,7 @@
 2. 你认领的任务规格 `docs/tasks/T-xxx-*.md`：目标、范围、验收标准、不在范围。
 3. `docs/architecture.md`：工程规范（代码结构、API/数据/审计/并发/密钥约定、引擎接入方式、完成定义）。
 4. `docs/BeeWork-PRD.md` 中任务引用的章节编号；有疑问再看 `docs/BeeWork-prototype.html`。
+   **2026-11-10 起**：演进 PRD `docs/PRD-ai-portal-and-agent-evolution.md`（约 1000 行，可整篇读）与原型 `docs/ai-portal-prototype.html` 优先于原 PRD；任务规格里的“演进 PRD x.y”指它。界面上只有“智能体”（= 原助理），Chatflow / Workflow 在“流程画布”。
 5. `docs/development-status.md`：当前实现状态与已知限制。
 
 ## 工作流程
@@ -45,6 +46,6 @@ docker compose exec api python /app/scripts/check_gateway_e2e.py   # 涉及模�
 
 ## 读取大文件
 
-- 不要整篇读取 `docs/BeeWork-prototype.html`（约 1.3 MB 的打包单页应用）。用搜索按页面 ID 或界面文案定位，只读命中的片段。
+- 不要整篇读取 `docs/BeeWork-prototype.html`（约 1.3 MB）与 `docs/ai-portal-prototype.html`（约 1.5 MB ，都是打包单页应用。用搜索按页面 ID 或界面文案定位，只读命中的片段。
 - 不要整篇读取 `docs/BeeWork-PRD.md`（约 2200 行）。先用 `grep -n '^#' docs/BeeWork-PRD.md` 看章节目录，再按任务引用的章节或需求编号（如 3.9、AST-021）只读对应行范围。
 - 其他超过约 500 行的文件同样处理：先搜索，再读需要的行。
