@@ -51,7 +51,7 @@ class OCTests(test_versions.VersionTests):
         self.assertEqual((state["has_changes"], state["diff"]), (False, []))
         self.assertEqual([s["stage"] for s in state["stages"]], ["pii", "memory", "glossary", "rewrite", "routing", "components"])
         self.assertEqual([s["index"] for s in state["stages"]], [1, 2, 3, 4, 5, 6])
-        self.assertEqual({s["stage"] for s in state["stages"] if s["available"]}, {"pii"})  # the other stage tasks have not landed
+        self.assertEqual({s["stage"] for s in state["stages"] if s["available"]}, {"pii", "glossary", "rewrite"})  # memory, routing and components have not landed on this branch
         self.assertEqual((state["assistant"]["name"], state["assistant"]["live_version"], state["assistant"]["can_edit"]), ("Helper", None, True))
         self.assertEqual(state["approval"]["approver_role"], "security_officer")  # default of “助理规则变更”
 
@@ -138,17 +138,17 @@ class OCTests(test_versions.VersionTests):
     def test_saving_writes_the_draft_only_and_audits(self) -> None:
         self.publish("v1")
         before = self.refresh()
-        saved = self.save_oc({"glossary": {"enabled": True}})
+        saved = self.save_oc({"glossary": {"use_tenant": False}})
         self.assertEqual(saved.status_code, 200, saved.text)
         state = saved.json()
-        self.assertEqual((state["oc"]["glossary"]["enabled"], state["live_oc"]["glossary"]["enabled"]), (True, False))
+        self.assertEqual((state["oc"]["glossary"]["use_tenant"], state["live_oc"]["glossary"]["use_tenant"]), (False, True))
         self.assertTrue(state["has_changes"])
         self.assertEqual(state["diff"][0]["section"], "oc.glossary")
         after = self.refresh()
         self.assertEqual(after["row_version"], before["row_version"] + 1)
-        self.assertEqual(after["config"]["oc"]["glossary"]["enabled"], True)
+        self.assertEqual(after["config"]["oc"]["glossary"]["use_tenant"], False)
         self.assertEqual(after["config"]["prompt"], before["config"]["prompt"])
-        self.assertFalse(self.live()["snapshot"]["config"]["oc"]["glossary"]["enabled"])  # live is untouched
+        self.assertTrue(self.live()["snapshot"]["config"]["oc"]["glossary"]["use_tenant"])  # live is untouched
         with self.session_factory() as db:
             self.assertIsNotNone(db.scalar(select(AuditEvent).where(AuditEvent.action == "assistant.oc_saved")))
 
@@ -172,7 +172,7 @@ class OCTests(test_versions.VersionTests):
 
     def test_submitting_needs_a_published_assistant_and_a_difference(self) -> None:
         self.policy(False)
-        self.save_oc({"glossary": {"enabled": True}})
+        self.save_oc({"glossary": {"use_tenant": False}})
         never = self.submit()
         self.assertEqual((never.status_code, never.json()["code"]), (409, "assistant.not_published"))
         self.publish("v1")
@@ -207,7 +207,7 @@ class OCTests(test_versions.VersionTests):
         self.publish("v1")
         self.policy(True)
         self.edit_draft(prompt="Draft prompt, never approved.")
-        self.save_oc({"glossary": {"enabled": True}})
+        self.save_oc({"glossary": {"use_tenant": False}})
         pending = self.submit("glossary on")
         self.assertEqual(pending.status_code, 202, pending.text)
         approval_id = pending.json()["approval_id"]
@@ -227,7 +227,7 @@ class OCTests(test_versions.VersionTests):
         live = self.live()
         self.assertEqual((live["version"], live["kind"], live["approval_id"]), ("1.2", "oc_change", approval_id))
         self.assertEqual(live["snapshot"]["config"]["prompt"], "Published in between.")  # the newer publish survives
-        self.assertTrue(live["snapshot"]["config"]["oc"]["glossary"]["enabled"])
+        self.assertFalse(live["snapshot"]["config"]["oc"]["glossary"]["use_tenant"])
         self.assertEqual(self.get_oc().json()["pending_approval_id"], None)
 
     def test_rejection_keeps_the_draft_and_the_live_oc(self) -> None:
