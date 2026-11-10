@@ -741,5 +741,6 @@ from beework.models import (  # noqa: E402,F401
     tenant_glossary,
     tenant_rules,
     testcases,
+    tools,
     usage,
 )
