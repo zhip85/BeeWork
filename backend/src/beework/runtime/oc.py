@@ -97,12 +97,72 @@ class MemoryConfig(_Section):
     long_term: LongTermMemory = Field(default_factory=LongTermMemory)
 
 
+class AssistantTerm(_Section):
+    """An assistant-level term: its own (``from_id`` empty), an override of an inherited term, or a hidden marker for one."""
+
+    id: str = Field(min_length=1, max_length=64)
+    from_id: str | None = Field(default=None, max_length=64)  # the inherited term this overrides or hides
+    hidden: bool = False
+    term: str = Field(max_length=400)
+    aliases: list[str] = Field(default_factory=list, max_length=100)
+    definition: str = Field(default="", max_length=2000)
+
+    @model_validator(mode="after")
+    def check(self) -> "AssistantTerm":
+        self.term = self.term.strip()
+        if not self.term or len(self.term) > 200:
+            raise ValueError("标准术语不能为空且不超过 200 个字符")
+        aliases = list(dict.fromkeys(a.strip() for a in self.aliases if a and a.strip() and a.strip().lower() != self.term.lower()))
+        if len(aliases) > 20 or any(len(a) > 100 for a in aliases):
+            raise ValueError("别名最多 20 个，每个不超过 100 个字符")
+        self.aliases = aliases
+        self.definition = self.definition.strip()
+        if len(self.definition) > 1000:
+            raise ValueError("定义不能超过 1000 个字符")
+        return self
+
+
 class GlossaryConfig(_Section):
+    use_tenant: bool = True  # “继承租户术语表” (OC-032): off starts from nothing but the assistant's own terms
+    terms: list[AssistantTerm] = Field(default_factory=list, max_length=500)
+
+
+Language = Literal["English", "中文", "日本語"]
+
+
+class CoreferenceStep(_Section):
+    enabled: bool = True
+    rounds: int = Field(default=3, ge=1, le=10)  # 参考上下文轮数
+
+
+class DecomposeStep(_Section):
     enabled: bool = False
+    max_subquestions: int = Field(default=3, ge=2, le=6)
+
+
+class TranslateStep(_Section):
+    enabled: bool = False
+    language: Language = "English"
+
+
+class CustomPrompt(_Section):
+    enabled: bool = False
+    text: str = Field(default="", max_length=2000)
 
 
 class RewriteConfig(_Section):
+    """Question rewriting (OC-040–048). Off by default here: a rewrite is an extra model call on every message, so it
+    is switched on per assistant once a rewrite model is chosen (the PRD default is on)."""
+
     enabled: bool = False
+    model_id: str | None = Field(default=None, max_length=64)  # an enabled chat model of the tenant; empty = the assistant's own
+    only_low_confidence: bool = True  # decided by routing (T-058): rewrite only when the intent confidence is low
+    confidence_threshold: float = Field(default=0.7, ge=0.3, le=0.95)
+    coreference: CoreferenceStep = Field(default_factory=CoreferenceStep)
+    normalize: bool = True  # 口语规范化
+    decompose: DecomposeStep = Field(default_factory=DecomposeStep)
+    translate: TranslateStep = Field(default_factory=TranslateStep)
+    custom_prompt: CustomPrompt = Field(default_factory=CustomPrompt)
 
 
 class RoutingConfig(_Section):

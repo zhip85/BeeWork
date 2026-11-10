@@ -1492,6 +1492,9 @@ class TenantAuthTests(unittest.TestCase):
             audit = db.scalar(select(AuditEvent).where(AuditEvent.action == "tenant.updated", AuditEvent.tenant_id.is_(None)))
             self.assertIn("Acme Renamed", audit.details["name"])
             self.assertEqual(audit.details["seat_limit"], "10 → 25")
+            # The root organization is what the tenant side shows as the company name: it follows the rename.
+            roots = db.scalars(select(Organization.name).where(Organization.tenant_id == UUID(self.tenant_id), Organization.parent_id.is_(None))).all()
+            self.assertEqual(list(roots), ["Acme Renamed"])
         # Only the name: nothing else is touched and no new subscription is written.
         renamed = self.client.patch(url, json={"name": "Acme Again"}, headers=self.csrf_headers())
         self.assertEqual((renamed.json()["plan"], renamed.json()["seat_limit"]), ("professional", 25))

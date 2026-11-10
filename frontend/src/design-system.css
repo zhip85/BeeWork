@@ -423,3 +423,13 @@ table { border-collapse: collapse; }
 .glossary-tag button + button { padding: 6px 6px; border-left: 1px solid var(--line); color: var(--ink-soft); }
 .glossary-tag b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--forest); color: #fff; font-size: var(--fs-2xs); }
 .glossary-tag small { color: var(--muted); font-size: var(--fs-xs); }
+
+/* T-057 · OC glossary and rewrite panels */
+.rewrite-field { display: grid; gap: var(--space-1, 4px); max-width: 28rem; margin: var(--space-2, 8px) 0; }
+.rewrite-field small { color: var(--text-muted, inherit); }
+.rewrite-steps { border: 1px solid var(--border, #e5e7eb); border-radius: var(--radius, 8px); padding: var(--space-3, 12px); margin: var(--space-3, 12px) 0; }
+.rewrite-test { margin-top: var(--space-4, 16px); }
+.rewrite-test-form { display: flex; gap: var(--space-2, 8px); }
+.rewrite-test-form input { flex: 1; }
+.rewrite-result ol { list-style: none; padding: 0; display: grid; gap: var(--space-2, 8px); }
+.rewrite-result li { display: flex; flex-wrap: wrap; gap: var(--space-2, 8px); align-items: baseline; }

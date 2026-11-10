@@ -125,3 +125,23 @@ def _pii_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
 
 
 register_summary("pii", _pii_summary)
+
+
+def _glossary_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
+    from beework.governance.glossary_runtime import assistant_view
+
+    _, chain = assistant_view(db, assistant.tenant_id, oc.glossary)
+    return f"平台 → 租户 → 助手三级继承 · {chain['effective']} 条生效"
+
+
+def _rewrite_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
+    from beework.runtime.rewrite import active_steps
+
+    config = oc.rewrite
+    if not config.enabled:
+        return "已关闭"
+    return f"已启用 · {len(active_steps(config))} 种策略"
+
+
+register_summary("glossary", _glossary_summary)
+register_summary("rewrite", _rewrite_summary)

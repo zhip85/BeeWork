@@ -16,9 +16,10 @@ from beework.compliance import get_policy
 from beework.conversations import append_message, history_for_run
 from beework.faqs import record_hits as record_faq_hits
 from beework.gateway_sync import tenant_gateway_key
+from beework.governance.glossary_runtime import dictionary as glossary_dictionary
 from beework.governance.runtime_policy import build_policy
 from beework.integrations.knowledge_engine import KnowledgeEngineError
-from beework.integrations.litellm import GatewayError
+from beework.integrations.litellm import GatewayError, model_alias
 from beework.knowledge_mounts import resolve_knowledge_bases
 from beework.memory import load_memory_context
 from beework.models import Tenant, TenantModelEnvironment
@@ -26,6 +27,9 @@ from beework.models.conversations import Conversation
 from beework.models.jobs import RunEvent
 from beework.models.runtime import Run
 from beework.pii import make_redactor, redact_for_tenant
+from beework.runtime import (
+    glossary_stage as _glossary_stage,  # noqa: F401  (registers the glossary_rewrite stage)
+)
 from beework.runtime import (
     memory_stage as _memory_stage,  # noqa: F401  (registers the memory stage)
 )
@@ -35,9 +39,10 @@ from beework.runtime import (
 from beework.runtime.compiler import RuntimeDeps, StageClock, compile_assistant
 from beework.runtime.dsl import AssistantDSLv1, KnowledgeBaseRef
 from beework.runtime.errors import RunCancelled, RunTimedOut, RuntimeFailure
-from beework.runtime.llm import build_chat_model
+from beework.runtime.llm import build_chat_model, build_rewrite_model
 from beework.runtime.pii_stage import holds_output
 from beework.runtime.retrieval import EngineRetriever, Retriever
+from beework.runtime.rewrite import RewriteResult, active_steps, rewrite
 from beework.runtime.tracing import TraceHandle, trace_run
 from beework.worker.events import publish_run_event
 
@@ -86,6 +91,25 @@ def gateway_llm_for(
     except ValueError as exc:
         raise RuntimeFailure("runtime.gateway_not_ready", "环境网关密钥不可用，请重新保存模型配置") from exc
     return build_chat_model(dsl, api_key=api_key, metadata=metadata)
+
+
+def gateway_rewrite_llm(db: Session, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
+    """The question-rewrite model (OC-041): the configured one, or the assistant's own when none is chosen."""
+    environment = db.scalar(
+        select(TenantModelEnvironment).where(
+            TenantModelEnvironment.tenant_id == run.tenant_id, TenantModelEnvironment.environment == run.environment
+        )
+    )
+    if environment is None:
+        raise RuntimeFailure("runtime.gateway_not_ready", "该环境尚未配置模型")
+    alias = model_alias(UUID(dsl.oc.rewrite.model_id)) if dsl.oc.rewrite.model_id else dsl.model_alias
+    return build_rewrite_model(alias, api_key=tenant_gateway_key(environment), metadata={**run_metadata(run), "purpose": "rewrite"})
+
+
+def _rewrite_model(bind: Any, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
+    """Build the rewrite model from a session of its own (the graph thread must not use the run's session)."""
+    with Session(bind=bind) as side:
+        return gateway_rewrite_llm(side, run, dsl)
 
 
 def classify_error(exc: Exception) -> RuntimeFailure:
@@ -195,11 +219,12 @@ def execute_run(
     *,
     llm_factory: LLMFactory | None = None,
     retriever: Retriever | None = None,
+    rewrite_llm_factory: LLMFactory | None = None,
 ) -> None:
     """Run one queued run to a terminal state. Idempotent: anything not ``queued`` is left alone."""
     traces: list[TraceHandle] = []
     try:
-        _execute_run(db, run_id, llm_factory, retriever, traces)
+        _execute_run(db, run_id, llm_factory, retriever, traces, rewrite_llm_factory)
     finally:
         for trace in traces:
             trace.flush()  # after the terminal event, so tracing never delays the user
@@ -211,6 +236,7 @@ def _execute_run(
     llm_factory: LLMFactory | None,
     retriever: Retriever | None,
     traces: list[TraceHandle],
+    rewrite_llm_factory: LLMFactory | None = None,
 ) -> None:
     run = db.scalar(select(Run).where(Run.id == run_id).with_for_update())
     if run is None or run.status != "queued":
@@ -269,6 +295,20 @@ def _execute_run(
 
         final: dict[str, Any] = {}
         redact = get_policy(db, run.tenant_id).redact_pii
+        entries = glossary_dictionary(db, run.tenant_id, dsl.oc.glossary)
+        rewrite_fn = None
+        if dsl.oc.rewrite.enabled and active_steps(dsl.oc.rewrite):
+            rewrite_llm: list[BaseChatModel] = []
+
+            def rewrite_fn(query: str, history: list[dict[str, str]]) -> RewriteResult:
+                try:
+                    if not rewrite_llm:  # built on first use, so a missing key only costs the rewrite
+                        rewrite_llm.append((rewrite_llm_factory or gateway_rewrite_llm)(run, dsl) if rewrite_llm_factory else _rewrite_model(bind, run, dsl))
+                    return rewrite(query, history, dsl.oc.rewrite, rewrite_llm[0])
+                except Exception:
+                    logger.warning("Question rewrite unavailable", exc_info=True)
+                    return RewriteResult(query=query, failure="error")
+
         pii_rules = build_policy(db, run.tenant_id, dsl.oc.pii)  # platform and tenant rules are read now, the assistant's from the snapshot
         history = history_for_run(db, run, dsl.limits.history_messages)
         with trace_run(run.id, metadata=run_metadata(run), redact=redact, redactor=make_redactor(pii_rules)) as trace:
@@ -288,6 +328,8 @@ def _execute_run(
                     memory=memory_context,
                     pii_rules=pii_rules,
                     hold_output=holds_output(pii_rules),
+                    dictionary=entries,
+                    rewrite=rewrite_fn,
                 ),
             )
             for mode, payload in graph.stream(
@@ -329,6 +371,7 @@ def _execute_run(
     ]
     retrieval = {"mode": final.get("retrieval_mode", "none"), "citations": citations}
     pii = {"hits": final.get("pii_hits", []), "failures": final.get("pii_failures", []), "blocked": bool(final.get("blocked"))}
+    glossary = final.get("stage_info") or {}
     faq_documents = [c.get("document_id", "") for c in final.get("context", []) if c.get("kind") == "faq"]
     run.tokens_in, run.tokens_out = usage.get("input"), usage.get("output")
     run.retrieval_mode = retrieval["mode"]
@@ -348,7 +391,7 @@ def _execute_run(
         record_faq_hits(db, run.tenant_id, run.id, faq_documents)
     _finish(
         db, run, "succeeded", "done",
-        {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url, "pii": pii},
-        started=started, output={"text": text, "usage": usage, "retrieval": retrieval, "pii": pii}, trace_url=trace_url,
+        {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url, "pii": pii, "query": glossary},
+        started=started, output={"text": text, "usage": usage, "retrieval": retrieval, "pii": pii, "query": glossary}, trace_url=trace_url,
         timings=clock,
     )

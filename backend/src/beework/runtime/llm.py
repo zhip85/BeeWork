@@ -24,3 +24,18 @@ def build_chat_model(dsl: AssistantDSLv1, *, api_key: str, metadata: dict[str, A
         max_retries=0,
         extra_body={"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}},
     )
+
+
+def build_rewrite_model(model_alias: str, *, api_key: str, metadata: dict[str, Any]) -> ChatOpenAI:
+    """A short, non-streaming call for question rewriting (T-057): low temperature, small output, 1.5 s limit."""
+    return ChatOpenAI(
+        model=model_alias,
+        base_url=f"{settings.litellm_base_url.rstrip('/')}/v1",
+        api_key=SecretStr(api_key),
+        streaming=False,
+        max_tokens=500,
+        temperature=0,
+        timeout=1.5,
+        max_retries=0,
+        extra_body={"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}},
+    )

@@ -18,6 +18,7 @@ from langchain_core.messages import AIMessageChunk, BaseMessage, HumanMessage, S
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
+from beework.governance.glossary_runtime import retrieval_query
 from beework.runtime.dsl import AssistantDSLv1, KnowledgeBaseRef
 from beework.runtime.errors import RunCancelled, RuntimeFailure
 from beework.runtime.retrieval import Retriever
@@ -52,6 +53,11 @@ class RuntimeState(TypedDict, total=False):
     pii_hits: list[dict[str, Any]]
     pii_failures: list[dict[str, str]]
     pii_last: dict[str, Any]
+    # Glossary / rewrite (T-057): the query routing and retrieval use, its synonyms and the matched terms.
+    query: str
+    synonyms: list[str]
+    glossary_hits: list[dict[str, Any]]
+    stage_info: dict[str, Any]
 
 
 class StageClock:
@@ -93,6 +99,9 @@ class RuntimeDeps:
     # The PII / safety rules in force for this run, and whether the reply is held back for the output rules (T-055).
     pii_rules: list[Any] = field(default_factory=list)
     hold_output: bool = False
+    # The assistant's glossary dictionary (DictEntry list) and the question rewriter ``(query, history) -> RewriteResult``.
+    dictionary: list[Any] = field(default_factory=list)
+    rewrite: Callable[[str, list[dict[str, str]]], Any] | None = None
     clock: StageClock = field(default_factory=StageClock)
 
 
@@ -143,6 +152,11 @@ def _system_prompt(dsl: AssistantDSLv1, state: RuntimeState) -> str:
     memory = state.get("memory") or []
     if memory:
         parts.append("# 记忆\n" + "\n".join(f"- [{m.get('file', 'memory')}] {m['text']}" for m in memory))
+    hits = state.get("glossary_hits") or []
+    if hits:
+        from beework.governance.glossary_runtime import DictEntry, prompt_section
+
+        parts.append(prompt_section([DictEntry(h["term"], tuple(h.get("aliases", [])), h.get("definition", "")) for h in hits]))
     context = state.get("context") or []
     if context:
         snippets = "\n\n".join(
@@ -166,7 +180,8 @@ def _execute(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
         bases = deps.resolve_bases([base.kb_id for base in dsl.knowledge.bases]) if dsl.knowledge.bases else []
         with deps.clock.external(), deps.span("retrieval"):
             result = deps.retriever.retrieve(
-                tenant_id=deps.tenant_id, query=state["input"], bases=bases, top_k=dsl.knowledge.top_k
+                tenant_id=deps.tenant_id, query=retrieval_query(state.get("query") or state["input"], state.get("synonyms", [])),
+                bases=bases, top_k=dsl.knowledge.top_k,
             )
         update["retrieval_mode"] = result.mode
         update["context"] = [
@@ -211,6 +226,16 @@ def _egress(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
     return lambda state: {"text": (state.get("text") or "").strip()}
 
 
+def _annotate(span: Any, name: str, state: RuntimeState, result: RuntimeState) -> None:
+    """Record the original and the rewritten query on the stage's trace span (OC-051); best effort."""
+    if span is None or name != "glossary_rewrite" or not result.get("stage_info"):
+        return
+    try:
+        span.update(input={"original": state.get("input")}, output=result["stage_info"])
+    except Exception:
+        pass
+
+
 def _instrumented(name: str, node: Node, deps: RuntimeDeps) -> Node:
     """Wrap a stage with step events, a tracing span, timing and the failing stage's name."""
 
@@ -219,8 +244,9 @@ def _instrumented(name: str, node: Node, deps: RuntimeDeps) -> Node:
         writer({"type": "step", "name": name, "status": "started"})
         started = time.monotonic()
         try:
-            with deps.span(name):
+            with deps.span(name) as span:
                 result = node(state)
+                _annotate(span, name, state, result)
         except BaseException as exc:
             elapsed = int((time.monotonic() - started) * 1000)
             deps.clock.stage_ms[name] = elapsed
@@ -236,6 +262,8 @@ def _instrumented(name: str, node: Node, deps: RuntimeDeps) -> Node:
             data["retrieval_mode"] = result.get("retrieval_mode")
         if name in ("pii_input", "pii_output") and result.get("pii_last") is not None:
             data.update({key: value for key, value in result["pii_last"].items() if value})
+        if name == "glossary_rewrite" and result.get("stage_info"):
+            data.update(result["stage_info"])
         writer(data)
         return result
 
