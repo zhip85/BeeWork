@@ -36,8 +36,25 @@ class KnowledgeConfig(BaseModel):
     top_k: int = Field(default=5, ge=1, le=20)
 
 
+class ToolMount(BaseModel):
+    """A mounted capability whose tools the agent may call (演进 PRD 7.6). ``tools`` are the tool names ticked for this
+    agent (empty: every tool the capability exposes); ``delegate`` says when to use it. At run time the tenant's
+    current rows decide what is available — a capability deleted since is simply not offered."""
+
+    kind: Literal["mcp", "skill"]
+    capability_id: UUID
+    name: str = ""
+    tools: list[str] = Field(default_factory=list, max_length=100)
+    delegate: str = Field(default="", max_length=500)
+
+
+class ToolsConfig(BaseModel):
+    mounts: list[ToolMount] = Field(default_factory=list, max_length=50)
+
+
 class LimitsConfig(BaseModel):
     max_tokens: int = Field(default=1024, ge=16, le=8192)
+    max_iterations: int = Field(default=8, ge=1, le=20)  # tool-calling rounds per message
     timeout_seconds: int = Field(default=60, ge=5, le=300)
     max_input_chars: int = Field(default=4000, ge=1, le=20000)
     # Short-term memory: how many previous user/assistant messages are sent as context (T-056 refines).
@@ -48,6 +65,12 @@ class AssistantDSLv1(BaseModel):
     dsl_version: Literal[1] = 1
     prompt: str = Field(max_length=8000)
     model_alias: str
+    role: str = ""
+    answer_style: Literal["concise", "balanced", "detailed"] = "balanced"
+    temperature: float = Field(default=0.7, ge=0, le=2)
+    fallback_model_alias: str | None = None
+    fallback_model_id: str | None = None
+    tools: ToolsConfig = Field(default_factory=ToolsConfig)
     greeting: str = ""
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
@@ -69,13 +92,44 @@ def dsl_from_draft(assistant: Assistant, db: Session | None = None) -> Assistant
     prompt = (config.get("prompt") or "").strip()
     if not prompt:
         raise RuntimeFailure("runtime.prompt_missing", "智能体尚未填写提示词")
+    fallback_id = config.get("fallback_model_id")
+    max_tokens = config.get("max_output_tokens")
     return AssistantDSLv1(
         prompt=prompt,
         model_alias=model_alias(UUID(str(model_id))),
+        role=(config.get("role") or "").strip(),
+        answer_style=config.get("answer_style") or "balanced",
+        temperature=config.get("temperature") if config.get("temperature") is not None else 0.7,
+        fallback_model_alias=model_alias(UUID(str(fallback_id))) if fallback_id else None,
+        fallback_model_id=str(fallback_id) if fallback_id else None,
+        tools=ToolsConfig(mounts=_tool_mounts(db, assistant.tenant_id, config)),
         greeting=config.get("greeting") or "",
         knowledge=KnowledgeConfig(bases=_knowledge_refs(db, assistant.tenant_id, kb_ids) if kb_ids else []),
+        limits=LimitsConfig(max_tokens=int(max_tokens)) if max_tokens else LimitsConfig(),
         oc=OCConfig.model_validate(config.get("oc") or {}),
     )
+
+
+def _tool_mounts(db: Session | None, tenant_id: UUID, config: dict) -> list[ToolMount]:
+    """The agent's tool-bearing mounts (MCP, Skill) with their ticked tools and delegation text (演进 PRD 7.6)."""
+    mounts, settings = config.get("mounts") or {}, config.get("mount_settings") or {}
+    names: dict[UUID, str] = {}
+    if db is not None:
+        from beework.capabilities import resolve_mounts
+
+        names = {item.id: item.name for item in resolve_mounts(db, tenant_id, {k: mounts.get(k) or [] for k in ("mcp", "skill")})}
+    result: list[ToolMount] = []
+    for kind in ("mcp", "skill"):
+        for raw in mounts.get(kind) or []:
+            capability_id = UUID(str(raw))
+            entry = settings.get(str(capability_id)) or {}
+            result.append(
+                ToolMount(
+                    kind=kind, capability_id=capability_id, name=names.get(capability_id, ""),
+                    tools=list(entry.get("tools") or []), delegate=str(entry.get("delegate") or ""),
+                )
+            )
+    return result
 
 
 def _knowledge_refs(db: Session, tenant_id: UUID, kb_ids: list[UUID]) -> list[KnowledgeBaseRef]:

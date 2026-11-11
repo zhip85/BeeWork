@@ -19,6 +19,7 @@ from beework.conversations import append_message, history_for_run
 from beework.faqs import record_hits as record_faq_hits
 from beework.gateway_sync import tenant_gateway_key
 from beework.governance.glossary_runtime import dictionary as glossary_dictionary
+from beework.governance.pii_engine import scan
 from beework.governance.runtime_policy import build_policy
 from beework.integrations.knowledge_engine import KnowledgeEngineError
 from beework.integrations.litellm import GatewayError, model_alias
@@ -45,6 +46,7 @@ from beework.runtime.llm import build_chat_model, build_rewrite_model
 from beework.runtime.pii_stage import holds_output
 from beework.runtime.retrieval import EngineRetriever, Retriever
 from beework.runtime.rewrite import RewriteResult, active_steps, rewrite
+from beework.runtime.tool_runtime import ToolRuntime
 from beework.runtime.tracing import TraceHandle, trace_run
 from beework.worker.events import publish_run_event
 
@@ -316,10 +318,31 @@ def _execute_run(
                     return RewriteResult(query=query, failure="error")
 
         pii_rules = build_policy(db, run.tenant_id, dsl.oc.pii)  # platform and tenant rules are read now, the assistant's from the snapshot
+
+        def guard_tool_output(text: str) -> str:
+            """Tool results pass the same output rules as the reply before the model sees them (CAP-054)."""
+            outcome = scan(text, pii_rules, "output")
+            return outcome.message if outcome.blocked else outcome.text
+
+        fallback_llm = None
+        if dsl.fallback_model_alias:
+            fallback_dsl = dsl.model_copy(update={"model_alias": dsl.fallback_model_alias})
+
+            def fallback_llm() -> BaseChatModel:
+                if llm_factory:
+                    return llm_factory(run, fallback_dsl)
+                with Session(bind=bind) as side:  # called from a graph worker thread: own session
+                    return gateway_llm_for(side, run.tenant_id, run.environment, fallback_dsl, run_metadata(run))
         history = history_for_run(db, run, dsl.limits.history_messages)
         with trace_run(run.id, metadata=run_metadata(run), redact=redact, redactor=make_redactor(pii_rules)) as trace:
             trace_url = trace.trace_url
             traces.append(trace)
+            tool_runtime = None
+            if dsl.tools.mounts:  # what the agent mounted and ticked, through the controlled executor; one span per call
+                tool_runtime = ToolRuntime(
+                    bind, dsl, tenant_id=run.tenant_id, run_id=run.id, assistant_id=run.assistant_id,
+                    end_user=str(end_user_id) if end_user_id else None, guard_output=guard_tool_output, span=trace.span,
+                )
             graph = compile_assistant(
                 dsl,
                 RuntimeDeps(
@@ -336,6 +359,8 @@ def _execute_run(
                     hold_output=holds_output(pii_rules),
                     dictionary=entries,
                     rewrite=rewrite_fn,
+                    tools=tool_runtime,
+                    fallback_llm=fallback_llm,
                 ),
             )
             for mode, payload in graph.stream(

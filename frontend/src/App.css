@@ -4411,3 +4411,9 @@ textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .portal-analytics .portal-chips, .portal-members .portal-chips { display: flex; gap: 8px; }
 .portal-analytics .portal-chips button { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); font: inherit; font-size: var(--fs-sm); cursor: pointer; color: var(--ink); }
 .portal-analytics .portal-chips button.selected { background: var(--forest); border-color: var(--forest); color: #fff; }
+
+.basics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.mount-settings { flex-basis: 100%; display: grid; gap: 8px; }
+.mount-settings-body { display: grid; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--canvas); }
+.mount-settings-body label { display: grid; gap: 4px; font-size: var(--fs-sm); }
+.mount-write { color: var(--warn); font-style: normal; font-size: var(--fs-xs); }

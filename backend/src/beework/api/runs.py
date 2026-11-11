@@ -115,7 +115,8 @@ def create_debug_run(
             raise ApiError(409, exc.code, exc.message) from exc
         model_id = assistant.draft_config.get("model_id")
     models, _ = _enabled_chat_models(db, membership.tenant_id)
-    if str(model_id) not in {str(model.id) for model, _ in models}:
+    enabled = {str(model.id) for model, _ in models}
+    if str(model_id) not in enabled and not (dsl.fallback_model_id and dsl.fallback_model_id in enabled):
         raise ApiError(409, "runtime.model_unavailable", "智能体所选模型未在当前环境启用")
     enforce_quota(db, membership.tenant_id, "monthly_points", 1, "本月模型点数已用完，请联系平台升级或等待下月重置")
     ensure_environment_active(db, membership.tenant_id, MODEL_ENVIRONMENT)

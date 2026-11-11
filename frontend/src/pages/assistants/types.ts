@@ -6,7 +6,12 @@ export type AssistantCategory = (typeof ASSISTANT_CATEGORIES)[number]
 export type AssistantConfig = {
   dsl_version: 1
   prompt: string
+  role?: string
+  answer_style?: 'concise' | 'balanced' | 'detailed'
   model_id: string | null
+  fallback_model_id?: string | null
+  temperature?: number
+  max_output_tokens?: number | null
   driven_by: string | null
   default_language: 'zh-CN' | 'en'
   greeting: string

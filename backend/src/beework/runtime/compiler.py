@@ -14,13 +14,19 @@ from typing import Any, TypedDict
 from uuid import UUID
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessageChunk, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import (
+    AIMessageChunk,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
 from beework.governance.glossary_runtime import retrieval_query
 from beework.runtime.dsl import AssistantDSLv1, KnowledgeBaseRef
-from beework.runtime.errors import RunCancelled, RuntimeFailure
+from beework.runtime.errors import RunCancelled, RuntimeFailure  # noqa: I001
 from beework.runtime.retrieval import Retriever
 
 STAGE_ORDER: tuple[str, ...] = (
@@ -103,6 +109,9 @@ class RuntimeDeps:
     dictionary: list[Any] = field(default_factory=list)
     rewrite: Callable[[str, list[dict[str, str]]], Any] | None = None
     clock: StageClock = field(default_factory=StageClock)
+    # The tools the agent mounted and ticked (a ``ToolRuntime``; T-061) and the backup model, built only if needed.
+    tools: Any = None
+    fallback_llm: Callable[[], BaseChatModel] | None = None
 
 
 Node = Callable[[RuntimeState], RuntimeState]
@@ -147,8 +156,17 @@ def _route(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
     return lambda state: {"target": "assistant"}
 
 
-def _system_prompt(dsl: AssistantDSLv1, state: RuntimeState) -> str:
+STYLE_HINTS = {"concise": "回答尽量简洁，直奔重点，不展开无关内容。", "detailed": "回答尽量详细，必要时分步骤并说明理由。"}
+
+
+def _system_prompt(dsl: AssistantDSLv1, state: RuntimeState, *, tools: bool = False) -> str:
     parts = [dsl.prompt]
+    if dsl.role:
+        parts.append(f"# 角色\n{dsl.role}")
+    if dsl.answer_style in STYLE_HINTS:
+        parts.append(f"# 回答风格\n{STYLE_HINTS[dsl.answer_style]}")
+    if tools:
+        parts.append("# 工具\n需要外部信息或操作时可以调用提供的工具；只依据工具返回的内容回答，不要编造工具结果。")
     memory = state.get("memory") or []
     if memory:
         parts.append("# 记忆\n" + "\n".join(f"- [{m.get('file', 'memory')}] {m['text']}" for m in memory))
@@ -192,7 +210,8 @@ def _execute(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
             for c in result.chunks
         ]
 
-        messages: list[BaseMessage] = [SystemMessage(content=_system_prompt(dsl, {**state, **update}))]
+        offered = deps.tools.schemas() if deps.tools is not None else []
+        messages: list[BaseMessage] = [SystemMessage(content=_system_prompt(dsl, {**state, **update}, tools=bool(offered)))]
         for turn in state.get("history", []):
             role = turn.get("role")
             if role == "user":
@@ -201,24 +220,90 @@ def _execute(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
                 messages.append(AIMessageChunk(content=turn["content"]))
         messages.append(HumanMessage(content=state["input"]))
 
-        parts: list[str] = []
         usage: dict[str, int | None] = {"input": None, "output": None}
-        with deps.clock.external():
-            for chunk in deps.llm.stream(messages, config={"callbacks": deps.callbacks}):
-                deps.check_stop()
-                text = chunk.content if isinstance(chunk.content, str) else ""
-                if text:
-                    parts.append(text)
-                    if not deps.hold_output:  # output rules may rewrite the reply: it is sent once they have run
-                        writer({"type": "token", "text": text})
-                meta = getattr(chunk, "usage_metadata", None)
-                if meta:
-                    usage = {"input": meta.get("input_tokens"), "output": meta.get("output_tokens")}
-        update["text"] = "".join(parts)
+        model = _ModelCaller(deps, writer)
+        text = ""
+        for _round in range(dsl.limits.max_iterations if offered else 1):
+            reply, round_usage, text = model.call(messages, offered)
+            usage = _add_usage(usage, round_usage)
+            if not reply.tool_calls:
+                break
+            messages.append(reply)
+            for call in reply.tool_calls:
+                messages.append(_run_tool(deps, writer, call))
+        else:
+            if offered:  # still asking for tools after the limit: answer from what was gathered, tools off
+                messages.append(SystemMessage(content="已达到工具调用次数上限，不能再调用工具。请根据已有信息直接回答。"))
+                reply, round_usage, text = model.call(messages, [])
+                usage = _add_usage(usage, round_usage)
+        update["text"] = text
         update["usage"] = usage
         return update
 
     return node
+
+
+def _add_usage(total: dict[str, int | None], new: dict[str, int | None]) -> dict[str, int | None]:
+    return {key: (total.get(key) or 0) + (new.get(key) or 0) if (total.get(key) is not None or new.get(key) is not None) else None for key in ("input", "output")}
+
+
+def _run_tool(deps: RuntimeDeps, writer: Callable[[Any], None], call: dict[str, Any]) -> ToolMessage:
+    """One tool call of the model, through the controlled executor; the outcome is also a step event for the console."""
+    alias, args = str(call.get("name") or ""), call.get("args") if isinstance(call.get("args"), dict) else {}
+    deps.check_stop()
+    result, duration_ms = deps.tools.call(alias, args)
+    writer({"type": "step", "name": "tool", "tool": alias, "status": "completed" if result.status == "ok" else "failed",
+            "duration_ms": duration_ms, "code": result.code})
+    content = result.content if result.status == "ok" else f"[工具调用失败：{result.content}]"
+    return ToolMessage(content=content, tool_call_id=str(call.get("id") or alias), name=alias)
+
+
+class _ModelCaller:
+    """Calls the model, once switching to the backup model if the primary fails before it produced anything (T-061)."""
+
+    def __init__(self, deps: RuntimeDeps, writer: Callable[[Any], None]) -> None:
+        self.deps, self.writer = deps, writer
+        self.llm = deps.llm
+        self.switched = False
+
+    def call(self, messages: list[BaseMessage], tools: list[dict[str, Any]]) -> tuple[AIMessageChunk, dict[str, int | None], str]:
+        try:
+            return self._stream(messages, tools)
+        except (RunCancelled, RuntimeFailure):
+            raise
+        except Exception as exc:
+            if self.switched or self.deps.fallback_llm is None or getattr(exc, "beework_streamed", False):
+                raise
+            self.switched = True
+            self.llm = self.deps.fallback_llm()
+            code = type(exc).__name__
+            with self.deps.span("model.fallback"):
+                self.writer({"type": "step", "name": "model_fallback", "status": "completed", "reason": code})
+            return self._stream(messages, tools)
+
+    def _stream(self, messages: list[BaseMessage], tools: list[dict[str, Any]]) -> tuple[AIMessageChunk, dict[str, int | None], str]:
+        runnable = self.llm.bind_tools(tools) if tools else self.llm
+        aggregate: AIMessageChunk | None = None
+        parts: list[str] = []
+        usage: dict[str, int | None] = {"input": None, "output": None}
+        try:
+            with self.deps.clock.external():
+                for chunk in runnable.stream(messages, config={"callbacks": self.deps.callbacks}):
+                    self.deps.check_stop()
+                    text = chunk.content if isinstance(chunk.content, str) else ""
+                    if text:
+                        parts.append(text)
+                        if not self.deps.hold_output:  # output rules may rewrite the reply: it is sent once they have run
+                            self.writer({"type": "token", "text": text})
+                    meta = getattr(chunk, "usage_metadata", None)
+                    if meta:
+                        usage = {"input": meta.get("input_tokens"), "output": meta.get("output_tokens")}
+                    aggregate = chunk if aggregate is None else aggregate + chunk
+        except Exception as exc:
+            if parts:
+                exc.beework_streamed = True  # something reached the user already: switching models would repeat it
+            raise
+        return aggregate if aggregate is not None else AIMessageChunk(content=""), usage, "".join(parts)
 
 
 @register_stage("egress")

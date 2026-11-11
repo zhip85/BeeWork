@@ -207,6 +207,20 @@ def _validate_organization(db: Session, membership: Membership, organization_id:
         raise ApiError(404, "not_found", "未找到指定组织")
 
 
+def _validate_ticked_tools(db: Session, membership: Membership, config: AssistantDraftConfig) -> None:
+    """Least privilege (演进 PRD 7.6, 15.3): the tools an agent is allowed must be tools its MCP connection really exposes."""
+    from beework.capability_service import mcp_tool_specs
+
+    for capability_id in dict.fromkeys(config.mounts.mcp):
+        wanted = config.mount_settings.get(str(capability_id))
+        if wanted is None or not wanted.tools:
+            continue
+        exposed = {spec.name.split(":", 2)[2] for spec in mcp_tool_specs(db, membership.tenant_id, [capability_id])}
+        missing = [name for name in wanted.tools if name not in exposed]
+        if missing:
+            raise ApiError(422, "assistant.mount_settings_invalid", f"所选工具不存在或未被管理员勾选：{', '.join(missing[:3])}")
+
+
 MAX_KB_MOUNTS = 10
 MAX_OTHER_MOUNTS = 30
 
@@ -241,10 +255,17 @@ def _validate_config(
     unknown = set(config.mount_settings) - mounted_ids
     if unknown:
         raise ApiError(422, "assistant.mount_settings_invalid", "能力设置只能针对已挂载的能力")
+    _validate_ticked_tools(db, membership, config)
     if config.model_id is not None:
         models, _ = _enabled_chat_models(db, membership.tenant_id)
         if config.model_id not in {model.id for model, _ in models}:
             raise ApiError(422, "assistant.model_unavailable", "所选模型未在当前环境启用，请在设置中启用对话模型")
+    if config.fallback_model_id is not None:
+        models, _ = _enabled_chat_models(db, membership.tenant_id)
+        if config.fallback_model_id not in {model.id for model, _ in models}:
+            raise ApiError(422, "assistant.fallback_model_unavailable", "备选模型未在当前环境启用，请选择已启用的对话模型")
+        if config.fallback_model_id == config.model_id:
+            raise ApiError(422, "assistant.fallback_model_unavailable", "备选模型不能与主模型相同")
 
 
 def _validate_visible_orgs(db: Session, membership: Membership, org_ids: list[UUID]) -> None:

@@ -6,6 +6,7 @@ import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
 import { AssistantBasicsPanel } from './AssistantBasicsPanel'
+import { MountSettings } from './MountSettings'
 import { AssistantNav } from './AssistantNav'
 import type { NavKey } from './AssistantNav'
 import { CapabilityPicker } from './CapabilityPicker'
@@ -210,6 +211,9 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
                   <li className={item.state === 'available' ? '' : 'mount-invalid'} key={item.id}>
                     <span>{item.name || item.id}</span>
                     <span className="mount-state">{t(`capabilities.state.${item.state}`)}</span>
+                    {(group.kind === 'mcp' || group.kind === 'skill') && item.state === 'available' && (
+                      <MountSettings assistant={assistant} canEdit={can('assistants:edit') && assistant.can_edit} item={{ id: item.id, kind: group.kind, name: item.name }} onSaved={refresh} tenantId={tenantId} />
+                    )}
                   </li>
                 ))}
               </ul>
