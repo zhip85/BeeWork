@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from beework.schemas.plans import PortalGrantResponse
+
 
 class BudgetResponse(BaseModel):
     monthly_points: int
@@ -40,6 +42,7 @@ class UsageSummary(BaseModel):
     projected_points: int
     seats_used: int
     seats_limit: int | None
+    portal: PortalGrantResponse
     environment_count: int
     plan_name: str
     billing_cycle: str

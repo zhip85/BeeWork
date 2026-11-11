@@ -11,9 +11,10 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from beework.api.subscription import portal_response
 from beework.auth import require_csrf
 from beework.db import get_db
-from beework.entitlements import environments_for, get_subscription, seat_usage
+from beework.entitlements import environments_for, get_subscription, portal_grant_of, seat_usage
 from beework.errors import ApiError
 from beework.models import AuditEvent, Membership, PlatformModel
 from beework.models.assistants import Assistant
@@ -117,6 +118,7 @@ def get_usage(
         projected_points=project_month_end(used, now),
         seats_used=seat_usage(db, tenant_id),
         seats_limit=subscription.quotas.get("seats"),
+        portal=portal_response(portal_grant_of(subscription.entitlements, subscription.quotas, plan.code)),
         environment_count=len(environments_for(db, tenant_id)),
         plan_name=plan.name,
         billing_cycle=subscription.billing_cycle,

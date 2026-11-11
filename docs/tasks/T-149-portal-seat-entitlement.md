@@ -35,3 +35,30 @@
 
 - 按月活跃（`active`）的月度去重统计、月初重置与超额告警：只存储与展示，计量在 T-147 / T-011 扩展时做（演进 PRD 13.6、13.7）。
 - 门户席位的计费与账单（T-102）。
+
+## 完成记录（2026-11-11，Claude Sonnet 5.5）
+
+**数据与迁移**：`0045_portal_seat_grant`（可降级）。门户席位随订阅快照保存在既有 JSON 字段里：`entitlements.portal_mode` / `portal_overage`、`quotas.portal_seats`（`unlimited` 为空）、`overage_policy.portal_seats`（`grace_*` → `soft`，`hard` → `hard`）。迁移给全部套餐版本与历史订阅快照回填其套餐默认值；代码读取时也对没有字段的快照回退到套餐默认值。无新表。
+
+**套餐默认值**写在平台套餐定义（`PLAN_DEFAULTS` 与套餐版本）里，前端从 `/platform/plans` 读取，不硬编码：标准版 指定用户 · 200 · 硬限制；专业版 指定用户 · 1,000 · 宽限 5%；企业版 全员不限。平台可在“套餐与权益”页编辑（新增 `portal_mode`、`portal_overage`、`portal_seats` 的输入与中英文名称）。
+
+**接口 / 行为**
+- `POST /platform/tenants`、`PATCH /platform/tenants/{id}`、`POST /platform/tenants/{id}/subscription` 新增可选 `portal_mode` / `portal_seats` / `portal_overage`；校验：`unlimited` 不带席位数，其他模式席位数 > 0（422 `portal.grant_invalid`）。
+- 合同变更生成新订阅快照；同套餐重新应用保留已协商的门户授予；换套餐取新套餐默认值，除非显式指定。
+- 审计：平台链与租户链同时写“指定用户 · 1,500 · 硬限制 → 按月活跃 · 1,800 · 硬限制”（订阅变更 `details.portal`；编辑租户 `details.portal` 前缀“合同变更 · AI 门户：”）。
+- 租户侧只读：`GET /tenant/subscription` 与 `GET /tenant/usage` 返回 `portal {mode, seats, overage, assignable_limit}`；租户管理员调用平台接口 403。平台租户列表、订阅响应同样带出。
+- 配额项 `portal_seats` 已加入 `QUOTA_KEYS`（告警阈值与计数器由 T-150 注册；注册前用量为空）。`assignable_limit` 已按硬限制 / 宽限 5% / 10%（向下取整）/ 不限计算，供 T-150 使用。
+
+**前端**：平台“租户管理”创建 / 编辑表单新增“AI 门户席位”区块（计费模式、门户席位数、席位用尽时；全员不限时隐藏后两项并说明；席位数 ≤ 0 提示“门户席位数需大于 0”）；切换套餐时带出套餐默认值；租户列表分列显示“控制台席位 / AI 门户席位”。
+
+**验证**
+- `ruff` 通过；`test_portal_entitlement`（11 个）、`test_plans`、`test_entitlements`、`test_usage`、`test_tenant_lifecycle`、`test_worker` 通过（隔离 PostgreSQL 库，含迁移升降级）。覆盖：三种模式校验、套餐默认值、合同变更新快照与前后值审计、历史快照回填、租户侧只读（403）、跨租户（403）、创建 / 编辑租户、控制台席位统计回归。
+- 前端 `tsc`、`lint`、`i18n:check`、`style:check`、`build` 通过；浏览器（平台管理员）检查了创建租户表单与租户列表。
+- 未跑全量后端测试（主机负载高）。
+
+**与规格的差异 / 遗留**
+1. 本应用平台侧没有独立“租户详情”页（只有列表 + 编辑弹窗），所以“概览分别显示两类席位”做在租户列表的两列，“订阅与权益”门户编辑区做在编辑弹窗；“健康度 · 门户席位分配（已分配 / 上限）”等 T-150 有数据后再接。
+2. 创建租户向导目前是单页表单（不是多步向导），没有实时摘要 / 确认页 / 开通进度；门户席位区块已放在套餐处。
+3. 降级或调小席位数时“已分配数超过新上限先确认”依赖 T-150 的已分配数，未做。
+4. 按月活跃只存储与展示，不计量（按规格）。
+5. 套餐页的“配额”编辑里 `portal_seats` 与 `portal_mode` 分处两个表格，没有联动校验（保存时由服务端校验取值）。

@@ -41,7 +41,8 @@
       "monthly_points": "Monthly points",
       "storage_gb": "Storage (GB)",
       "monthly_conversations": "Monthly conversations",
-      "api_qps": "API requests per second"
+      "api_qps": "API requests per second",
+      "portal_seats": "AI portal seats"
     },
     "policies": {
       "hard": "Hard limit (reject)",
@@ -63,7 +64,9 @@
       "environments": "Environments",
       "custom_domain": "Custom domain",
       "byok": "Bring your own keys",
-      "log_retention_days": "Log retention (days)"
+      "log_retention_days": "Log retention (days)",
+      "portal_mode": "AI portal billing mode",
+      "portal_overage": "AI portal overage"
     },
     "publish": "Publish new version",
     "publishing": "Publishing…",
@@ -89,7 +92,17 @@
     "apply": "Apply",
     "applying": "Applying…",
     "applied": "Subscription change applied",
-    "applyFailed": "Could not apply the change"
+    "applyFailed": "Could not apply the change",
+    "portalModes": {
+      "named": "Named users",
+      "active": "Monthly active",
+      "unlimited": "Unlimited"
+    },
+    "portalOverages": {
+      "hard": "Hard limit",
+      "grace_5": "5% grace",
+      "grace_10": "10% grace"
+    }
   },
   "piiRules": "PII rules",
   "baseline": "Security baseline",

@@ -25,7 +25,7 @@ type Plan = {
   latest_version: number
   versions: PlanVersion[]
 }
-const QUOTA_KEYS = ['assistants', 'seats', 'monthly_points', 'storage_gb', 'monthly_conversations', 'api_qps'] as const
+const QUOTA_KEYS = ['assistants', 'seats', 'monthly_points', 'storage_gb', 'monthly_conversations', 'api_qps', 'portal_seats'] as const
 const POLICIES = ['hard', 'soft', 'degrade'] as const
 const ENVIRONMENT_VALUES = ['production_only', 'all']
 
@@ -133,6 +133,12 @@ export function PlatformPlansPage() {
     if (key === 'environments') {
       return <select onChange={(event) => set(event.target.value)} value={String(value)}>{ENVIRONMENT_VALUES.map((item) => <option key={item} value={item}>{item}</option>)}</select>
     }
+    if (key === 'portal_mode') {
+      return <select onChange={(event) => set(event.target.value)} value={String(value)}>{['named', 'active', 'unlimited'].map((item) => <option key={item} value={item}>{t(`plans.portalModes.${item}`)}</option>)}</select>
+    }
+    if (key === 'portal_overage') {
+      return <select onChange={(event) => set(event.target.value === '' ? null : event.target.value)} value={String(value ?? '')}><option value="">—</option>{['hard', 'grace_5', 'grace_10'].map((item) => <option key={item} value={item}>{t(`plans.portalOverages.${item}`)}</option>)}</select>
+    }
     if (key === 'approval_levels') {
       return <select onChange={(event) => set(event.target.value === '1' ? 1 : event.target.value)} value={String(value)}><option value="1">1</option><option value="multi">multi</option></select>
     }
@@ -141,7 +147,7 @@ export function PlatformPlansPage() {
     return <input onChange={(event) => set(event.target.value)} value={String(value ?? '')} />
   }
 
-  const shown = (value: Scalar) => (value === true ? '✓' : value === false || value === null ? '—' : String(value))
+  const shown = (value: Scalar, key = '') => key === 'portal_mode' ? t(`plans.portalModes.${value}`) : key === 'portal_overage' && value ? t(`plans.portalOverages.${value}`) : (value === true ? '✓' : value === false || value === null ? '—' : String(value))
 
   return (
     <section className="plans-page">
@@ -199,7 +205,7 @@ export function PlatformPlansPage() {
               {Object.keys(draft ? draft.entitlements : latest.entitlements).map((key) => (
                 <tr key={key}>
                   <td>{t(`plans.entitlementNames.${key}`, { defaultValue: key })}</td>
-                  <td>{draft ? entitlementInput(key, draft.entitlements[key]) : shown(latest.entitlements[key])}</td>
+                  <td>{draft ? entitlementInput(key, draft.entitlements[key]) : shown(latest.entitlements[key], key)}</td>
                 </tr>
               ))}
             </tbody>

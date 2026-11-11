@@ -112,6 +112,9 @@ export type PlatformTenant = {
   region: string
   industry: string
   member_count: number
+  portal_mode: string
+  portal_seats: number | null
+  portal_overage: string | null
   admin_email: string | null
   admin_name: string | null
   trial_ends_at: string | null

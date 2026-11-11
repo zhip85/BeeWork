@@ -27,6 +27,7 @@ QUOTA_KEYS = (
     "storage_gb",
     "monthly_conversations",
     "api_qps",
+    "portal_seats",
 )
 
 # Seed definitions of the three plans, version 1 (PRD 3.14.1, PLT-080–082). The migration carries
@@ -42,10 +43,11 @@ PLAN_DEFAULTS: dict[str, dict] = {
             "evaluations": False, "multi_agent": False, "sso": False,
             "approval_levels": 1, "environments": "production_only",
             "custom_domain": False, "byok": False, "log_retention_days": 30,
+            "portal_mode": "named", "portal_overage": "hard",
         },
         "quotas": {
             "assistants": 5, "seats": 10, "monthly_points": 200_000, "storage_gb": 5,
-            "monthly_conversations": 20_000, "api_qps": 10,
+            "monthly_conversations": 20_000, "api_qps": 10, "portal_seats": 200,
         },
     },
     "professional": {
@@ -58,10 +60,11 @@ PLAN_DEFAULTS: dict[str, dict] = {
             "evaluations": True, "multi_agent": "delegate_handoff_parallel", "sso": "sso",
             "approval_levels": 1, "environments": "production_only",
             "custom_domain": "custom_domain", "byok": "model_keys", "log_retention_days": 90,
+            "portal_mode": "named", "portal_overage": "grace_5",
         },
         "quotas": {
             "assistants": 30, "seats": 50, "monthly_points": 1_500_000, "storage_gb": 50,
-            "monthly_conversations": 200_000, "api_qps": 50,
+            "monthly_conversations": 200_000, "api_qps": 50, "portal_seats": 1000,
         },
     },
     "enterprise": {
@@ -75,15 +78,108 @@ PLAN_DEFAULTS: dict[str, dict] = {
             "approval_levels": "multi", "environments": "all",
             "custom_domain": "white_label", "byok": "model_and_encryption_keys",
             "log_retention_days": "custom",
+            "portal_mode": "unlimited", "portal_overage": None,
         },
         "quotas": {
             "assistants": None, "seats": 500, "monthly_points": 10_000_000, "storage_gb": 1024,
-            "monthly_conversations": 2_000_000, "api_qps": 300,
+            "monthly_conversations": 2_000_000, "api_qps": 300, "portal_seats": None,
         },
     },
 }
 # Product has not fixed per-quota overage rules yet; every quota is a hard limit until T-011/T-102.
 DEFAULT_OVERAGE_POLICY = {key: "hard" for key in QUOTA_KEYS}
+
+
+def default_overage_policy(entitlements: dict) -> dict:
+    """The portal seat quota's overage policy follows the plan's ``portal_overage`` (grace → soft limit)."""
+    grace = str(entitlements.get("portal_overage") or "").startswith("grace")
+    return {**DEFAULT_OVERAGE_POLICY, "portal_seats": "soft" if grace else "hard"}
+
+
+# ---------------------------------------------------------------------------
+# AI portal seats granted by the platform per contract (T-149, 演进 PRD 13.1–13.3). Console seats are separate.
+# ---------------------------------------------------------------------------
+
+PORTAL_MODES = ("named", "active", "unlimited")
+PORTAL_OVERAGES = ("hard", "grace_5", "grace_10")
+GRACE_PERCENT = {"hard": 0, "grace_5": 5, "grace_10": 10}
+PORTAL_MODE_LABELS = {"named": "指定用户", "active": "按月活跃", "unlimited": "全员不限"}
+PORTAL_OVERAGE_LABELS = {"hard": "硬限制", "grace_5": "宽限 5%", "grace_10": "宽限 10%"}
+
+
+@dataclass(frozen=True)
+class PortalGrant:
+    mode: str
+    seats: int | None  # None only for ``unlimited``
+    overage: str | None  # None only for ``unlimited``
+
+    @property
+    def assignable_limit(self) -> int | None:
+        """The most seats that may be assigned: the contract number plus the grace allowance (rounded down)."""
+        if self.mode == "unlimited" or self.seats is None:
+            return None
+        return self.seats * (100 + GRACE_PERCENT.get(self.overage or "hard", 0)) // 100
+
+    def label(self) -> str:
+        if self.mode == "unlimited":
+            return PORTAL_MODE_LABELS["unlimited"]
+        return f"{PORTAL_MODE_LABELS[self.mode]} · {self.seats:,} · {PORTAL_OVERAGE_LABELS[self.overage or 'hard']}"
+
+
+def validate_portal_grant(mode: str, seats: int | None, overage: str | None) -> PortalGrant:
+    if mode not in PORTAL_MODES:
+        raise ApiError(422, "portal.grant_invalid", "AI 门户计费模式无效")
+    if mode == "unlimited":
+        return PortalGrant("unlimited", None, None)
+    if seats is None or isinstance(seats, bool) or seats <= 0:
+        raise ApiError(422, "portal.grant_invalid", "门户席位数需大于 0")
+    overage = overage or "hard"
+    if overage not in PORTAL_OVERAGES:
+        raise ApiError(422, "portal.grant_invalid", "席位用尽时的策略无效")
+    return PortalGrant(mode, seats, overage)
+
+
+def portal_grant_of(entitlements: dict, quotas: dict, plan_code: str | None = None) -> PortalGrant:
+    """Read the grant from a snapshot; snapshots written before T-149 fall back to their plan's defaults."""
+    if "portal_mode" not in entitlements:
+        default = PLAN_DEFAULTS.get(plan_code or "", PLAN_DEFAULTS["standard"])
+        return PortalGrant(
+            default["entitlements"]["portal_mode"], default["quotas"]["portal_seats"], default["entitlements"]["portal_overage"]
+        )
+    mode = entitlements.get("portal_mode")
+    if mode == "unlimited":
+        return PortalGrant("unlimited", None, None)
+    return PortalGrant(mode, quotas.get("portal_seats"), entitlements.get("portal_overage") or "hard")
+
+
+def _write_portal_grant(entitlements: dict, quotas: dict, overage_policy: dict, grant: PortalGrant) -> None:
+    entitlements["portal_mode"] = grant.mode
+    entitlements["portal_overage"] = grant.overage
+    quotas["portal_seats"] = grant.seats
+    overage_policy["portal_seats"] = "soft" if (grant.overage or "").startswith("grace") else "hard"
+
+
+def _resolve_portal_grant(
+    version: PlanVersion, current: TenantSubscription | None, keep_current: bool,
+    mode: str | None, seats: int | None, overage: str | None, plan_code: str,
+) -> PortalGrant:
+    """Explicit values win over the kept current grant (same plan) which wins over the plan version's own."""
+    if keep_current and current is not None:
+        base = portal_grant_of(current.entitlements, current.quotas, plan_code)
+    else:
+        base = portal_grant_of(version.entitlements, version.quotas, plan_code)
+    if mode is None and seats is None and overage is None:
+        return base
+    new_mode = mode or base.mode
+    return validate_portal_grant(
+        new_mode, seats if seats is not None else base.seats, overage if overage is not None else base.overage
+    )
+
+
+def portal_grant(db: Session, tenant_id: UUID) -> PortalGrant:
+    subscription = get_subscription(db, tenant_id)
+    tenant = db.get(Tenant, tenant_id)
+    return portal_grant_of(subscription.entitlements, subscription.quotas, tenant.plan if tenant else None)
 
 
 @dataclass(frozen=True)
@@ -187,7 +283,7 @@ def ensure_default_plans(db: Session) -> None:
                             version=1,
                             entitlements=definition["entitlements"],
                             quotas=definition["quotas"],
-                            overage_policy=DEFAULT_OVERAGE_POLICY,
+                            overage_policy=default_overage_policy(definition["entitlements"]),
                         )
                     )
                     db.flush()
@@ -215,6 +311,9 @@ def create_subscription(
     *,
     seats: int | None = None,
     billing_cycle: str = "monthly",
+    portal_mode: str | None = None,
+    portal_seats: int | None = None,
+    portal_overage: str | None = None,
 ) -> TenantSubscription:
     """Snapshot the latest version of the tenant's plan as its current subscription.
 
@@ -225,6 +324,11 @@ def create_subscription(
     quotas = dict(version.quotas)
     if seats is not None:
         quotas["seats"] = seats
+    entitlements, overage_policy = dict(version.entitlements), dict(version.overage_policy)
+    _write_portal_grant(
+        entitlements, quotas, overage_policy,
+        _resolve_portal_grant(version, None, False, portal_mode, portal_seats, portal_overage, tenant.plan),
+    )
     db.execute(
         update(TenantSubscription)
         .where(TenantSubscription.tenant_id == tenant.id, TenantSubscription.is_current.is_(True))
@@ -233,9 +337,9 @@ def create_subscription(
     subscription = TenantSubscription(
         tenant_id=tenant.id,
         plan_version_id=version.id,
-        entitlements=dict(version.entitlements),
+        entitlements=entitlements,
         quotas=quotas,
-        overage_policy=dict(version.overage_policy),
+        overage_policy=overage_policy,
         billing_cycle=billing_cycle,
         addons={},
     )
@@ -366,6 +470,12 @@ def validate_plan_definition(
     levels = (entitlements or {}).get("approval_levels")
     if levels is not None and levels not in (1, "multi"):
         raise ApiError(422, "plan.invalid", "审批层级必须是 1 或 multi")
+    portal_mode = (entitlements or {}).get("portal_mode")
+    if portal_mode is not None and portal_mode not in PORTAL_MODES:
+        raise ApiError(422, "plan.invalid", "AI 门户计费模式无效")
+    portal_overage = (entitlements or {}).get("portal_overage")
+    if portal_overage is not None and portal_overage not in PORTAL_OVERAGES:
+        raise ApiError(422, "plan.invalid", "AI 门户席位超额策略无效")
     for key, value in (quotas or {}).items():
         if key not in QUOTA_KEYS:
             raise ApiError(422, "plan.invalid", f"未知配额：{key}")
@@ -427,6 +537,9 @@ def change_subscription(
     seats: int | None = None,
     billing_cycle: str = "monthly",
     renews_at: datetime | None = None,
+    portal_mode: str | None = None,
+    portal_seats: int | None = None,
+    portal_overage: str | None = None,
 ) -> TenantSubscription:
     """Apply a plan version to a tenant as its new current subscription snapshot (history is kept).
 
@@ -452,6 +565,11 @@ def change_subscription(
         seats = current.quotas["seats"]  # moving to a newer version of the same plan must not reset negotiated seats
     if seats is not None:
         quotas["seats"] = seats
+    entitlements, overage_policy = dict(version.entitlements), dict(version.overage_policy)
+    grant = _resolve_portal_grant(
+        version, current, current is not None and tenant.plan == plan.code, portal_mode, portal_seats, portal_overage, plan.code
+    )
+    _write_portal_grant(entitlements, quotas, overage_policy, grant)
     db.execute(
         update(TenantSubscription)
         .where(TenantSubscription.tenant_id == tenant.id, TenantSubscription.is_current.is_(True))
@@ -463,9 +581,9 @@ def change_subscription(
     subscription = TenantSubscription(
         tenant_id=tenant.id,
         plan_version_id=version.id,
-        entitlements=dict(version.entitlements),
+        entitlements=entitlements,
         quotas=quotas,
-        overage_policy=dict(version.overage_policy),
+        overage_policy=overage_policy,
         billing_cycle=billing_cycle,
         renews_at=renews_at,
         addons=dict(previous.addons) if previous is not None else {},

@@ -11,6 +11,15 @@ class QuotaUsageResponse(BaseModel):
     policy: str
 
 
+class PortalGrantResponse(BaseModel):
+    """AI portal seats the platform granted by contract; read-only for the tenant (T-149)."""
+
+    mode: str
+    seats: int | None
+    overage: str | None
+    assignable_limit: int | None  # contract seats plus the grace allowance; None = no limit
+
+
 class TenantSubscriptionResponse(BaseModel):
     plan_code: str
     plan_name: str
@@ -20,6 +29,7 @@ class TenantSubscriptionResponse(BaseModel):
     billing_cycle: str
     renews_at: datetime | None
     addons: dict
+    portal: PortalGrantResponse
 
 
 class PlanVersionResponse(BaseModel):
@@ -64,6 +74,9 @@ class ChangeSubscriptionRequest(BaseModel):
     seats: int | None = Field(default=None, ge=1, le=100000)  # the plan's seat quota when omitted
     billing_cycle: Literal["monthly", "yearly"] = "monthly"
     renews_at: datetime | None = None
+    portal_mode: Literal["named", "active", "unlimited"] | None = None
+    portal_seats: int | None = Field(default=None, ge=1, le=10000000)
+    portal_overage: Literal["hard", "grace_5", "grace_10"] | None = None
 
 
 class PlatformSubscriptionResponse(BaseModel):
@@ -75,3 +88,4 @@ class PlatformSubscriptionResponse(BaseModel):
     billing_cycle: str
     renews_at: datetime | None
     created_at: datetime
+    portal: PortalGrantResponse
