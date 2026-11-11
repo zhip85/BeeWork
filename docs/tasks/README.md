@@ -2,7 +2,7 @@
 
 > 开发负责人维护本看板。编码模型**只认领状态为「待开发」且依赖都已「已完成」的任务**，开始时把状态改为「开发中」并填写负责人，完成后改为「待验收」；只有开发负责人验收通过后才改为「已完成」。
 >
-> **需求基线**：原 PRD `../BeeWork-PRD.md` + 2026-11-10 起的演进 PRD [`../PRD-ai-portal-and-agent-evolution.md`](../PRD-ai-portal-and-agent-evolution.md)（原型 `../ai-portal-prototype.html`）。两者冲突时以演进 PRD 为准：界面上只有“智能体”（即原助理），Chatflow / Workflow 归“流程画布”，能力中心的 Chatflow / Workflow 是“流程连接”，新增 AI 门户（管理员端 + 员工端）。受影响任务的规格末尾有“需求变更（2026-11-10）”一节。
+> **需求基线**：原 PRD `../BeeWork-PRD.md` + 2026-11-10 起的演进 PRD（2026-11-11 更新到 v1.1，新增第 13 章“租户开通与 AI 门户席位”） [`../PRD-ai-portal-and-agent-evolution.md`](../PRD-ai-portal-and-agent-evolution.md)（原型 `../ai-portal-prototype.html`）。两者冲突时以演进 PRD 为准：界面上只有“智能体”（即原助理），Chatflow / Workflow 归“流程画布”，能力中心的 Chatflow / Workflow 是“流程连接”，新增 AI 门户（管理员端 + 员工端）。受影响任务的规格末尾有“需求变更（2026-11-10）”一节。
 >
 > 每个任务的规格在同目录的 `T-xxx-*.md`。工程规范见 [`../architecture.md`](../architecture.md)，路线图见 [`../technical-plan.md`](../technical-plan.md)，进度记录见 [`../development-status.md`](../development-status.md)。
 
@@ -104,7 +104,7 @@
 | [T-067](./T-067-agent-terminology-navigation.md) | 术语统一与导航改版（助理 → 智能体） | T-003 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-067-agent-terminology`；只改用户可见文案与导航，不改表、接口、权限码 |
 | [T-070](./T-070-capability-catalog.md) | 能力目录、挂载选择器与引用完整性 | T-033、T-060 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-070-capability-catalog`；2026-11-10：类型改为叶子智能体与流程连接，引用方加门户应用 |；现仅知识库注册，其余类型随 T-066 / T-072–T-075 |
 | [T-071](./T-071-tool-executor.md) | 受控工具执行器（出口网关） | T-001、T-054 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-071-tool-executor`；安全关键 |；尚无 provider，运行时调用在 T-061 |
-| [T-072](./T-072-mcp.md) | MCP 连接 | T-070、T-071、T-022 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-072-mcp`；连过官方 SDK 示例服务器，OAuth 仅模拟验证；运行时调用在 T-061 |
+| [T-072](./T-072-mcp.md) | MCP 连接 | T-070、T-071、T-022 | — | 已完成（有条件） | Claude Sonnet 5.5 | 分支 `task/T-072-mcp`；连过官方 SDK 示例服务器，OAuth 仅模拟验证；运行时调用在 T-061 |
 | [T-073](./T-073-api-plugins.md) | API 插件 | T-072 | — | 待开发 | | |
 | [T-074](./T-074-skills.md) | Skill：上传、安全检查与运行时加载 | T-072、T-002 | — | 待开发 | | 本期不执行脚本 |
 | [T-075](./T-075-flow-connections.md) | 流程连接：本平台已发布画布 / Dify 应用 | T-060、T-070、T-071 | Dify 应用 API Key | 待开发 | | 2026-11-10 新增；只做 Dify 与本平台画布 |
@@ -140,7 +140,10 @@
 | [T-143](./T-143-portal-conversations-projects.md) | 员工端对话与项目 | T-142、T-140、T-025、T-026 | 供应商 Key | 待开发 | | 走真实运行，不做前端模拟回答 |
 | [T-144](./T-144-portal-app-library.md) | 员工端 AI 应用库与表单模式 | T-143（表单模式另需 T-064、T-075） | — | 待开发 | | 可见性服务端判定 |
 | [T-145](./T-145-portal-profile.md) | 员工个人中心 | T-142、T-056 | — | 待开发 | | 通知在 T-088 后接通 |
-| [T-147](./T-147-portal-analytics.md) | AI 门户 · 使用分析 | T-143、T-011 | — | 待开发 | | |
+| [T-147](./T-147-portal-analytics.md) | AI 门户 · 使用分析 | T-143、T-011 | — | 待开发 | | 2026-11-11：加门户席位指标 |
+| [T-149](./T-149-portal-seat-entitlement.md) | 平台授予 AI 门户席位权益（创建租户、订阅与权益、配额） | T-010、T-140 | — | 待开发 | | 2026-11-11 新增；与控制台席位分开计量 |
+| [T-150](./T-150-portal-members.md) | AI 门户 · 门户成员与席位分配（部门规则、手动 / 自动分配、闲置回收、申请审批） | T-149、T-142 | — | 待开发 | | 2026-11-11 新增；需 PostgreSQL 并发测试 |
+| [T-151](./T-151-portal-seat-check.md) | 员工端门户席位校验与开通申请 | T-150、T-142 | — | 待开发 | | 2026-11-11 新增；所有员工端接口须挂 `require_portal_seat` |
 
 ## V1.0 任务（阶段 8–9：设置与平台运营补全、生产门禁）
 
@@ -193,6 +196,7 @@
   E：T-058、T-063、T-064、T-065、T-007                 ← V0.2 完成
 V0.4（AI 门户，可与 V0.3 并行，T-140 只等 T-070）：
   T-140 → T-141 → T-142 → T-143 → T-144、T-145、T-147
+  2026-11-11 追加门户席位：T-149（只等 T-140）→ T-150（再等 T-142）→ T-151；T-143 / T-144 / T-145 的员工端接口要挂 T-151 的席位校验
 V1.0 追加：T-095 → T-146；T-148（等 T-121）
 第 12 批：T-041、T-084、T-087
 第 13 批：T-042、T-043、T-080、T-088
@@ -212,7 +216,9 @@ V1.0 追加：T-095 → T-146；T-148（等 T-121）
 | 长期记忆 Top-K 检索 v1 用 PostgreSQL 全文 + 时间衰减，不引入向量库，不写入知识引擎 | T-056 |
 | 流程中的函数/变量/条件用 JMESPath 受限表达式，不开放任意代码；Skill 脚本本期不执行 | T-062、T-074 |
 | 2026-11-10：界面只保留“智能体”（= 原助理），表名 / 接口 / 权限码不改；`agents` 表只放 Chatflow / Workflow（流程画布） | T-067、T-060 |
-| 2026-11-10：员工门户与控制台同一前端应用，`/portal/*` 独立布局并懒加载；员工是租户成员，新增内置角色 `employee`（不占席位，用户确认） | T-142 |
+| 2026-11-10：员工门户与控制台同一前端应用，`/portal/*` 独立布局并懒加载；员工是租户成员，新增内置角色 `employee`（不占控制台席位，用户确认） | T-142 |
+| 2026-11-11（演进 PRD v1.1）：席位拆成**控制台席位**与 **AI 门户席位**，分别计量、计费、显示；门户席位由平台按合同授予、租户分配、员工端服务端校验 | T-149、T-150、T-151 |
+| 2026-11-11：门户席位的分配 / 回收 / 审批归 `portal:publish`（与上下架同级），规则与策略归 `portal:edit` | T-150 |
 | 2026-11-10：语音转写默认 OpenAI `gpt-4o-mini-transcribe`，经 LiteLLM，模型目录新增 `speech_to_text` 类型 | T-148 |
 | 2026-11-10：门户对话复用现有会话 / 运行表（渠道类型 `portal`），不另建会话体系 | T-143 |
 | 外部检测器（Presidio / LLM 判定）故障时放行并告警，不阻断全部流量 | T-055 |
