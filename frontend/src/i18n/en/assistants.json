@@ -259,6 +259,8 @@
     "allTools": "All ticked tools",
     "someTools": "{{count}} tools",
     "hasDelegate": "has usage note",
-    "failed": "Saving failed. Please retry."
+    "failed": "Saving failed. Please retry.",
+    "delegateRequired": "When to delegate (required)",
+    "delegateMissing": "missing usage note"
   }
 }

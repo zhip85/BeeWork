@@ -186,6 +186,56 @@ def _system_prompt(dsl: AssistantDSLv1, state: RuntimeState, *, tools: bool = Fa
     return "\n\n".join(parts)
 
 
+def run_agent(dsl: AssistantDSLv1, deps: RuntimeDeps, state: RuntimeState, writer: Callable[[Any], None]) -> RuntimeState:
+    """The answering core: knowledge retrieval, then the model with its tool-calling loop (T-061). The ``execute`` stage
+    runs it for the main agent; a leaf agent called as a tool (T-066) runs it with its own frozen DSL and a silent writer."""
+    update: RuntimeState = {}
+    bases = deps.resolve_bases([base.kb_id for base in dsl.knowledge.bases]) if dsl.knowledge.bases else []
+    with deps.clock.external(), deps.span("retrieval"):
+        result = deps.retriever.retrieve(
+            tenant_id=deps.tenant_id, query=retrieval_query(state.get("query") or state["input"], state.get("synonyms", [])),
+            bases=bases, top_k=dsl.knowledge.top_k,
+        )
+    update["retrieval_mode"] = result.mode
+    update["context"] = [
+        {
+            "document_name": c.document_name, "chunk_id": c.chunk_id, "text": c.text, "score": c.score,
+            "kind": c.kind, "kb_name": c.kb_name, "document_id": c.document_id,
+        }
+        for c in result.chunks
+    ]
+
+    offered = deps.tools.schemas() if deps.tools is not None else []
+    messages: list[BaseMessage] = [SystemMessage(content=_system_prompt(dsl, {**state, **update}, tools=bool(offered)))]
+    for turn in state.get("history", []):
+        role = turn.get("role")
+        if role == "user":
+            messages.append(HumanMessage(content=turn["content"]))
+        elif role == "assistant":
+            messages.append(AIMessageChunk(content=turn["content"]))
+    messages.append(HumanMessage(content=state["input"]))
+
+    usage: dict[str, int | None] = {"input": None, "output": None}
+    model = _ModelCaller(deps, writer)
+    text = ""
+    for _round in range(dsl.limits.max_iterations if offered else 1):
+        reply, round_usage, text = model.call(messages, offered)
+        usage = _add_usage(usage, round_usage)
+        if not reply.tool_calls:
+            break
+        messages.append(reply)
+        for call in reply.tool_calls:
+            messages.append(_run_tool(deps, writer, call))
+    else:
+        if offered:  # still asking for tools after the limit: answer from what was gathered, tools off
+            messages.append(SystemMessage(content="已达到工具调用次数上限，不能再调用工具。请根据已有信息直接回答。"))
+            reply, round_usage, text = model.call(messages, [])
+            usage = _add_usage(usage, round_usage)
+    update["text"] = text
+    update["usage"] = usage
+    return update
+
+
 @register_stage("execute")
 def _execute(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
     """Run the routed target. For ``assistant``: knowledge retrieval, then the model."""
@@ -193,52 +243,7 @@ def _execute(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
     def node(state: RuntimeState) -> RuntimeState:
         if state.get("blocked"):
             return {}  # the input rules answered already: no retrieval, no model call
-        writer = get_stream_writer()
-        update: RuntimeState = {}
-        bases = deps.resolve_bases([base.kb_id for base in dsl.knowledge.bases]) if dsl.knowledge.bases else []
-        with deps.clock.external(), deps.span("retrieval"):
-            result = deps.retriever.retrieve(
-                tenant_id=deps.tenant_id, query=retrieval_query(state.get("query") or state["input"], state.get("synonyms", [])),
-                bases=bases, top_k=dsl.knowledge.top_k,
-            )
-        update["retrieval_mode"] = result.mode
-        update["context"] = [
-            {
-                "document_name": c.document_name, "chunk_id": c.chunk_id, "text": c.text, "score": c.score,
-                "kind": c.kind, "kb_name": c.kb_name, "document_id": c.document_id,
-            }
-            for c in result.chunks
-        ]
-
-        offered = deps.tools.schemas() if deps.tools is not None else []
-        messages: list[BaseMessage] = [SystemMessage(content=_system_prompt(dsl, {**state, **update}, tools=bool(offered)))]
-        for turn in state.get("history", []):
-            role = turn.get("role")
-            if role == "user":
-                messages.append(HumanMessage(content=turn["content"]))
-            elif role == "assistant":
-                messages.append(AIMessageChunk(content=turn["content"]))
-        messages.append(HumanMessage(content=state["input"]))
-
-        usage: dict[str, int | None] = {"input": None, "output": None}
-        model = _ModelCaller(deps, writer)
-        text = ""
-        for _round in range(dsl.limits.max_iterations if offered else 1):
-            reply, round_usage, text = model.call(messages, offered)
-            usage = _add_usage(usage, round_usage)
-            if not reply.tool_calls:
-                break
-            messages.append(reply)
-            for call in reply.tool_calls:
-                messages.append(_run_tool(deps, writer, call))
-        else:
-            if offered:  # still asking for tools after the limit: answer from what was gathered, tools off
-                messages.append(SystemMessage(content="已达到工具调用次数上限，不能再调用工具。请根据已有信息直接回答。"))
-                reply, round_usage, text = model.call(messages, [])
-                usage = _add_usage(usage, round_usage)
-        update["text"] = text
-        update["usage"] = usage
-        return update
+        return run_agent(dsl, deps, state, get_stream_writer())
 
     return node
 

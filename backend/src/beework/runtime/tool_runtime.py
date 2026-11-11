@@ -45,14 +45,17 @@ class ToolRuntime:
         self, bind: Any, dsl: AssistantDSLv1, *, tenant_id: UUID, run_id: UUID | None, assistant_id: UUID | None,
         end_user: str | None = None, guard_output: Callable[[str], str] = lambda text: text,
         span: Callable[[str], AbstractContextManager] = lambda name: nullcontext(),
+        depth: int = 1, allow_agents: bool = True, environment: str = "production",
+        check_stop: Callable[[], None] = lambda: None, clock: Any = None,
     ) -> None:
         self.bind, self.dsl, self.tenant_id = bind, dsl, tenant_id
-        self._guard, self._span = guard_output, span
+        self._guard, self._span, self._allow_agents, self._clock = guard_output, span, allow_agents, clock
         self.offered: list[OfferedTool] = self._resolve()
         self._by_alias = {tool.alias: tool for tool in self.offered}
         self.ctx = ToolContext(
             tenant_id=tenant_id, allowed=frozenset(tool.spec.name for tool in self.offered), run_id=run_id,
-            assistant_id=assistant_id, end_user=end_user, depth=1, guard_output=guard_output, span=span,
+            assistant_id=assistant_id, end_user=end_user, depth=depth, guard_output=guard_output, span=span,
+            environment=environment, check_stop=check_stop,
         )
 
     # -- what is offered ------------------------------------------------------------------------------
@@ -61,6 +64,10 @@ class ToolRuntime:
         from beework.capability_service import mcp_tool_specs
         from beework.skill_service import skill_tool_specs
 
+        if mount.kind == "agent":
+            from beework.agent_teams import agent_tool_specs
+
+            return agent_tool_specs(side, self.tenant_id, [mount.capability_id]) if self._allow_agents else []
         if mount.kind == "mcp":
             specs = mcp_tool_specs(side, self.tenant_id, [mount.capability_id])
             return [s for s in specs if not mount.tools or s.name.split(":", 2)[2] in mount.tools]  # ticked for this agent
@@ -99,7 +106,7 @@ class ToolRuntime:
         if tool is None:
             return ToolResult(status="error", content="没有这个工具", code="tool.not_found"), 0
         try:
-            with Session(bind=self.bind) as side:
+            with Session(bind=self.bind) as side, (self._clock.external() if self._clock is not None else nullcontext()):
                 result = invoke_tool(side, self.ctx, tool.spec.name, args)
         except ToolConfirmationRequired:
             result = ToolResult(

@@ -23,7 +23,7 @@ import type { Assistant, OrganizationOption } from './types'
 
 type CheckIssue = { code: string; severity: 'blocker' | 'high' | 'info'; message: string; target: string }
 type Checks = { issues: CheckIssue[]; blockers: number; high_impact: number; info: number }
-type MountEntry = { id: string; kind: string; name: string; state: 'available' | 'disabled' | 'deleted' }
+type MountEntry = { id: string; kind: string; name: string; state: 'available' | 'disabled' | 'deleted'; meta?: { reason?: string | null } }
 type Mounts = { total: number; groups: { kind: string; items: MountEntry[] }[]; mountable_kinds: string[] }
 
 const TABS = ['overview', 'basics', 'capabilities', 'channels', 'tests', 'versions', 'conversations', 'dependencies'] as const
@@ -44,6 +44,8 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
   const [assistant, setAssistant] = useState<Assistant | null>(null)
   const [checks, setChecks] = useState<Checks | null>(null)
   const [mounts, setMounts] = useState<Mounts | null>(null)
+  const [teamError, setTeamError] = useState('')
+  const [teamBusy, setTeamBusy] = useState(false)
   const [organizations, setOrganizations] = useState<OrganizationOption[]>([])
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -88,6 +90,26 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
   }, [tenantId, assistantId, reload])
 
   const refresh = useCallback(() => setReload((value) => value + 1), [])
+  async function switchTeam(enabled: boolean) {
+    if (!assistant) return
+    setTeamBusy(true)
+    setTeamError('')
+    try {
+      await apiRequest(`/api/v1/assistants/${assistant.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: assistant.name, description: assistant.description, category: assistant.category, icon: assistant.icon, color: assistant.color,
+          visibility: assistant.visibility, visible_org_ids: assistant.visible_org_ids, row_version: assistant.row_version,
+          config: { ...assistant.config, multi_agent: { enabled } },
+        }),
+      }, tenantId)
+      refresh()
+    } catch (failure) {
+      setTeamError(failure instanceof Error ? failure.message : ta('picker.loadFailed'))
+    } finally {
+      setTeamBusy(false)
+    }
+  }
   const setTab = (next: Tab) => setParams(next === 'overview' ? {} : { tab: next }, { replace: true })
   const goTo = (path: string) => navigate(path)
 
@@ -202,6 +224,11 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
               type="button"
             >{t('capabilities.mount')}</button>
           </header>
+          <label className="wizard-toggle team-toggle">
+            <input checked={Boolean(assistant.config.multi_agent?.enabled)} disabled={teamBusy || !(can('assistants:edit') && assistant.can_edit)} onChange={(event) => void switchTeam(event.target.checked)} type="checkbox" />
+            <span><strong>{t('capabilities.team.title')}</strong><small>{t('capabilities.team.hint')}</small></span>
+          </label>
+          {teamError && <p className="form-error" role="alert">{teamError}</p>}
           {mounts && mounts.total === 0 && <p className="assistants-empty-filtered">{t('capabilities.empty')}</p>}
           {mounts && mounts.groups.map((group) => (
             <div className="mount-group" key={group.kind}>
@@ -210,8 +237,8 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
                 {group.items.map((item) => (
                   <li className={item.state === 'available' ? '' : 'mount-invalid'} key={item.id}>
                     <span>{item.name || item.id}</span>
-                    <span className="mount-state">{t(`capabilities.state.${item.state}`)}</span>
-                    {(group.kind === 'mcp' || group.kind === 'skill') && item.state === 'available' && (
+                    <span className="mount-state">{t(`capabilities.state.${item.state}`)}{item.meta?.reason ? ` · ${t(`capabilities.reason.${item.meta.reason}`)}` : ''}</span>
+                    {(group.kind === 'mcp' || group.kind === 'skill' || group.kind === 'agent') && item.state === 'available' && (
                       <MountSettings assistant={assistant} canEdit={can('assistants:edit') && assistant.can_edit} item={{ id: item.id, kind: group.kind, name: item.name }} onSaved={refresh} tenantId={tenantId} />
                     )}
                   </li>
@@ -230,6 +257,7 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
           mounts={mounts}
           onClose={() => setMounting(false)}
           onSaved={() => { setMounting(false); setNotice(ta('picker.saved')); setReload((value) => value + 1) }}
+          teamEnabled={Boolean(assistant.config.multi_agent?.enabled)}
           tenantId={tenantId}
         />
       )}
@@ -291,12 +319,14 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
 function MountDialog({
   assistant,
   mounts,
+  teamEnabled,
   tenantId,
   onClose,
   onSaved,
 }: {
   assistant: Assistant
   mounts: Mounts | null
+  teamEnabled: boolean
   tenantId: string
   onClose: () => void
   onSaved: () => void
@@ -347,7 +377,7 @@ function MountDialog({
     <div className="modal-backdrop confirm-backdrop" onClick={onClose} role="presentation">
       <div aria-labelledby="mount-title" aria-modal="true" className="create-modal mount-dialog" onClick={(event) => event.stopPropagation()} role="dialog">
         <h2 id="mount-title">{t('picker.title')}</h2>
-        <CapabilityPicker names={names} onChange={(next, nextNames) => { setSelected(next); setNames(nextNames) }} selected={selected} tenantId={tenantId} />
+        <CapabilityPicker hiddenKinds={teamEnabled ? [] : ['agent']} names={names} onChange={(next, nextNames) => { setSelected(next); setNames(nextNames) }} selected={selected} tenantId={tenantId} />
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="confirm-actions">
           <button className="secondary-button" disabled={saving} onClick={onClose} type="button">{t('picker.cancel')}</button>

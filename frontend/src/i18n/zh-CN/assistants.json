@@ -259,6 +259,8 @@
     "allTools": "全部已勾选工具",
     "someTools": "{{count}} 个工具",
     "hasDelegate": "已写委派描述",
-    "failed": "保存失败，请重试"
+    "failed": "保存失败，请重试",
+    "delegateRequired": "委派描述（必填：何时交给它）",
+    "delegateMissing": "缺少委派描述"
   }
 }

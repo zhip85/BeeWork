@@ -12,6 +12,7 @@ from langchain_core.language_models import BaseChatModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+import beework.agent_teams  # noqa: F401  (registers the leaf-agent tool provider and the agent mount resolver)
 import beework.capability_service  # noqa: F401  (registers the MCP tool provider and the mcp mount resolver)
 import beework.skill_service  # noqa: F401  (registers the skill load tool and the skill mount resolver)
 from beework.compliance import get_policy
@@ -342,6 +343,7 @@ def _execute_run(
                 tool_runtime = ToolRuntime(
                     bind, dsl, tenant_id=run.tenant_id, run_id=run.id, assistant_id=run.assistant_id,
                     end_user=str(end_user_id) if end_user_id else None, guard_output=guard_tool_output, span=trace.span,
+                    environment=run.environment, check_stop=check_stop, clock=clock,
                 )
             graph = compile_assistant(
                 dsl,

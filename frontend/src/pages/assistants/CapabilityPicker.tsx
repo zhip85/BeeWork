@@ -15,9 +15,11 @@ export function CapabilityPicker({
   tenantId,
   selected,
   names,
+  hiddenKinds = [],
   onChange,
 }: {
   tenantId: string
+  hiddenKinds?: string[]
   selected: Selection
   names: Record<string, string>
   onChange: (selected: Selection, names: Record<string, string>) => void
@@ -89,7 +91,7 @@ export function CapabilityPicker({
   return (
     <div className="capability-picker">
       <nav aria-label={t('picker.kinds')} className="capability-kinds">
-        {KIND_ORDER.map((key) => (
+        {KIND_ORDER.filter((key) => !hiddenKinds.includes(key)).map((key) => (
           <button
             aria-pressed={kind === key}
             className={kind === key ? 'selected' : ''}

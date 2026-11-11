@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from beework.agent_teams import REASON_TEXT
 from beework.capabilities import resolve_mounts
 from beework.gateway_sync import environment_ready
 from beework.models import TenantModelEnvironment
@@ -57,9 +58,21 @@ def check_assistant(
     if not environment_ready(env):
         issues.append(CheckIssue(code="runtime.gateway_not_ready", severity="blocker", message="该环境尚未同步到 AI 网关", target="environment"))
 
+    settings = config.get("mount_settings") or {}
+    team = bool((config.get("multi_agent") or {}).get("enabled"))
     for mount in resolve_mounts(db, assistant.tenant_id, config.get("mounts") or {}):
+        label = mount.name or str(mount.id)
+        if mount.kind == "agent":
+            # A delegated-to agent that stopped being a valid leaf blocks publishing (演进 PRD 6.7, 15.2).
+            if not team:
+                issues.append(CheckIssue(code="agent.team_disabled", severity="blocker", message="已挂载智能体，但未开启多智能体协作", target="capabilities"))
+            if mount.state != "available":
+                reason = REASON_TEXT.get(str(mount.meta.get("reason")), "已删除或不可用")
+                issues.append(CheckIssue(code="agent.invalid", severity="blocker", message=f"挂载的智能体“{label}”{reason}，请移除或修复后再发布", target="capabilities"))
+            if not str((settings.get(str(mount.id)) or {}).get("delegate") or "").strip():
+                issues.append(CheckIssue(code="agent.delegate_missing", severity="blocker", message=f"请为挂载的智能体“{label}”填写委派描述（何时交给它）", target="capabilities"))
+            continue
         if mount.state != "available":
-            label = mount.name or str(mount.id)
             state = "已停用" if mount.state == "disabled" else "已删除或不可用"
             issues.append(
                 CheckIssue(code="mount.invalid", severity="high", message=f"挂载的能力“{label}”{state}", target="capabilities")

@@ -91,6 +91,15 @@
       "available": "Available",
       "disabled": "Disabled",
       "deleted": "Deleted / invalid"
+    },
+    "team": {
+      "title": "Multi-agent collaboration",
+      "hint": "When on, this agent can mount other agents and delegate tasks to them (one level only: a mounted agent must be a published leaf agent). Off by default."
+    },
+    "reason": {
+      "not_published": "not published",
+      "disabled": "disabled",
+      "not_leaf": "no longer a leaf agent"
     }
   },
   "submitted": "Submitted to the approval center",

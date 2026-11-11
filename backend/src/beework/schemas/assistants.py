@@ -33,6 +33,13 @@ class MountSettings(BaseModel):
     delegate: str = Field(default="", max_length=500)
 
 
+class MultiAgentConfig(BaseModel):
+    """Multi-agent collaboration (T-066): off by default. On, the agent may mount other agents (one level of leaf
+    agents) and delegate to them as tools; a mounted agent must itself be a leaf."""
+
+    enabled: bool = False
+
+
 class AssistantDraftConfig(BaseModel):
     """Editable assistant configuration stored in ``assistants.draft_config`` (read by the T-025 compiler)."""
 
@@ -52,6 +59,7 @@ class AssistantDraftConfig(BaseModel):
     suggested_questions: bool = True
     feedback_enabled: bool = True
     mounts: AssistantMounts = Field(default_factory=AssistantMounts)
+    multi_agent: MultiAgentConfig = Field(default_factory=MultiAgentConfig)
     # Keyed by mounted resource id; an entry for something that is not mounted is rejected on save.
     mount_settings: dict[str, MountSettings] = Field(default_factory=dict, max_length=200)
     # OC configuration (T-054a defines the shape; stage tasks fill in behaviour).
