@@ -41,6 +41,10 @@ def check_assistant(
     elif str(model_id) not in enabled_model_ids:
         issues.append(CheckIssue(code="runtime.model_unavailable", severity="blocker", message="所选模型未在当前环境启用", target="basic"))
 
+    fallback_id = config.get("fallback_model_id")
+    if fallback_id and str(fallback_id) not in enabled_model_ids:
+        issues.append(CheckIssue(code="runtime.fallback_model_unavailable", severity="high", message="备选模型未在当前环境启用，主模型出错时无法切换", target="basic"))
+
     if not (config.get("prompt") or "").strip():
         issues.append(CheckIssue(code="runtime.prompt_missing", severity="blocker", message="智能体尚未填写提示词", target="basic"))
 

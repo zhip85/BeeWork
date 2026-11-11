@@ -14,6 +14,11 @@ type Form = {
   category: AssistantCategory
   prompt: string
   modelId: string
+  role: string
+  answerStyle: 'concise' | 'balanced' | 'detailed'
+  fallbackModelId: string
+  temperature: string
+  maxOutput: string
   language: 'zh-CN' | 'en'
   visibility: AssistantVisibility
   visibleOrgIds: string[]
@@ -29,6 +34,11 @@ const fromAssistant = (assistant: Assistant): Form => ({
   category: assistant.category,
   prompt: assistant.config.prompt,
   modelId: assistant.config.model_id ?? '',
+  role: assistant.config.role ?? '',
+  answerStyle: assistant.config.answer_style ?? 'balanced',
+  fallbackModelId: assistant.config.fallback_model_id ?? '',
+  temperature: String(assistant.config.temperature ?? 0.7),
+  maxOutput: assistant.config.max_output_tokens ? String(assistant.config.max_output_tokens) : '',
   language: assistant.config.default_language,
   visibility: assistant.visibility,
   visibleOrgIds: assistant.visible_org_ids,
@@ -75,7 +85,9 @@ export function AssistantBasicsPanel({
   const problem = !form.name.trim() ? t('wizard.errors.nameRequired')
     : !form.description.trim() ? t('wizard.errors.descriptionRequired')
     : !form.prompt.trim() ? t('wizard.errors.promptRequired')
-    : !form.modelId ? t('wizard.errors.modelRequired') : ''
+    : !form.modelId ? t('wizard.errors.modelRequired')
+    : !(Number(form.temperature) >= 0 && Number(form.temperature) <= 2) ? t('wizard.errors.temperatureRange')
+    : form.maxOutput && !(Number(form.maxOutput) >= 16 && Number(form.maxOutput) <= 8192) ? t('wizard.errors.maxOutputRange') : ''
   const noModels = models !== null && models.models.length === 0
   const lockedOrganization = tenant.role !== 'tenant_admin'
 
@@ -98,6 +110,11 @@ export function AssistantBasicsPanel({
             ...assistant.config,
             prompt: form.prompt,
             model_id: form.modelId || null,
+            role: form.role.trim(),
+            answer_style: form.answerStyle,
+            fallback_model_id: form.fallbackModelId || null,
+            temperature: Number(form.temperature),
+            max_output_tokens: form.maxOutput ? Number(form.maxOutput) : null,
             default_language: form.language,
             greeting: form.greeting,
             suggested_questions: form.suggested,
@@ -144,6 +161,12 @@ export function AssistantBasicsPanel({
             {ASSISTANT_CATEGORIES.map((key) => <option key={key} value={key}>{t(`category.${key}`)}</option>)}
           </select>
         </label>
+        <label>{t('wizard.basics.role')}<input maxLength={200} onChange={(event) => update('role', event.target.value)} placeholder={t('wizard.basics.rolePlaceholder')} value={form.role} /></label>
+        <label>{t('wizard.basics.answerStyle')}
+          <select onChange={(event) => update('answerStyle', event.target.value as Form['answerStyle'])} value={form.answerStyle}>
+            {(['concise', 'balanced', 'detailed'] as const).map((key) => <option key={key} value={key}>{t(`wizard.basics.styles.${key}`)}</option>)}
+          </select>
+        </label>
         <label>{t('wizard.basics.prompt')}
           <textarea maxLength={MAX_PROMPT} onChange={(event) => update('prompt', event.target.value)} rows={12} value={form.prompt} />
           <small>{t('wizard.basics.chars', { count: form.prompt.length, max: MAX_PROMPT })}</small>
@@ -155,7 +178,17 @@ export function AssistantBasicsPanel({
           </select>
           {noModels && <small className="form-error">{t('wizard.basics.noModels')}</small>}
         </label>
-        <label>{t('wizard.basics.driver')}<select disabled value="none"><option value="none">{t('wizard.basics.driverNone')}</option></select><small>{t('wizard.basics.driverSoon')}</small></label>
+        <label>{t('wizard.basics.fallbackModel')}
+          <select disabled={noModels} onChange={(event) => update('fallbackModelId', event.target.value)} value={form.fallbackModelId}>
+            <option value="">{t('wizard.basics.fallbackNone')}</option>
+            {models?.models.filter((model) => model.id !== form.modelId).map((model) => <option key={model.id} value={model.id}>{model.display_name}</option>)}
+          </select>
+          <small>{t('wizard.basics.fallbackHint')}</small>
+        </label>
+        <div className="basics-row">
+          <label>{t('wizard.basics.temperature')}<input max={2} min={0} onChange={(event) => update('temperature', event.target.value)} step={0.1} type="number" value={form.temperature} /><small>{t('wizard.basics.temperatureHint')}</small></label>
+          <label>{t('wizard.basics.maxOutput')}<input max={8192} min={16} onChange={(event) => update('maxOutput', event.target.value)} placeholder={t('wizard.basics.maxOutputDefault')} type="number" value={form.maxOutput} /></label>
+        </div>
         <label>{t('wizard.basics.language')}
           <select onChange={(event) => update('language', event.target.value as 'zh-CN' | 'en')} value={form.language}>
             {(['zh-CN', 'en'] as const).map((key) => <option key={key} value={key}>{t(`wizard.language.${key}`)}</option>)}

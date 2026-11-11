@@ -142,16 +142,28 @@
       "model": "LLM model",
       "modelDefault": " (default)",
       "noModels": "No chat model is enabled in this environment yet. Enable one in Settings first.",
-      "driver": "Driven by",
-      "driverNone": "None",
-      "driverSoon": "Agent and team drivers are coming soon",
       "language": "Default language",
       "visibility": "Visibility",
       "visibilityOwn": "This organization only",
       "visibilitySpecified": "Specific organizations",
       "visibilityAll": "All organizations",
       "visibleOrgs": "Visible to",
-      "defaultPrompt": "# Core identity\nYou are a professional, friendly enterprise service agent with deep business knowledge. You treat every question patiently and offer solutions proactively.\n\n## Personality\n- Tone: professional but not stiff, friendly but not casual\n- Style: clear, concise and logical\n- Attitude: positive and solution oriented\n\n# Rules of conduct\n1. Always use polite, professional language\n2. Do not discuss politics, religion or other sensitive topics\n3. Say so plainly when you are unsure"
+      "defaultPrompt": "# Core identity\nYou are a professional, friendly enterprise service agent with deep business knowledge. You treat every question patiently and offer solutions proactively.\n\n## Personality\n- Tone: professional but not stiff, friendly but not casual\n- Style: clear, concise and logical\n- Attitude: positive and solution oriented\n\n# Rules of conduct\n1. Always use polite, professional language\n2. Do not discuss politics, religion or other sensitive topics\n3. Say so plainly when you are unsure",
+      "role": "Role",
+      "rolePlaceholder": "One line on who it is, e.g. Returns support",
+      "answerStyle": "Answer style",
+      "styles": {
+        "concise": "Concise",
+        "balanced": "Balanced",
+        "detailed": "Detailed"
+      },
+      "fallbackModel": "Backup model",
+      "fallbackNone": "None",
+      "fallbackHint": "Used once when the primary model errors or is disabled; only enabled chat models can be chosen.",
+      "temperature": "Temperature",
+      "temperatureHint": "0–2; lower is steadier. Default 0.7",
+      "maxOutput": "Max output tokens",
+      "maxOutputDefault": "Default 1024"
     },
     "capabilities": {
       "title": "Mounted capabilities",
@@ -183,7 +195,9 @@
       "descriptionRequired": "Describe the use case",
       "promptRequired": "Enter the agent prompt",
       "modelRequired": "Choose a model",
-      "saveFailed": "Save failed"
+      "saveFailed": "Save failed",
+      "temperatureRange": "Temperature must be between 0 and 2",
+      "maxOutputRange": "Max output tokens must be between 16 and 8192"
     },
     "createHint": "Fill in these few fields to create. Prompt, capabilities, orchestration and channels are set on the agent page afterwards."
   },
@@ -232,5 +246,19 @@
       "listed": "Listed",
       "delisted": "Delisted"
     }
+  },
+  "mountSettings": {
+    "title": "Usage settings",
+    "tools": "Tools it may use",
+    "loading": "Loading…",
+    "noTools": "The administrator has not ticked any tools on this connection",
+    "write": "(changes data)",
+    "noneTicked": "Tick at least one tool, or unmount it",
+    "delegate": "When to use it",
+    "delegateHint": "e.g. Use when the user asks about the returns policy",
+    "allTools": "All ticked tools",
+    "someTools": "{{count}} tools",
+    "hasDelegate": "has usage note",
+    "failed": "Saving failed. Please retry."
   }
 }

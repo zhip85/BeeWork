@@ -106,8 +106,9 @@ def resolve_target(db: Session, tenant: Tenant, assistant_id: UUID, environment:
     from beework.api.assistants import _enabled_chat_models
 
     models, _ = _enabled_chat_models(db, tenant.id, environment)
-    if str(model_id) not in {str(model.id) for model, _ in models}:
-        raise ApiError(503, "service_unavailable", "智能体所选模型当前不可用")
+    enabled = {str(model.id) for model, _ in models}
+    if str(model_id) not in enabled and not (dsl.fallback_model_id and dsl.fallback_model_id in enabled):
+        raise ApiError(503, "service_unavailable", "智能体所选模型当前不可用")  # the backup model keeps an agent running (T-061)
     if len(message.strip()) > dsl.limits.max_input_chars:
         raise ApiError(422, "invalid_request", f"message：长度不能超过 {dsl.limits.max_input_chars} 个字符")
     if get_usage_counter("monthly_points") is not None and not check_quota(db, tenant.id, "monthly_points", 1).allowed:

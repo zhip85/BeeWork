@@ -142,16 +142,28 @@
       "model": "LLM 模型",
       "modelDefault": "（默认）",
       "noModels": "当前环境尚未启用对话模型，请先在设置中启用。",
-      "driver": "驱动方式",
-      "driverNone": "不指定",
-      "driverSoon": "智能体与协作组驱动即将开放",
       "language": "默认语言",
       "visibility": "可见范围",
       "visibilityOwn": "仅本组织",
       "visibilitySpecified": "指定组织",
       "visibilityAll": "全部组织",
       "visibleOrgs": "可见的组织",
-      "defaultPrompt": "# 核心身份\n你是一位专业、友好的企业服务智能体，具备深厚的业务知识，能够耐心细致地对待每个问题并主动提供解决方案。\n\n## 人格特征\n- 语气：专业但不生硬，友好但不随意\n- 表达：清晰简洁，逻辑性强\n- 态度：积极正面，解决问题导向\n\n# 行为规范\n1. 始终使用礼貌、专业的语言\n2. 不讨论政治、宗教等敏感话题\n3. 遇到不确定的信息时明确告知用户"
+      "defaultPrompt": "# 核心身份\n你是一位专业、友好的企业服务智能体，具备深厚的业务知识，能够耐心细致地对待每个问题并主动提供解决方案。\n\n## 人格特征\n- 语气：专业但不生硬，友好但不随意\n- 表达：清晰简洁，逻辑性强\n- 态度：积极正面，解决问题导向\n\n# 行为规范\n1. 始终使用礼貌、专业的语言\n2. 不讨论政治、宗教等敏感话题\n3. 遇到不确定的信息时明确告知用户",
+      "role": "角色",
+      "rolePlaceholder": "一句话说明它是谁，例如：退货客服",
+      "answerStyle": "回答风格",
+      "styles": {
+        "concise": "简洁",
+        "balanced": "均衡",
+        "detailed": "详细"
+      },
+      "fallbackModel": "备选模型",
+      "fallbackNone": "不设置",
+      "fallbackHint": "主模型调用出错或被停用时自动切换一次，只能选已启用的对话模型。",
+      "temperature": "温度",
+      "temperatureHint": "0–2，越低越稳定，默认 0.7",
+      "maxOutput": "最大输出 token",
+      "maxOutputDefault": "默认 1024"
     },
     "capabilities": {
       "title": "挂载能力",
@@ -183,7 +195,9 @@
       "descriptionRequired": "请填写使用场景",
       "promptRequired": "请填写智能体提示词",
       "modelRequired": "请选择模型",
-      "saveFailed": "保存失败"
+      "saveFailed": "保存失败",
+      "temperatureRange": "温度需在 0 到 2 之间",
+      "maxOutputRange": "最大输出 token 需在 16 到 8192 之间"
     },
     "createHint": "先填写这几项即可创建，提示词、能力、编排和渠道创建后在智能体页里继续配置。"
   },
@@ -232,5 +246,19 @@
       "listed": "已上架",
       "delisted": "已下架"
     }
+  },
+  "mountSettings": {
+    "title": "调用设置",
+    "tools": "允许使用的工具",
+    "loading": "加载中…",
+    "noTools": "管理员没有在该连接上勾选可用工具",
+    "write": "（会修改数据）",
+    "noneTicked": "至少勾选一个工具，或取消挂载",
+    "delegate": "委派描述（何时使用）",
+    "delegateHint": "例如：用户询问退货政策时使用",
+    "allTools": "全部已勾选工具",
+    "someTools": "{{count}} 个工具",
+    "hasDelegate": "已写委派描述",
+    "failed": "保存失败，请重试"
   }
 }

@@ -20,6 +20,7 @@ def build_chat_model(dsl: AssistantDSLv1, *, api_key: str, metadata: dict[str, A
         streaming=True,
         stream_usage=True,
         max_tokens=dsl.limits.max_tokens,
+        temperature=dsl.temperature,
         timeout=dsl.limits.timeout_seconds,
         max_retries=0,
         extra_body={"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}},

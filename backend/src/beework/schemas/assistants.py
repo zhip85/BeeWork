@@ -38,8 +38,15 @@ class AssistantDraftConfig(BaseModel):
 
     dsl_version: Literal[1] = 1
     prompt: str = Field(default="", max_length=8000)
+    # Identity and style (演进 PRD 6.4, T-061). New fields all have defaults: older drafts and frozen snapshots still load.
+    role: str = Field(default="", max_length=200)
+    answer_style: Literal["concise", "balanced", "detailed"] = "balanced"
     model_id: UUID | None = None
-    driven_by: UUID | None = None
+    # Used when the primary model errors or is disabled: one switch per call, recorded in the trace.
+    fallback_model_id: UUID | None = None
+    temperature: float = Field(default=0.7, ge=0, le=2)
+    max_output_tokens: int | None = Field(default=None, ge=16, le=8192)  # None: the runtime default (1024)
+    driven_by: UUID | None = None  # legacy (T-061: no longer written or shown; kept so old data still loads)
     default_language: Literal["zh-CN", "en"] = "zh-CN"
     greeting: str = Field(default="", max_length=500)
     suggested_questions: bool = True
