@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from beework.errors import ApiError
 from beework.integrations.litellm import GatewayError, LiteLLMClient, gateway_configured
-from beework.models import AuditEvent, PlatformModel
+from beework.models import AuditEvent, PlatformModel, Tenant
 from beework.models.conversations import Conversation
 from beework.models.usage import (
     UNKNOWN_ID,
@@ -176,6 +176,13 @@ def _count_rows(
     buckets: dict[tuple, dict] = defaultdict(
         lambda: {"requests": 0, "tokens_in": 0, "tokens_out": 0, "points": Decimal(0), "spend": Decimal(0)}
     )
+    # Spend of a tenant that was deleted since still sits in the gateway's log; counting it would break the foreign key
+    # of ``usage_records`` and stop every pull after it, so such rows are marked seen and reported as unattributed.
+    candidates = {
+        UUID(match.group(1)) for row in rows
+        if (match := _ALIAS.match(str((row.get("metadata") or {}).get("user_api_key_alias") or "")))
+    }
+    known_tenants = set(db.scalars(select(Tenant.id).where(Tenant.id.in_(candidates)))) if candidates else set()
     for row in rows:
         request_id = str(row.get("request_id") or "")
         if not request_id:
@@ -195,6 +202,9 @@ def _count_rows(
             result.unattributed += 1
             continue
         tenant_id, environment = UUID(match.group(1)), match.group(2)
+        if tenant_id not in known_tenants:
+            result.unattributed += 1
+            continue
         attribution = metadata.get("spend_logs_metadata") or {}
         model_id = _uuid_or(row.get("model_id"))
         if model_id not in models:

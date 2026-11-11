@@ -210,6 +210,21 @@ class UsageTests(unittest.TestCase):
             self.assertEqual((record.environment, record.assistant_id, record.source), ("development", UNKNOWN_ID, "unknown"))
             self.assertEqual(db.scalar(select(UsageSeen).where(UsageSeen.request_id == "failed")).request_id, "failed")
 
+    def test_spend_of_a_deleted_tenant_is_skipped_and_never_stops_the_pull(self) -> None:
+        """The gateway keeps the spend of tenants that were deleted since; it must not break the foreign key of
+        ``usage_records`` (that once stalled every later pull and, with it, the whole worker loop)."""
+        gone = uuid4()
+        self.add_row("ghost-tenant", tenant_id=gone)
+        self.add_row("mine")
+        result = self.pull()
+        self.assertEqual((result.counted, result.unattributed), (1, 1))
+        self.assertEqual(self.total_points(), Decimal("2"))
+        with self.session_factory() as db:
+            self.assertEqual(db.scalar(select(UsageSeen).where(UsageSeen.request_id == "ghost-tenant")).request_id, "ghost-tenant")
+            self.assertEqual(db.scalars(select(UsageRecord).where(UsageRecord.tenant_id == gone)).all(), [])
+        again = self.pull()  # marked seen: not read again
+        self.assertEqual((again.counted, again.duplicates), (0, 2))
+
     def test_unknown_model_is_counted_with_zero_points_and_reported(self) -> None:
         self.add_row("ghost", model_id=uuid4())
         result = self.pull()

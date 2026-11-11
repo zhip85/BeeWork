@@ -144,6 +144,31 @@ class WorkerQueueTests(unittest.TestCase):
             self.assertEqual((third.status, third.attempts), ("dead", 3))
             self.assertEqual(third.last_error, "expected failure")
 
+    def test_a_handler_that_breaks_the_session_fails_only_its_own_job(self):
+        """A database error inside a handler leaves the session unusable until it is rolled back; the failure must be
+        recorded on the job and must not escape and stall the worker loop."""
+        from beework.models import Tenant
+
+        @job_handler("test.breaks_session")
+        def breaks_session(db, _payload):
+            db.add(Tenant(name="Dup", slug="dup"))
+            db.add(Tenant(name="Dup", slug="dup"))  # the second insert violates the unique slug
+            db.flush()
+
+        self.addCleanup(HANDLERS.pop, "test.breaks_session")
+        now = datetime.now(UTC)
+        with self.sessions.begin() as db:
+            job = enqueue(db, "test.breaks_session", {}, max_attempts=2, run_after=now)
+            db.flush()
+            job_id = job.id
+            claim_jobs(db, "worker", now=now)
+        with self.sessions() as db:
+            result = execute_job(db, job_id, now=now)  # does not raise
+            self.assertEqual((result.status, result.attempts), ("queued", 1))
+            self.assertIn("slug", (result.last_error or "").lower())
+        with self.sessions() as db:
+            self.assertEqual(db.scalar(select(Tenant).where(Tenant.slug == "dup")), None)  # the broken work was rolled back
+
     def test_unknown_job_kind_fails_visibly(self):
         with self.sessions.begin() as db:
             job = enqueue(db, "no.such.kind", {}, max_attempts=1)
