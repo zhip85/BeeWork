@@ -60,7 +60,8 @@ def list_conversations(
 ) -> Page[ConversationResponse]:
     assistant = _load(db, membership, assistant_id)
     statement = select(Conversation).where(
-        Conversation.tenant_id == membership.tenant_id, Conversation.assistant_id == assistant.id
+        Conversation.tenant_id == membership.tenant_id, Conversation.assistant_id == assistant.id,
+        Conversation.source != "portal",  # employees' portal conversations are private to them (T-143)
     )
     if status:
         statement = statement.where(Conversation.status == status)
@@ -95,6 +96,7 @@ def get_conversation(
         .where(
             Conversation.id == conversation_id,
             Conversation.tenant_id == membership.tenant_id,
+            Conversation.source != "portal",
             Assistant.deleted_at.is_(None),  # a deleted assistant's history is not reachable by id
         ),
         membership,

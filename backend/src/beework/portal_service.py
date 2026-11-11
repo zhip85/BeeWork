@@ -126,6 +126,19 @@ def listing_problems(db: Session, app: PortalApp) -> list[tuple[str, str]]:
     return problems
 
 
+def in_audience(db: Session, membership: Membership, app: PortalApp) -> bool:
+    """Scope only (not listing status or source health): ``all`` everyone, ``orgs`` the app's organizations and below,
+    ``admins`` tenant administrators."""
+    if app.audience == "admins":
+        return membership.role == "tenant_admin"
+    if app.audience == "orgs" and membership.role != "tenant_admin":
+        scope: set[UUID] = set()
+        for org_id in app_organization_ids(db, app):
+            scope |= set(organization_subtree(db, membership.tenant_id, org_id))
+        return membership.organization_id in scope
+    return True
+
+
 def visible_apps(db: Session, membership: Membership) -> list[PortalApp]:
     """What this member may see in the portal: listed, in scope, and the underlying resource still valid (演进 PRD 5.4).
 
@@ -145,14 +158,8 @@ def visible_apps(db: Session, membership: Membership) -> list[PortalApp]:
     ).all()
     visible: list[PortalApp] = []
     for app in apps:
-        if app.audience == "admins" and membership.role != "tenant_admin":
+        if not in_audience(db, membership, app):
             continue
-        if app.audience == "orgs" and membership.role != "tenant_admin":
-            scope: set[UUID] = set()
-            for org_id in app_organization_ids(db, app):
-                scope |= set(organization_subtree(db, membership.tenant_id, org_id))
-            if membership.organization_id not in scope:
-                continue
         if resolve_source(db, app)[0] != "available":
             continue
         visible.append(app)

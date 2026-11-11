@@ -2,7 +2,6 @@
   "defaultName": "AI 门户",
   "newChat": "新对话",
   "search": "搜索",
-  "projects": "项目",
   "apps": "AI 应用",
   "pinned": "置顶",
   "recent": "最近",
@@ -58,5 +57,47 @@
     "refresh": "刷新状态",
     "autoAssigned": "已自动为你分配门户席位",
     "dismiss": "关闭提示"
-  }
+  },
+  "noApps": "暂无可用应用",
+  "noAppsHint": "管理员还没有上架可用的 AI 应用，上架后即可开始对话。",
+  "searchPlaceholder": "搜索对话标题",
+  "searchNone": "没有找到相关对话",
+  "chat": {
+    "thinking": "正在思考…",
+    "failed": "发送失败，请重试",
+    "retry": "重试",
+    "unavailable": "该应用已下架或暂时不可用，不能继续发送消息",
+    "readonly": "该应用已下架或暂不可用，这段对话只能查看，不能继续发送。"
+  },
+  "conv": {
+    "rename": "重命名",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "pinned": "已置顶",
+    "moveToProject": "移入项目",
+    "removeFromProject": "移出项目",
+    "noProjects": "还没有项目",
+    "delete": "删除",
+    "deleteConfirm": "删除后无法恢复，确认删除这段对话？",
+    "deleteYes": "确认删除",
+    "cancel": "取消",
+    "actions": "对话操作",
+    "failed": "操作失败，请重试"
+  },
+  "project": {
+    "name": "项目名称",
+    "description": "项目说明（可选）",
+    "create": "新建项目",
+    "empty": "还没有项目。项目是你自己的文件夹，用来归类相关对话。",
+    "noDescription": "无说明",
+    "count": "{{count}} 个对话",
+    "back": "← 全部项目",
+    "edit": "编辑",
+    "save": "保存",
+    "newChat": "在此项目中新对话",
+    "conversations": "项目内的对话",
+    "deleteConfirm": "删除项目不会删除其中的对话，它们会移出项目。",
+    "failed": "操作失败，请重试"
+  },
+  "projects": "项目"
 }

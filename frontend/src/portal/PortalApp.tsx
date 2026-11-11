@@ -1,14 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronsUpDown, Hexagon, LayoutGrid, LogOut, Menu, MessageSquarePlus, Search, SquareArrowLeft, User, FolderKanban, X } from 'lucide-react'
-import { Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiRequest } from '../api'
 import PortalNoSeat from './PortalNoSeat'
 import { LanguageSwitch } from '../i18n/LanguageSwitch'
 import type { CurrentUser, TenantMembership } from '../types'
-import PortalHome from './PortalHome'
-import type { PortalConfig, PortalSeat } from './portalTypes'
+import PortalChat from './PortalChat'
+import PortalConversationItem from './PortalConversationItem'
+import { PortalProjectDetail, PortalProjects } from './PortalProjects'
+import { PortalSearch } from './PortalSearch'
+import { PortalProvider } from './portalContext'
+import type { PortalAppEntry, PortalConfig, PortalConversation, PortalProject, PortalSeat } from './portalTypes'
 import './portal.css'
+
+function ConversationRoute() {
+  const { conversationId = '' } = useParams()
+  return <PortalChat conversationId={conversationId} key={conversationId} />
+}
 
 function Soon({ title }: { title: string }) {
   const { t } = useTranslation('portalApp')
@@ -30,6 +39,9 @@ export default function PortalApp({ user, tenant, onLogout }: { user: CurrentUse
   const [drawer, setDrawer] = useState(false)
   const [menu, setMenu] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  const [apps, setApps] = useState<PortalAppEntry[]>([])
+  const [conversations, setConversations] = useState<PortalConversation[]>([])
+  const [projects, setProjects] = useState<PortalProject[]>([])
   const location = useLocation()
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -54,6 +66,17 @@ export default function PortalApp({ user, tenant, onLogout }: { user: CurrentUse
     const timer = window.setInterval(loadSeat, 20000)
     return () => window.clearInterval(timer)
   }, [seat?.state, loadSeat])
+
+  // The apps, the employee's conversations and projects; reloaded after every change. Only once a seat is held.
+  const seatReady = seat?.state === 'assigned'
+  const projectsOn = Boolean(config?.nav_projects)
+  const reload = useCallback(() => {
+    if (!seatReady) return
+    apiRequest<PortalAppEntry[]>('/api/v1/portal/me/apps', {}, tenant.id).then(setApps).catch(() => undefined)
+    apiRequest<{ items: PortalConversation[] }>('/api/v1/portal/me/conversations?limit=100', {}, tenant.id).then((result) => setConversations(result.items)).catch(() => undefined)
+    if (projectsOn) apiRequest<PortalProject[]>('/api/v1/portal/me/projects', {}, tenant.id).then(setProjects).catch(() => undefined)
+  }, [seatReady, projectsOn, tenant.id])
+  useEffect(() => { reload() }, [reload])
 
   async function requestSeat(reason: string) {
     const result = await apiRequest<PortalSeat>('/api/v1/portal/me/seat/request', { method: 'POST', body: JSON.stringify({ reason }) }, tenant.id)
@@ -83,9 +106,15 @@ export default function PortalApp({ user, tenant, onLogout }: { user: CurrentUse
   }
 
   const name = config.portal_name || t('defaultName')
+  const pinned = config.nav_pinned ? conversations.filter((c) => c.pinned) : []
+  const recent = conversations.filter((c) => !(config.nav_pinned && c.pinned)).slice(0, 30)
   const link = ({ isActive }: { isActive: boolean }) => `portal-nav-link${isActive ? ' active' : ''}`
 
   return (
+    <PortalProvider
+      onSeatLost={loadSeat}
+      value={{ tenantId: tenant.id, config, userName: user.display_name, apps, conversations, projects, reload }}
+    >
     <div className="portal portal-shell">
       <header className="portal-mobilebar">
         <button aria-label={t('openMenu')} onClick={() => setDrawer(true)} type="button"><Menu size={20} /></button>
@@ -104,8 +133,16 @@ export default function PortalApp({ user, tenant, onLogout }: { user: CurrentUse
           {config.nav_app_library && <NavLink className={link} to="/portal/apps"><LayoutGrid size={16} />{t('apps')}</NavLink>}
         </nav>
         <div className="portal-history">
-          {config.nav_pinned && <div className="portal-history-group"><small>{t('pinned')}</small><span>{t('noneYet')}</span></div>}
-          {config.nav_recent && <div className="portal-history-group"><small>{t('recent')}</small><span>{t('noneYet')}</span></div>}
+          {config.nav_pinned && (
+            <div className="portal-history-group"><small>{t('pinned')}</small>
+              {pinned.length === 0 ? <span>{t('noneYet')}</span> : pinned.map((c) => <PortalConversationItem conversation={c} key={c.id} />)}
+            </div>
+          )}
+          {config.nav_recent && (
+            <div className="portal-history-group"><small>{t('recent')}</small>
+              {recent.length === 0 ? <span>{t('noneYet')}</span> : recent.map((c) => <PortalConversationItem conversation={c} key={c.id} />)}
+            </div>
+          )}
         </div>
         <div className="portal-account" ref={menuRef}>
           {menu && (
@@ -131,14 +168,17 @@ export default function PortalApp({ user, tenant, onLogout }: { user: CurrentUse
           </p>
         )}
         <Routes>
-          <Route path="/portal" element={<PortalHome config={config} name={user.display_name} />} />
-          {config.nav_search && <Route path="/portal/search" element={<Soon title={t('search')} />} />}
-          {config.nav_projects && <Route path="/portal/projects" element={<Soon title={t('projects')} />} />}
+          <Route path="/portal" element={<PortalChat key="new" />} />
+          <Route path="/portal/c/:conversationId" element={<ConversationRoute />} />
+          {config.nav_search && <Route path="/portal/search" element={<PortalSearch />} />}
+          {config.nav_projects && <Route path="/portal/projects" element={<PortalProjects />} />}
+          {config.nav_projects && <Route path="/portal/projects/:projectId" element={<PortalProjectDetail />} />}
           {config.nav_app_library && <Route path="/portal/apps" element={<Soon title={t('apps')} />} />}
           <Route path="/portal/profile" element={<Soon title={t('profile')} />} />
           <Route path="/portal/*" element={<Navigate replace to="/portal" />} />
         </Routes>
       </main>
     </div>
+    </PortalProvider>
   )
 }

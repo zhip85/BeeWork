@@ -53,6 +53,7 @@ class Conversation(Base, TenantOwnedMixin):
         Index("ix_conversations_assistant_active", "assistant_id", "last_active_at"),
         Index("ix_conversations_tenant_active", "tenant_id", "last_active_at"),
         Index("ix_conversations_status_active", "status", "last_active_at"),
+        Index("ix_conversations_portal_owner", "tenant_id", "end_user_id", "last_active_at"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
@@ -74,6 +75,13 @@ class Conversation(Base, TenantOwnedMixin):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     last_active_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # AI portal conversations (T-143): the employee's own title / pin / project, the portal app it was started from and
+    # their soft delete. Unused (NULL) for every other source.
+    title: Mapped[str | None] = mapped_column(String(120))
+    portal_app_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("portal_apps.id", ondelete="SET NULL"))
+    project_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("portal_projects.id", ondelete="SET NULL"))
+    pinned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Message(Base, TenantOwnedMixin):
