@@ -66,6 +66,7 @@
     "viewer": "查看者",
     "auditor": "审计员",
     "approver": "审计员",
-    "member": "查看者"
+    "member": "查看者",
+    "employee": "员工"
   }
 }

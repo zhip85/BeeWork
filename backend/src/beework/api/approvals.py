@@ -21,7 +21,7 @@ from beework.approvals import (
     tenant_admins,
     withdraw,
 )
-from beework.auth import get_tenant_membership, require_csrf, require_tenant_roles
+from beework.auth import get_console_membership, require_csrf, require_tenant_roles
 from beework.db import get_db
 from beework.models import AuditEvent, Membership, Organization, User, utc_now
 from beework.models.approvals import ApprovalComment, ApprovalRequest
@@ -150,7 +150,7 @@ def _tenant_requests(db: Session, tenant_id: UUID) -> list[ApprovalRequest]:
 
 @router.get("/approvals/summary", response_model=ApprovalSummary)
 def approvals_summary(
-    membership: Membership = Depends(get_tenant_membership),
+    membership: Membership = Depends(get_console_membership),
     db: Session = Depends(get_db),
 ) -> ApprovalSummary:
     visible = [r for r in _tenant_requests(db, membership.tenant_id) if _visible(membership, r)]
@@ -179,7 +179,7 @@ def list_approvals(
     q: str | None = Query(default=None, max_length=100),
     sort: Literal["oldest", "newest"] = "oldest",
     pagination: Pagination = Depends(get_pagination),
-    membership: Membership = Depends(get_tenant_membership),
+    membership: Membership = Depends(get_console_membership),
     db: Session = Depends(get_db),
 ) -> Page[ApprovalItem]:
     rows = [r for r in _tenant_requests(db, membership.tenant_id) if _visible(membership, r)]
@@ -205,7 +205,7 @@ def list_approvals(
 @router.get("/approvals/{approval_id}", response_model=ApprovalDetail)
 def get_approval(
     approval_id: UUID,
-    membership: Membership = Depends(get_tenant_membership),
+    membership: Membership = Depends(get_console_membership),
     db: Session = Depends(get_db),
 ) -> ApprovalDetail:
     return _detail(db, membership, _get_visible(db, membership, approval_id))
@@ -223,7 +223,7 @@ def _act(db: Session, membership: Membership, approval_id: UUID, action) -> Appr
 def approve(
     approval_id: UUID,
     payload: DecisionRequest | None = None,
-    membership: Membership = Depends(get_tenant_membership),
+    membership: Membership = Depends(get_console_membership),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> ApprovalDetail:
@@ -234,7 +234,7 @@ def approve(
 def reject(
     approval_id: UUID,
     payload: DecisionRequest,
-    membership: Membership = Depends(get_tenant_membership),
+    membership: Membership = Depends(get_console_membership),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> ApprovalDetail:
@@ -244,7 +244,7 @@ def reject(
 @router.post("/approvals/{approval_id}/withdraw", response_model=ApprovalDetail)
 def withdraw_approval(
     approval_id: UUID,
-    membership: Membership = Depends(get_tenant_membership),
+    membership: Membership = Depends(get_console_membership),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> ApprovalDetail:
@@ -255,7 +255,7 @@ def withdraw_approval(
 def comment_approval(
     approval_id: UUID,
     payload: CommentRequest,
-    membership: Membership = Depends(get_tenant_membership),
+    membership: Membership = Depends(get_console_membership),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> ApprovalDetail:
@@ -265,7 +265,7 @@ def comment_approval(
 @router.post("/approvals/{approval_id}/retry", response_model=ApprovalDetail)
 def retry_approval(
     approval_id: UUID,
-    membership: Membership = Depends(get_tenant_membership),
+    membership: Membership = Depends(get_console_membership),
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> ApprovalDetail:

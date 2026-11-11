@@ -488,7 +488,7 @@ class UpdateRoleRequest(CreateRoleRequest):
 
 
 class ChangeRoleRequest(BaseModel):
-    role: str = Field(pattern="^(tenant_admin|builder|operator|viewer|auditor|custom)$")
+    role: str = Field(pattern="^(tenant_admin|builder|operator|viewer|auditor|employee|custom)$")
     custom_role_id: UUID | None = None
 
     @field_validator("custom_role_id")
@@ -507,7 +507,7 @@ class ChangeMemberOrganizationRequest(BaseModel):
 
 class CreateMemberInvitationsRequest(BaseModel):
     emails: list[EmailStr] = Field(min_length=1, max_length=50)
-    role: str = Field(pattern="^(tenant_admin|builder|operator|viewer|auditor|custom)$")
+    role: str = Field(pattern="^(tenant_admin|builder|operator|viewer|auditor|employee|custom)$")
     custom_role_id: UUID | None = None
     organization_id: UUID
 

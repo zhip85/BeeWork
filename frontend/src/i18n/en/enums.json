@@ -66,6 +66,7 @@
     "viewer": "Viewer",
     "auditor": "Auditor",
     "approver": "Auditor",
-    "member": "Viewer"
+    "member": "Viewer",
+    "employee": "Employee"
   }
 }

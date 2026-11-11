@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from beework.errors import ApiError
 from beework.models import MemberInvitation, Membership, Tenant, User
 from beework.models.plans import Plan, PlanVersion, TenantSubscription
+from beework.rbac import PORTAL_ONLY_ROLES
 
 QUOTA_KEYS = (
     "assistants",
@@ -105,8 +106,11 @@ def get_usage_counter(key: str) -> UsageCounter | None:
     return _usage_counters.get(key)
 
 
+CONSOLE_FREE_ROLES = PORTAL_ONLY_ROLES  # portal-only members use no console seat (演进 PRD 13.2); their AI-portal seats are T-150
+
+
 def seat_usage(db: Session, tenant_id: UUID) -> int:
-    """Active members plus unexpired pending invitations."""
+    """Console seats: active members plus unexpired pending invitations, portal-only ``employee`` members excluded."""
     now = datetime.now(UTC)
     active_members = db.scalar(
         select(func.count())
@@ -116,6 +120,7 @@ def seat_usage(db: Session, tenant_id: UUID) -> int:
             Membership.tenant_id == tenant_id,
             Membership.status == "active",
             User.is_active.is_(True),
+            Membership.role.not_in(CONSOLE_FREE_ROLES),
         )
     ) or 0
     pending_invitations = db.scalar(
@@ -125,6 +130,7 @@ def seat_usage(db: Session, tenant_id: UUID) -> int:
             MemberInvitation.tenant_id == tenant_id,
             MemberInvitation.status == "pending",
             MemberInvitation.expires_at > now,
+            MemberInvitation.role.not_in(CONSOLE_FREE_ROLES),
         )
     ) or 0
     return active_members + pending_invitations
