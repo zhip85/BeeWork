@@ -132,6 +132,7 @@ def execute_job(db: Session, job_id: UUID, *, now: datetime | None = None) -> Jo
     job = db.get(Job, job_id)
     if job is None or job.status != "running":
         return job
+    kind = job.kind  # read now: after a failed flush the instance cannot be refreshed until the session is rolled back
     handler = HANDLERS.get(job.kind)
     if handler is None:
         error = f"No handler registered for {job.kind}"
@@ -147,8 +148,8 @@ def execute_job(db: Session, job_id: UUID, *, now: datetime | None = None) -> Jo
         db.commit()
         return job
     except Exception as exc:
-        logger.exception("Job %s (%s) failed", job.id, job.kind)
-        db.rollback()
+        db.rollback()  # first: a handler that died on a database error leaves the session unusable until this
+        logger.exception("Job %s (%s) failed", job_id, kind)
         _record_failure(db, job_id, str(exc), current_time)
         return db.get(Job, job_id)
 
