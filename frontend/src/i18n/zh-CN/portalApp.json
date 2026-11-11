@@ -44,5 +44,19 @@
     "submitting": "登录中…",
     "failed": "登录失败，请检查邮箱和密码",
     "consoleLink": "管理员？前往管理端登录"
+  },
+  "noSeat": {
+    "title": "你暂未开通 {{name}}",
+    "body": "你的身份已验证，但管理员还没有为你分配 AI 门户席位。你可以说明用途并申请开通，管理员通过后再次进入即可使用。",
+    "reason": "申请原因（选填）",
+    "reasonHint": "例如：需要用它整理销售日报",
+    "request": "申请开通",
+    "otherAccount": "使用其他账号",
+    "failed": "申请失败，请稍后重试",
+    "requestedTitle": "申请已提交",
+    "requestedBody": "已通知 {{name}} 的管理员，审批通过后再次进入即可使用；本页会自动刷新。",
+    "refresh": "刷新状态",
+    "autoAssigned": "已自动为你分配门户席位",
+    "dismiss": "关闭提示"
   }
 }

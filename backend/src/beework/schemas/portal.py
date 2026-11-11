@@ -138,3 +138,17 @@ class PortalMeConfig(BaseModel):
     task_notifications: bool
     delisted_history: DelistedHistory
     has_console: bool  # whether “返回管理端” is offered
+
+
+class PortalSeatState(BaseModel):
+    """The member's own portal seat (T-151). ``state`` decides whether the portal opens or the no-seat page shows."""
+
+    state: Literal["assigned", "requested", "unassigned"]
+    source: Literal["rule", "manual", "auto", "unlimited"] | None = None
+    auto_assigned: bool = False  # true only on the response that just handed out the seat
+    can_request: bool
+    portal_name: str
+
+
+class PortalSeatRequest(BaseModel):
+    reason: str = Field(default="", max_length=200)

@@ -44,5 +44,19 @@
     "submitting": "Signing in…",
     "failed": "Sign-in failed. Check your email and password.",
     "consoleLink": "Administrator? Sign in to the console"
+  },
+  "noSeat": {
+    "title": "You don't have access to {{name}} yet",
+    "body": "Your identity is verified, but an administrator has not assigned you an AI portal seat. Tell them what you need it for and request access; once approved, come back in.",
+    "reason": "Reason (optional)",
+    "reasonHint": "e.g. I need it to prepare the weekly sales report",
+    "request": "Request access",
+    "otherAccount": "Use a different account",
+    "failed": "The request failed. Please try again.",
+    "requestedTitle": "Request submitted",
+    "requestedBody": "The administrators of {{name}} have been notified. Come back after it is approved; this page refreshes on its own.",
+    "refresh": "Refresh status",
+    "autoAssigned": "A portal seat was assigned to you automatically",
+    "dismiss": "Dismiss"
   }
 }

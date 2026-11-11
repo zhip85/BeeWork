@@ -132,6 +132,12 @@ def visible_apps(db: Session, membership: Membership) -> list[PortalApp]:
     Scope: ``all`` — everyone in the tenant; ``orgs`` — members whose organization is one of the app's organizations or
     below it; ``admins`` — tenant administrators only.
     """
+    from beework.portal_seat_service import (
+        has_seat,  # a member without a portal seat sees nothing (T-151)
+    )
+
+    if not has_seat(db, membership):
+        return []
     apps = db.scalars(
         select(PortalApp).where(
             PortalApp.tenant_id == membership.tenant_id, PortalApp.deleted_at.is_(None), PortalApp.status == "listed"
@@ -204,6 +210,18 @@ def require_portal_feature(feature: str):
         return membership
 
     return dependency
+
+
+def require_portal_seat(membership: Membership = Depends(get_tenant_membership), db: Session = Depends(get_db)) -> Membership:
+    """Dependency for every employee-side endpoint that *uses* the portal (conversations, projects, app library, profile…):
+    403 ``portal.seat_required`` without a portal seat. Only the config, seat-state and request endpoints are exempt.
+    The server decides on every call; the front end's seat state is for display only (演进 PRD 5.4)."""
+    from beework.api.conventions import ApiError
+    from beework.portal_seat_service import has_seat
+
+    if not has_seat(db, membership):
+        raise ApiError(403, "portal.seat_required", "你暂未开通 AI 门户")
+    return membership
 
 
 def feature_enabled(db: Session, tenant_id: UUID, feature: str) -> bool:

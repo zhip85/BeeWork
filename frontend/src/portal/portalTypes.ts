@@ -15,3 +15,11 @@ export type PortalConfig = {
   delisted_history: 'readonly' | 'hidden'
   has_console: boolean
 }
+
+export type PortalSeat = {
+  state: 'assigned' | 'requested' | 'unassigned'
+  source: 'rule' | 'manual' | 'auto' | 'unlimited' | null
+  auto_assigned: boolean
+  can_request: boolean
+  portal_name: string
+}
