@@ -93,6 +93,13 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "portal_app.listed": "上架门户应用",
     "portal_app.delisted": "下架门户应用",
     "portal_app.deleted": "删除门户应用",
+    "portal_seat.assigned": "分配门户席位",
+    "portal_seat.revoked": "回收门户席位",
+    "portal_seat.approved": "通过门户席位申请",
+    "portal_seat.rejected": "驳回门户席位申请",
+    "portal_seat.reclaimed": "回收闲置门户席位",
+    "portal_seat_rule.updated": "修改门户席位部门规则",
+    "portal_seat_policy.updated": "修改门户席位策略",
     "flow.created": "创建流程",
     "flow.draft_saved": "保存流程草稿",
     "flow.published": "发布流程版本",
@@ -593,7 +600,7 @@ class AuditEvent(Base):
     def set_audit_metadata(self, _key: str, action: str) -> str:
         if action.startswith(("membership.", "role.", "organization.")):
             self.category = "members_permissions"
-        elif action.startswith(("assistant.", "channel.", "flow.", "portal_app.", "portal_settings.", "capability.")):
+        elif action.startswith(("assistant.", "channel.", "flow.", "portal_app.", "portal_settings.", "portal_seat", "capability.")):
             self.category = "assistants"
         elif action.startswith("api_key."):
             self.category = "developer"
@@ -755,6 +762,7 @@ from beework.models import (  # noqa: E402,F401
     notifications,
     plans,
     portal,
+    portal_seats,
     runtime,
     tenant_glossary,
     tenant_rules,

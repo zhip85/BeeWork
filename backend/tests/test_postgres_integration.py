@@ -204,6 +204,80 @@ class PostgresIntegrationTests(unittest.TestCase):
             ).all()
         self.assertEqual(len(pending), 2)
 
+    def test_concurrent_portal_seat_assignments_cannot_exceed_the_assignable_limit(self) -> None:
+        from beework import entitlements
+        from beework.models.portal_seats import PortalSeatAssignment
+        from beework.portal_seat_service import assigned_count
+
+        with self.session_factory.begin() as db:
+            tenant = db.get(Tenant, self.tenant_id)
+            entitlements.create_subscription(db, tenant, seats=20, portal_mode="named", portal_seats=5, portal_overage="hard")
+            user_ids = []
+            for index in range(8):
+                user = User(email=f"seat-{index}@example.com", display_name=f"Seat {index}", password_hash="x")
+                db.add(user)
+                db.flush()
+                db.add(Membership(tenant_id=self.tenant_id, user_id=user.id, organization_id=self.organization_id, role="employee"))
+                user_ids.append(str(user.id))
+
+        def assign(user_id: str) -> int:
+            client = TestClient(app)
+            client.post("/api/v1/auth/login", json={"email": "pg-admin@example.com", "password": "postgres admin password"})
+            response = client.post(
+                "/api/v1/portal/seats/assign", json={"user_ids": [user_id]},
+                headers={"X-Tenant-ID": str(self.tenant_id), "X-CSRF-Token": client.cookies.get("beework_csrf")},
+            )
+            return response.status_code
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            statuses = list(pool.map(assign, user_ids))
+        self.assertEqual(sorted(statuses), [200] * 5 + [409] * 3)
+        with self.session_factory() as db:
+            self.assertEqual(assigned_count(db, self.tenant_id), 5)
+            self.assertEqual(len(db.scalars(select(PortalSeatAssignment).where(PortalSeatAssignment.status == "assigned")).all()), 5)
+
+    def test_concurrent_first_reads_of_the_seat_policy_create_a_single_row(self) -> None:
+        from beework.models.portal_seats import PortalSeatPolicy
+
+        def read(_: int) -> int:
+            client = TestClient(app)
+            client.post("/api/v1/auth/login", json={"email": "pg-admin@example.com", "password": "postgres admin password"})
+            headers = {"X-Tenant-ID": str(self.tenant_id)}
+            return max(client.get(path, headers=headers).status_code for path in ("/api/v1/portal/seats/summary", "/api/v1/portal/seats/policy"))
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            self.assertEqual(set(pool.map(read, range(6))), {200})
+        with self.session_factory() as db:
+            self.assertEqual(len(db.scalars(select(PortalSeatPolicy).where(PortalSeatPolicy.tenant_id == self.tenant_id)).all()), 1)
+
+    def test_two_concurrent_batches_are_applied_whole_or_not_at_all(self) -> None:
+        from beework import entitlements
+        from beework.portal_seat_service import assigned_count
+
+        with self.session_factory.begin() as db:
+            entitlements.create_subscription(db, db.get(Tenant, self.tenant_id), seats=20, portal_mode="named", portal_seats=5, portal_overage="hard")
+            groups: list[list[str]] = [[], []]
+            for index in range(8):
+                user = User(email=f"batch-{index}@example.com", display_name=f"Batch {index}", password_hash="x")
+                db.add(user)
+                db.flush()
+                db.add(Membership(tenant_id=self.tenant_id, user_id=user.id, organization_id=self.organization_id, role="employee"))
+                groups[index % 2].append(str(user.id))
+
+        def assign(group: list[str]) -> int:
+            client = TestClient(app)
+            client.post("/api/v1/auth/login", json={"email": "pg-admin@example.com", "password": "postgres admin password"})
+            return client.post(
+                "/api/v1/portal/seats/assign", json={"user_ids": group},
+                headers={"X-Tenant-ID": str(self.tenant_id), "X-CSRF-Token": client.cookies.get("beework_csrf")},
+            ).status_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            statuses = list(pool.map(assign, groups))
+        self.assertEqual(sorted(statuses), [200, 409])  # 4 + 4 > 5: exactly one whole batch wins
+        with self.session_factory() as db:
+            self.assertEqual(assigned_count(db, self.tenant_id), 4)
+
     def test_concurrent_assistant_creation_cannot_exceed_the_plan_quota(self) -> None:
         def create(index: int) -> int:
             client = TestClient(app)

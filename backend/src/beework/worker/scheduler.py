@@ -30,6 +30,13 @@ def capabilities_mcp_health(db: Session, payload: dict) -> None:
     mcp_health_job(db, payload)
 
 
+@job_handler("portal.reclaim_idle_seats")
+def portal_reclaim_idle_seats(db: Session, _payload: dict) -> None:
+    from beework.portal_seat_service import reclaim_idle_for_all_tenants
+
+    reclaim_idle_for_all_tenants(db)
+
+
 @job_handler("auth.release_locks")
 def auth_release_locks(db: Session, _payload: dict) -> None:
     release_expired_locks(db)
@@ -41,6 +48,7 @@ def enqueue_scheduled_jobs(db: Session, *, now: datetime | None = None) -> None:
     enqueue(db, "audit.retention", {}, idempotency_key=f"audit.retention:{window}")
     enqueue(db, "conversations.retention", {}, idempotency_key=f"conversations.retention:{window}")
     enqueue(db, "memory.retention", {}, idempotency_key=f"memory.retention:{window}")
+    enqueue(db, "portal.reclaim_idle_seats", {}, idempotency_key=f"portal.reclaim_idle_seats:{window}")
     hour = f"{window}T{current_time.hour:02d}"
     enqueue(db, "tenants.auto_lifecycle", {}, idempotency_key=f"tenants.auto_lifecycle:{hour}")
     enqueue(db, "gateway.reconcile_access", {}, idempotency_key=f"gateway.reconcile_access:{hour}")
