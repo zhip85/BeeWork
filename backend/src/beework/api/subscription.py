@@ -2,13 +2,21 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from beework.db import get_db
-from beework.entitlements import QUOTA_KEYS, get_subscription, get_usage_counter
+from beework.entitlements import QUOTA_KEYS, get_subscription, get_usage_counter, portal_grant_of
 from beework.models import Membership
 from beework.models.plans import Plan, PlanVersion
 from beework.rbac import require_tenant_permission
-from beework.schemas.plans import QuotaUsageResponse, TenantSubscriptionResponse
+from beework.schemas.plans import (
+    PortalGrantResponse,
+    QuotaUsageResponse,
+    TenantSubscriptionResponse,
+)
 
 router = APIRouter()
+
+
+def portal_response(grant) -> PortalGrantResponse:
+    return PortalGrantResponse(mode=grant.mode, seats=grant.seats, overage=grant.overage, assignable_limit=grant.assignable_limit)
 
 
 @router.get("/tenant/subscription", response_model=TenantSubscriptionResponse)
@@ -40,4 +48,5 @@ def get_tenant_subscription(
         billing_cycle=subscription.billing_cycle,
         renews_at=subscription.renews_at,
         addons=subscription.addons,
+        portal=portal_response(portal_grant_of(subscription.entitlements, subscription.quotas, plan.code)),
     )

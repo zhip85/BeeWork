@@ -21,11 +21,36 @@ type TenantForm = {
   provisioning: 'formal' | 'trial'
   trialDays: number
   trialEndsAt: string
+  portalMode: 'named' | 'active' | 'unlimited'
+  portalSeats: string
+  portalOverage: 'hard' | 'grace_5' | 'grace_10'
 }
+
+type PortalDefaults = Record<string, Pick<TenantForm, 'portalMode' | 'portalSeats' | 'portalOverage'>>
+type PlanRow = { code: string; latest_version: number; versions: { version: number; entitlements: Record<string, unknown>; quotas: Record<string, number | null> }[] }
+
+/** The AI portal grant a plan hands out by default: read from the platform's plan definitions, never hard-coded here. */
+function portalDefaultsOf(plans: PlanRow[]): PortalDefaults {
+  const result: PortalDefaults = {}
+  for (const plan of plans) {
+    const version = plan.versions.find((item) => item.version === plan.latest_version)
+    if (!version) continue
+    result[plan.code] = {
+      portalMode: (version.entitlements.portal_mode as TenantForm['portalMode']) ?? 'named',
+      portalSeats: version.quotas.portal_seats == null ? '' : String(version.quotas.portal_seats),
+      portalOverage: (version.entitlements.portal_overage as TenantForm['portalOverage']) ?? 'hard',
+    }
+  }
+  return result
+}
+
+const PORTAL_MODES = [['named', '指定用户'], ['active', '按月活跃'], ['unlimited', '全员不限']] as const
+const PORTAL_OVERAGES = [['hard', '硬限制'], ['grace_5', '宽限 5%'], ['grace_10', '宽限 10%']] as const
 
 const EMPTY_FORM: TenantForm = {
   name: '', slug: '', adminName: '', adminEmail: '', adminPassword: '', seatLimit: 10, plan: 'standard',
   region: 'ap_singapore', industry: 'general_office', provisioning: 'formal', trialDays: 14, trialEndsAt: '',
+  portalMode: 'named', portalSeats: '200', portalOverage: 'hard',
 }
 
 /** The tenant fields shared by the create form and the edit dialog (the edit dialog leaves the password optional). */
@@ -47,6 +72,16 @@ function TenantFields({ form, onChange, mode, status, memberCount, industries }:
       <label>{editing ? '重置管理员密码' : '初始登录密码'}<input autoComplete="new-password" minLength={12} onChange={(event) => onChange({ adminPassword: event.target.value })} required={!editing} type="password" value={form.adminPassword} /><small>{editing ? '留空则不修改；设置后该管理员的现有登录会话会失效，请通过安全渠道交付新密码。' : '至少 12 位，请通过安全渠道交付给企业管理员。'}</small></label>
       <label>{editing ? '席位上限' : '初始席位上限'}<input max={100000} min={1} onChange={(event) => onChange({ seatLimit: Number(event.target.value) })} required type="number" value={form.seatLimit} /><small>{editing ? `当前成员与待接受邀请共 ${memberCount ?? 0} 个；不能低于已使用的席位。` : '当前由平台按租户配置；后续套餐权益将接管此上限。'}</small></label>
       <label>套餐<select onChange={(event) => onChange({ plan: event.target.value })} value={form.plan}><option value="standard">标准版</option><option value="professional">专业版</option><option value="enterprise">企业版</option></select>{editing && <small>保存后立即按新套餐的权益生效。</small>}</label>
+      <fieldset className="portal-grant-fields">
+        <legend>AI 门户席位<small>员工使用 AI 门户的授权数量，与控制台席位分开计量；由租户管理员分配给员工。</small></legend>
+        <label>计费模式<select onChange={(event) => onChange({ portalMode: event.target.value as TenantForm['portalMode'] })} value={form.portalMode}>{PORTAL_MODES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        {form.portalMode === 'unlimited' ? <small>全员不限：不设门户席位上限，也不适用超额策略。</small> : (
+          <>
+            <label>门户席位数<input min={1} onChange={(event) => onChange({ portalSeats: event.target.value })} required type="number" value={form.portalSeats} />{Number(form.portalSeats) <= 0 && <small className="portal-grant-error" role="alert">门户席位数需大于 0</small>}</label>
+            <label>席位用尽时<select onChange={(event) => onChange({ portalOverage: event.target.value as TenantForm['portalOverage'] })} value={form.portalOverage}>{PORTAL_OVERAGES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          </>
+        )}
+      </fieldset>
       <label>数据区域<select onChange={(event) => onChange({ region: event.target.value })} value={form.region}><option value="us_east">US-East</option><option value="eu_west">EU-West</option><option value="ap_singapore">AP-Singapore</option><option value="cn_shanghai">CN-Shanghai</option></select><small>模型目录仅显示本区域可用模型{editing ? '；修改区域会改变该企业可见的模型。' : '。'}</small></label>
       <label>所属行业<select onChange={(event) => onChange({ industry: event.target.value })} value={form.industry}>{industries.map((item) => <option key={item.code} value={item.code}>{item.name_zh}</option>)}</select><small>来自平台行业字典；决定可继承的行业术语表与按行业下发的安全基线。</small></label>
       {!editing && <label>开通方式<select onChange={(event) => onChange({ provisioning: event.target.value as 'formal' | 'trial' })} value={form.provisioning}><option value="formal">正式</option><option value="trial">试用</option></select><small>试用到期后自动停用。</small></label>}
@@ -68,6 +103,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
   const [lifecycleReason, setLifecycleReason] = useState('')
   const [lifecycleSubmitting, setLifecycleSubmitting] = useState(false)
   const [reviewingOperation, setReviewingOperation] = useState('')
+  const [portalDefaults, setPortalDefaults] = useState<PortalDefaults>({})
   const [editing, setEditing] = useState<PlatformTenant | null>(null)
   const [editForm, setEditForm] = useState<TenantForm>(EMPTY_FORM)
   const [editSubmitting, setEditSubmitting] = useState(false)
@@ -81,9 +117,13 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
       apiRequest<PlatformTenant[]>('/api/v1/platform/tenants'),
       apiRequest<PlatformOperation[]>('/api/v1/platform/operations?status=pending'),
       apiRequest<{ code: string; name_zh: string; status: string }[]>('/api/v1/platform/industries'),
+      apiRequest<PlanRow[]>('/api/v1/platform/plans'),
     ])
-      .then(([tenantResult, operationResult, industryResult]) => {
+      .then(([tenantResult, operationResult, industryResult, planResult]) => {
         if (!active) return
+        const defaults = portalDefaultsOf(planResult)
+        setPortalDefaults(defaults)
+        setCreateForm((current) => ({ ...current, ...defaults[current.plan] }))
         setTenants(tenantResult)
         setOperations(operationResult)
         setIndustries(industryResult.filter((item) => item.status === 'active'))
@@ -117,11 +157,14 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
             industry: createForm.industry,
             provisioning: createForm.provisioning,
             trial_days: createForm.provisioning === 'trial' ? createForm.trialDays : undefined,
+            portal_mode: createForm.portalMode,
+            portal_seats: createForm.portalMode === 'unlimited' ? undefined : Number(createForm.portalSeats),
+            portal_overage: createForm.portalMode === 'unlimited' ? undefined : createForm.portalOverage,
           }),
         },
       )
       setTenants((current) => [created, ...current])
-      setCreateForm(EMPTY_FORM)
+      setCreateForm({ ...EMPTY_FORM, ...portalDefaults[EMPTY_FORM.plan] })
       setNotice(`已创建 ${created.name}。首位企业管理员为 ${created.admin_email}；平台账号没有加入该企业。`)
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '创建企业失败')
@@ -145,6 +188,8 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
       name: tenant.name, slug: tenant.slug, adminName: tenant.admin_name ?? '', adminEmail: tenant.admin_email ?? '',
       adminPassword: '', seatLimit: tenant.seat_limit, plan: tenant.plan, region: tenant.region, industry: tenant.industry, provisioning: 'formal',
       trialDays: 14, trialEndsAt: tenant.trial_ends_at ? tenant.trial_ends_at.slice(0, 10) : '',
+      portalMode: tenant.portal_mode as TenantForm['portalMode'], portalSeats: tenant.portal_seats == null ? '' : String(tenant.portal_seats),
+      portalOverage: (tenant.portal_overage ?? 'hard') as TenantForm['portalOverage'],
     })
     setEditError('')
   }
@@ -160,6 +205,16 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
       if (editForm.slug !== editing.slug) body.slug = editForm.slug
       if (editForm.plan !== editing.plan) body.plan = editForm.plan
       if (editForm.seatLimit !== editing.seat_limit) body.seat_limit = editForm.seatLimit
+      if (
+        editForm.portalMode !== editing.portal_mode
+        || (editForm.portalMode !== 'unlimited' && (Number(editForm.portalSeats) !== editing.portal_seats || editForm.portalOverage !== editing.portal_overage))
+      ) {
+        body.portal_mode = editForm.portalMode
+        if (editForm.portalMode !== 'unlimited') {
+          body.portal_seats = Number(editForm.portalSeats)
+          body.portal_overage = editForm.portalOverage
+        }
+      }
       if (editForm.region !== editing.region) body.region = editForm.region
       if (editForm.industry !== editing.industry) body.industry = editForm.industry
       if (editForm.adminName.trim() !== (editing.admin_name ?? '')) body.admin_name = editForm.adminName.trim()
@@ -249,7 +304,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
         </div>
         <p className="organization-description">初始密码由平台管理员设置，创建后不会再次显示；请先记录并通过安全渠道交付。</p>
         <form className="tenant-create-form" onSubmit={createTenant}>
-          <TenantFields form={createForm} industries={industries} mode="create" onChange={(patch) => setCreateForm((current) => ({ ...current, ...patch }))} />
+          <TenantFields form={createForm} industries={industries} mode="create" onChange={(patch) => setCreateForm((current) => ({ ...current, ...patch, ...(patch.plan ? portalDefaults[patch.plan] : {}) }))} />
           <button className="primary-button tenant-provision-submit" disabled={submitting} type="submit"><Plus size={16} />{submitting ? '正在创建…' : '创建企业并开通管理员'}</button>
         </form>
       </div>
@@ -293,13 +348,14 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
         {loading ? <div className="members-empty">正在读取企业列表…</div> : tenants.length === 0 ? <div className="members-empty">还没有企业工作区。</div> : (
           <div className="members-table-wrap">
             <table className="members-table">
-              <thead><tr><th>企业</th><th>首位企业管理员</th><th>套餐 / 区域</th><th>席位上限</th><th>成员数</th><th>状态</th><th>操作</th></tr></thead>
+              <thead><tr><th>企业</th><th>首位企业管理员</th><th>套餐 / 区域</th><th>控制台席位</th><th>AI 门户席位</th><th>成员数</th><th>状态</th><th>操作</th></tr></thead>
               <tbody>{tenants.map((tenant) => (
                 <tr key={tenant.id}>
                   <td><strong className="tenant-name-cell">{tenant.name}</strong><small className="platform-tenant-slug">{tenant.slug}</small></td>
                   <td>{tenant.admin_name ? <span className="platform-admin-cell"><strong>{tenant.admin_name}</strong><small>{tenant.admin_email}</small></span> : <span className="role-text">未设置</span>}</td>
                   <td><span className="platform-admin-cell"><strong>{enumLabel('plan', tenant.plan)}</strong><small>{enumLabel('region', tenant.region)}</small></span></td>
                   <td>{tenant.seat_limit}</td>
+                  <td><span className="platform-admin-cell"><strong>{tenant.portal_mode === 'unlimited' ? '全员不限' : (tenant.portal_seats ?? 0).toLocaleString()}</strong><small>{PORTAL_MODES.find(([value]) => value === tenant.portal_mode)?.[1]}</small></span></td>
                   <td>{tenant.member_count}</td>
                   <td><span className={`member-status ${['trial', 'active', 'grace'].includes(tenant.status) ? 'active' : 'inactive'}`}><i />{enumLabel('tenantStatus', tenant.status)}</span>{tenant.status === 'trial' && tenant.trial_ends_at && <small className="platform-tenant-slug">试用至 {new Date(tenant.trial_ends_at).toLocaleDateString()}</small>}{tenant.status_note && <small className="tenant-status-note">{tenant.status_note}</small>}</td>
                   <td className="member-actions-cell">
@@ -318,7 +374,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
             <button className="modal-close" type="button" aria-label="关闭" onClick={() => setEditing(null)}><X size={18} /></button>
             <div className="section-kicker">编辑企业</div>
             <h2 id="tenant-edit-title">{editing.name}</h2>
-            <TenantFields form={editForm} industries={industries} memberCount={editing.member_count} mode="edit" onChange={(patch) => setEditForm((current) => ({ ...current, ...patch }))} status={editing.status} />
+            <TenantFields form={editForm} industries={industries} memberCount={editing.member_count} mode="edit" onChange={(patch) => setEditForm((current) => ({ ...current, ...patch, ...(patch.plan ? portalDefaults[patch.plan] : {}) }))} status={editing.status} />
             {editError && <p className="members-error" role="alert">{editError}</p>}
             <button className="primary-button" disabled={editSubmitting} type="submit">{editSubmitting ? '保存中…' : '保存'}</button>
           </form>

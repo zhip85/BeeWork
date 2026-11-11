@@ -10,7 +10,7 @@ from beework.auth import (
     require_csrf,
 )
 from beework.db import get_db
-from beework.entitlements import change_subscription, create_subscription, seat_usage
+from beework.entitlements import change_subscription, create_subscription, portal_grant, seat_usage
 from beework.glossary import ensure_industry
 from beework.governance.tenant_glossary import preset_for_tenant
 from beework.models import (
@@ -87,7 +87,10 @@ def create_tenant(
     root_organization = Organization(tenant_id=tenant.id, name=tenant.name)
     db.add(root_organization)
     db.flush()
-    create_subscription(db, tenant, seats=payload.seat_limit)
+    create_subscription(
+        db, tenant, seats=payload.seat_limit,
+        portal_mode=payload.portal_mode, portal_seats=payload.portal_seats, portal_overage=payload.portal_overage,
+    )
     tenant_admin = User(
         email=admin_email,
         display_name=payload.admin_name,
@@ -182,13 +185,21 @@ def update_tenant(
             tenant.trial_ends_at = as_utc(payload.trial_ends_at)
     new_plan = payload.plan if payload.plan is not None else tenant.plan
     new_seats = payload.seat_limit if payload.seat_limit is not None else tenant.seat_limit
-    if new_plan != tenant.plan or new_seats != tenant.seat_limit:
+    portal_given = any(v is not None for v in (payload.portal_mode, payload.portal_seats, payload.portal_overage))
+    if new_plan != tenant.plan or new_seats != tenant.seat_limit or portal_given:
         used = seat_usage(db, tenant.id)
         if new_seats < used:
             raise HTTPException(status_code=422, detail=f"席位上限不能低于已使用的席位（{used}）")
         old_plan, old_seats = tenant.plan, tenant.seat_limit
+        old_portal = portal_grant(db, tenant.id)
         # Without an explicit seat limit a plan change takes the new plan's own seat quota.
-        change_subscription(db, tenant, new_plan, seats=payload.seat_limit)
+        change_subscription(
+            db, tenant, new_plan, seats=payload.seat_limit,
+            portal_mode=payload.portal_mode, portal_seats=payload.portal_seats, portal_overage=payload.portal_overage,
+        )
+        new_portal = portal_grant(db, tenant.id)
+        if new_portal != old_portal:
+            changes["portal"] = f"合同变更 · AI 门户：{old_portal.label()} → {new_portal.label()}"
         if new_plan != old_plan:
             changes["plan"] = f"{old_plan} → {new_plan}"
         if tenant.seat_limit != old_seats:
@@ -283,6 +294,7 @@ def _tenant_response(db: Session, tenant: Tenant) -> PlatformTenantResponse:
         .order_by(Membership.created_at)
         .limit(1)
     ).first()
+    grant = portal_grant(db, tenant.id)
     return PlatformTenantResponse(
         id=tenant.id,
         name=tenant.name,
@@ -293,6 +305,9 @@ def _tenant_response(db: Session, tenant: Tenant) -> PlatformTenantResponse:
         region=tenant.region,
         industry=tenant.industry,
         member_count=member_count,
+        portal_mode=grant.mode,
+        portal_seats=grant.seats,
+        portal_overage=grant.overage,
         admin_email=admin.email if admin else None,
         admin_name=admin.display_name if admin else None,
         trial_ends_at=tenant.trial_ends_at,

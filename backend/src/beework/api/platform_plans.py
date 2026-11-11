@@ -7,13 +7,16 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from beework.api.conventions import require_platform_admin
+from beework.api.subscription import portal_response
 from beework.auth import require_csrf
 from beework.db import get_db
 from beework.entitlements import (
+    PortalGrant,
     change_subscription,
     ensure_default_plans,
     get_subscription,
     plan_in_use,
+    portal_grant_of,
     publish_plan_version,
 )
 from beework.errors import ApiError
@@ -142,6 +145,7 @@ def _subscription_response(db: Session, tenant_id: UUID) -> PlatformSubscription
         tenant_id=str(tenant_id), plan_code=plan.code, plan_version=version.version, quotas=subscription.quotas,
         entitlements=subscription.entitlements, billing_cycle=subscription.billing_cycle,
         renews_at=subscription.renews_at, created_at=subscription.created_at,
+        portal=portal_response(portal_grant_of(subscription.entitlements, subscription.quotas, plan.code)),
     )
 
 
@@ -173,6 +177,7 @@ def apply_subscription_change(
     subscription = change_subscription(
         db, tenant, payload.plan_code, version_number=payload.version, seats=payload.seats,
         billing_cycle=payload.billing_cycle, renews_at=payload.renews_at,
+        portal_mode=payload.portal_mode, portal_seats=payload.portal_seats, portal_overage=payload.portal_overage,
     )
     after = _subscription_response(db, tenant_id)
     record_lifecycle_audit(
@@ -181,9 +186,17 @@ def apply_subscription_change(
             "from_plan": f"{before.plan_code}@v{before.plan_version}",
             "to_plan": f"{after.plan_code}@v{after.plan_version}",
             "seats": str(subscription.quotas.get("seats")),
+            **_portal_change(before.portal, after.portal),
             "billing_cycle": subscription.billing_cycle,
         },
     )
     db.commit()
     return after
 
+
+
+def _portal_change(before, after) -> dict[str, str]:
+    """“合同变更 · AI 门户：指定用户 · 1,500 → 按月活跃 · 1,800”, only when the grant actually changed."""
+    old = PortalGrant(before.mode, before.seats, before.overage)
+    new = PortalGrant(after.mode, after.seats, after.overage)
+    return {"portal": f"{old.label()} → {new.label()}"} if old != new else {}

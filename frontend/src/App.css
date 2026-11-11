@@ -4367,3 +4367,9 @@ tr.policy-off td { opacity: 0.55; }
 .spin { animation: skill-spin 1s linear infinite; }
 @keyframes skill-spin { to { transform: rotate(360deg); } }
 textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.portal-grant-fields { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); align-items: start; gap: 12px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--canvas); }
+.portal-grant-fields > small { grid-column: 1 / -1; color: var(--muted); }
+.portal-grant-fields legend { display: grid; gap: 2px; padding: 0 6px; font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+.portal-grant-fields legend small { color: var(--muted); font-size: var(--fs-xs); font-weight: var(--fw-regular); }
+.portal-grant-error { color: var(--danger); }

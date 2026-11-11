@@ -26,6 +26,9 @@ class CreateTenantRequest(BaseModel):
     # "trial" starts the workspace in trial status; it is suspended automatically when the trial ends (T-005).
     provisioning: Literal["formal", "trial"] = "formal"
     trial_days: int = Field(default=14, ge=1, le=90)
+    portal_mode: Literal["named", "active", "unlimited"] | None = None  # AI portal seats (T-149); the plan's default when omitted
+    portal_seats: int | None = Field(default=None, ge=1, le=10000000)
+    portal_overage: Literal["hard", "grace_5", "grace_10"] | None = None
 
     @field_validator("admin_name")
     @classmethod
@@ -50,6 +53,9 @@ class UpdateTenantRequest(BaseModel):
     admin_email: EmailStr | None = None
     admin_password: str | None = Field(default=None, min_length=12, max_length=256)
     trial_ends_at: datetime | None = None  # only while the workspace is in trial
+    portal_mode: Literal["named", "active", "unlimited"] | None = None  # AI portal seats (T-149); the plan's default when omitted
+    portal_seats: int | None = Field(default=None, ge=1, le=10000000)
+    portal_overage: Literal["hard", "grace_5", "grace_10"] | None = None
 
     @field_validator("name", "admin_name")
     @classmethod
@@ -129,6 +135,9 @@ class PlatformTenantResponse(BaseModel):
     region: str
     industry: str = "general_office"
     member_count: int
+    portal_mode: str = "named"
+    portal_seats: int | None = None
+    portal_overage: str | None = None
     admin_email: EmailStr | None = None
     admin_name: str | None = None
     trial_ends_at: datetime | None = None

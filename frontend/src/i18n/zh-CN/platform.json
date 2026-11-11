@@ -41,7 +41,8 @@
       "monthly_points": "月度点数",
       "storage_gb": "存储（GB）",
       "monthly_conversations": "月度会话数",
-      "api_qps": "API 每秒请求数"
+      "api_qps": "API 每秒请求数",
+      "portal_seats": "AI 门户席位"
     },
     "policies": {
       "hard": "硬限制（拒绝）",
@@ -63,7 +64,9 @@
       "environments": "环境",
       "custom_domain": "自定义域名",
       "byok": "自带密钥",
-      "log_retention_days": "日志保留（天）"
+      "log_retention_days": "日志保留（天）",
+      "portal_mode": "AI 门户计费模式",
+      "portal_overage": "AI 门户超额策略"
     },
     "publish": "发布新版本",
     "publishing": "发布中…",
@@ -89,7 +92,17 @@
     "apply": "应用",
     "applying": "应用中…",
     "applied": "订阅变更已应用",
-    "applyFailed": "应用订阅变更失败"
+    "applyFailed": "应用订阅变更失败",
+    "portalModes": {
+      "named": "指定用户",
+      "active": "按月活跃",
+      "unlimited": "全员不限"
+    },
+    "portalOverages": {
+      "hard": "硬限制",
+      "grace_5": "宽限 5%",
+      "grace_10": "宽限 10%"
+    }
   },
   "piiRules": "PII 规则",
   "baseline": "安全基线",
