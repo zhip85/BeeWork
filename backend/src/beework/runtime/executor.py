@@ -12,6 +12,7 @@ from langchain_core.language_models import BaseChatModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+import beework.capability_service  # noqa: F401  (registers the MCP tool provider and the mcp mount resolver)
 from beework.compliance import get_policy
 from beework.conversations import append_message, history_for_run
 from beework.faqs import record_hits as record_faq_hits

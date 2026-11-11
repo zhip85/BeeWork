@@ -621,7 +621,7 @@ class VersionTests(unittest.TestCase):
             assistant.draft_config = {**assistant.draft_config, "mounts": {"kb": [str(live), str(off)]}}
         mounts = self.client.get(f"/api/v1/assistants/{self.aid}/mounts", headers=self.admin).json()
         self.assertEqual([(i["name"], i["state"]) for i in mounts["groups"][0]["items"]], [("FAQ", "available"), ("Old", "disabled")])
-        self.assertEqual(mounts["mountable_kinds"], ["kb"])
+        self.assertEqual(mounts["mountable_kinds"], ["kb", "mcp"])  # MCP registers its resolver in T-072
         issues = [i for i in self.checks().json()["issues"] if i["code"] == "mount.invalid"]
         self.assertEqual([i["message"] for i in issues], ["挂载的能力“Old”已停用"])
 

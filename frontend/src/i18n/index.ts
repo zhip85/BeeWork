@@ -1,5 +1,6 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
+import enCapabilities from './en/capabilities.json'
 import enPortal from './en/portal.json'
 import enFlows from './en/flows.json'
 import enApprovals from './en/approvals.json'
@@ -22,6 +23,7 @@ import enPlatform from './en/platform.json'
 import enTesting from './en/testing.json'
 import enVersions from './en/versions.json'
 import enSettings from './en/settings.json'
+import zhCapabilities from './zh-CN/capabilities.json'
 import zhPortal from './zh-CN/portal.json'
 import zhFlows from './zh-CN/flows.json'
 import zhApprovals from './zh-CN/approvals.json'
@@ -68,14 +70,14 @@ void i18n.use(initReactI18next).init({
   lng: storedLocale(),
   fallbackLng: DEFAULT_LOCALE,
   defaultNS: 'common',
-  ns: ['common', 'channels', 'testing', 'notifications', 'approvals', 'assistants', 'detail', 'conversations', 'versions', 'nav', 'auth', 'members', 'platform', 'settings', 'audit', 'enums', 'knowledge', 'orchestration', 'governance', 'glossary', 'flows', 'portal'],
+  ns: ['common', 'channels', 'testing', 'notifications', 'approvals', 'assistants', 'detail', 'conversations', 'versions', 'nav', 'auth', 'members', 'platform', 'settings', 'audit', 'enums', 'knowledge', 'orchestration', 'governance', 'glossary', 'flows', 'portal', 'capabilities'],
   resources: {
     'zh-CN': {
-      flows: zhFlows, portal: zhPortal, channels: zhChannels, knowledge: zhKnowledge, orchestration: zhOrchestration, governance: zhGovernance, glossary: zhGlossary, testing: zhTesting, notifications: zhNotifications, approvals: zhApprovals, assistants: zhAssistants, detail: zhDetail, common: zhCommon, conversations: zhConversations, nav: zhNav, auth: zhAuth, members: zhMembers,
+      flows: zhFlows, portal: zhPortal, capabilities: zhCapabilities, channels: zhChannels, knowledge: zhKnowledge, orchestration: zhOrchestration, governance: zhGovernance, glossary: zhGlossary, testing: zhTesting, notifications: zhNotifications, approvals: zhApprovals, assistants: zhAssistants, detail: zhDetail, common: zhCommon, conversations: zhConversations, nav: zhNav, auth: zhAuth, members: zhMembers,
       platform: zhPlatform, settings: zhSettings, versions: zhVersions, audit: zhAudit, enums: zhEnums,
     },
     en: {
-      flows: enFlows, portal: enPortal, channels: enChannels, knowledge: enKnowledge, orchestration: enOrchestration, governance: enGovernance, glossary: enGlossary, testing: enTesting, notifications: enNotifications, approvals: enApprovals, assistants: enAssistants, detail: enDetail, common: enCommon, conversations: enConversations, nav: enNav, auth: enAuth, members: enMembers,
+      flows: enFlows, portal: enPortal, capabilities: enCapabilities, channels: enChannels, knowledge: enKnowledge, orchestration: enOrchestration, governance: enGovernance, glossary: enGlossary, testing: enTesting, notifications: enNotifications, approvals: enApprovals, assistants: enAssistants, detail: enDetail, common: enCommon, conversations: enConversations, nav: enNav, auth: enAuth, members: enMembers,
       platform: enPlatform, settings: enSettings, versions: enVersions, audit: enAudit, enums: enEnums,
     },
   },
