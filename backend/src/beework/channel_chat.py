@@ -7,7 +7,7 @@ the run for the Worker and either wait for it or relay its events.
 
 import json
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -141,6 +141,10 @@ def _end_user(db: Session, tenant_id: UUID, channel_type: str, external_id: str,
     return end_user
 
 
+def end_user_for(db: Session, tenant_id: UUID, channel_type: str, external_id: str, name: str | None) -> EndUser:
+    return _end_user(db, tenant_id, channel_type, external_id, name)
+
+
 def start_chat(
     db: Session,
     target: ChatTarget,
@@ -152,6 +156,7 @@ def start_chat(
     end_user_name: str | None,
     message: str,
     conversation_id: UUID | None,
+    on_create: Callable[[Conversation], None] | None = None,
 ) -> tuple[Run, Conversation]:
     assistant = target.assistant
     end_user = _end_user(db, assistant.tenant_id, channel_type, external_id, end_user_name)
@@ -181,6 +186,8 @@ def start_chat(
         )
         conversation.assistant_version = target.label
         conversation.channel_instance_id = channel_instance_id
+        if on_create is not None:
+            on_create(conversation)  # set before the run commits, so a new conversation is never seen half-made
     run = Run(
         tenant_id=assistant.tenant_id,
         assistant_id=assistant.id,

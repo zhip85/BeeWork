@@ -2,7 +2,6 @@
   "defaultName": "AI Portal",
   "newChat": "New chat",
   "search": "Search",
-  "projects": "Projects",
   "apps": "AI apps",
   "pinned": "Pinned",
   "recent": "Recent",
@@ -58,5 +57,47 @@
     "refresh": "Refresh status",
     "autoAssigned": "A portal seat was assigned to you automatically",
     "dismiss": "Dismiss"
-  }
+  },
+  "noApps": "No apps available",
+  "noAppsHint": "No AI apps have been listed by your administrator yet. Once they are, you can start chatting.",
+  "searchPlaceholder": "Search conversation titles",
+  "searchNone": "No matching conversations",
+  "chat": {
+    "thinking": "Thinking…",
+    "failed": "Sending failed. Please retry.",
+    "retry": "Retry",
+    "unavailable": "This app was delisted or is unavailable; you can't send more messages.",
+    "readonly": "This app was delisted or is unavailable. You can read this conversation but not continue it."
+  },
+  "conv": {
+    "rename": "Rename",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "pinned": "Pinned",
+    "moveToProject": "Move to project",
+    "removeFromProject": "Remove from project",
+    "noProjects": "No projects yet",
+    "delete": "Delete",
+    "deleteConfirm": "This cannot be undone. Delete this conversation?",
+    "deleteYes": "Delete",
+    "cancel": "Cancel",
+    "actions": "Conversation actions",
+    "failed": "That didn't work. Please retry."
+  },
+  "project": {
+    "name": "Project name",
+    "description": "Description (optional)",
+    "create": "New project",
+    "empty": "No projects yet. A project is your own folder for related conversations.",
+    "noDescription": "No description",
+    "count": "{{count}} conversations",
+    "back": "← All projects",
+    "edit": "Edit",
+    "save": "Save",
+    "newChat": "New chat in this project",
+    "conversations": "Conversations in this project",
+    "deleteConfirm": "Deleting a project keeps its conversations; they just leave the project.",
+    "failed": "That didn't work. Please retry."
+  },
+  "projects": "Projects"
 }
