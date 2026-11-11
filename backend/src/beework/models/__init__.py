@@ -78,6 +78,14 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "model_catalog.tested": "测试模型连通性",
     "model_environment.tested": "测试环境模型调用",
     "job.retried": "重试后台任务",
+    "capability.created": "添加能力",
+    "capability.updated": "修改能力",
+    "capability.enabled": "启用能力",
+    "capability.disabled": "停用能力",
+    "capability.copied": "复制能力",
+    "capability.deleted": "删除能力",
+    "capability.tested": "测试能力连接",
+    "capability.authorized": "授权 MCP（OAuth）",
     "portal_settings.updated": "修改门户设置",
     "portal_app.created": "添加门户应用",
     "portal_app.updated": "修改门户应用",
@@ -584,7 +592,7 @@ class AuditEvent(Base):
     def set_audit_metadata(self, _key: str, action: str) -> str:
         if action.startswith(("membership.", "role.", "organization.")):
             self.category = "members_permissions"
-        elif action.startswith(("assistant.", "channel.", "flow.", "portal_app.", "portal_settings.")):
+        elif action.startswith(("assistant.", "channel.", "flow.", "portal_app.", "portal_settings.", "capability.")):
             self.category = "assistants"
         elif action.startswith("api_key."):
             self.category = "developer"
@@ -733,6 +741,7 @@ from beework.models import (  # noqa: E402,F401
     agents,
     approvals,
     assistants,
+    capabilities,
     capability_refs,
     channels,
     conversations,

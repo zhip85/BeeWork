@@ -368,6 +368,11 @@
 - `portal_settings`（迁移 0042）：品牌与默认体验、导航开关、会话能力、员工个人设置、下架历史处理；管理端“门户设置”页签；`GET /portal/me/config` 给员工端读取（只含品牌与开关）；`require_portal_feature` 让员工端接口在开关关闭时服务端 403。
 - 验证：ruff；全量后端（含迁移升降级）；前端 tsc / lint / i18n / style / build；无头 Chrome 验证保存与刷新后保持。**员工端接口尚不存在（T-143–T-148 需挂上依赖）；`delisted_history` 仅存储。**
 
+### T-072 MCP 连接（待验收）
+
+- 通用 `capabilities` 表 + `mcp_connections`（迁移 0043）；能力目录页（Skill / MCP / API 三页签，现仅 MCP 可用）与 MCP 创建 / 编辑页；Streamable HTTP 客户端（直接建在 T-071 的安全 HTTP 客户端上）；认证 None / Bearer / OAuth 2.1（授权码 + PKCE，端点手填）；测试连接与工具对账；审批（“启用第三方 Skill / MCP”）与套餐权益；Worker 每 5 分钟健康检查（连续 3 次失败标记异常并通知，不自动停用）；挂载、候选与执行器 provider。
+- 验证：ruff；全量后端（含迁移升降级）；前端 tsc / lint / i18n / style / build；**连过官方 MCP SDK 1.30 示例服务器**（列工具、调用）。**OAuth 只用模拟授权服务验证；运行时尚未调用（T-061）；真实 TLS 固定 IP 待验证。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

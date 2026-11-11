@@ -4330,3 +4330,20 @@ tr.policy-off td { opacity: 0.55; }
 .portal-switches small { color: #7d8983; font-size: var(--fs-xs); }
 .portal-settings legend { float: left; width: 100%; padding: 0 0 6px; }
 .portal-settings legend + * { clear: both; }
+
+/* Capability centre (T-072) */
+.capability-unhealthy { background: #fdf0ee; color: #b3261e; display: inline-flex; gap: 4px; align-items: center; }
+.capability-form .kb-create-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.capability-oauth { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.capability-oauth-status { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: var(--fs-sm); }
+.capability-oauth-status span { display: inline-flex; gap: 6px; align-items: center; }
+.capability-tools { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.capability-tools-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+.capability-tools ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.capability-tools label { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: var(--fs-sm); }
+.capability-tools code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-sm); }
+.capability-tools label span { color: #5d6c65; flex: 1; }
+.capability-tools label em { color: #7d8983; font-style: normal; font-size: var(--fs-xs); }
+.capability-test { display: flex; gap: 6px; align-items: center; margin: 0; font-size: var(--fs-sm); }
+.capability-test.ok { color: #1d6b43; }
+.capability-test.bad { color: #b3261e; }

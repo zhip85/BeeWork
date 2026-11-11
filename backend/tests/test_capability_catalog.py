@@ -197,14 +197,14 @@ class CatalogTests(test_assistants.AssistantTests):
         self.assertEqual([i["kind"] for i in items], ["kb", "agent", "mcp", "skill", "chatflow", "flow", "api"])
         by_kind = {i["kind"]: i for i in items}
         self.assertEqual((by_kind["skill"]["mountable"], by_kind["skill"]["available"]), (True, 1))
-        self.assertEqual((by_kind["kb"]["mountable"], by_kind["mcp"]["mountable"], by_kind["mcp"]["available"]), (True, False, 0))
+        self.assertEqual((by_kind["kb"]["mountable"], by_kind["mcp"]["mountable"], by_kind["api"]["mountable"], by_kind["api"]["available"]), (True, True, False, 0))
         self.assertEqual(self.client.get("/api/v1/capabilities/types", headers=self.login("viewer@example.com")).status_code, 403)
 
     def test_candidates_of_a_registered_type_support_search_and_hide_other_tenants(self) -> None:
         listed = self.client.get("/api/v1/capabilities/candidates?kind=skill", headers=self.admin).json()["items"]
         self.assertEqual([(i["name"], i["meta"]) for i in listed], [("Translate", {"origin": "built-in"})])
         self.assertEqual(self.client.get("/api/v1/capabilities/candidates?kind=skill&q=zzz", headers=self.admin).json()["items"], [])
-        self.assertEqual(self.client.get("/api/v1/capabilities/candidates?kind=mcp", headers=self.admin).json()["code"], "capability.kind_unavailable")
+        self.assertEqual(self.client.get("/api/v1/capabilities/candidates?kind=api", headers=self.admin).json()["code"], "capability.kind_unavailable")
         self.assertEqual(self.client.get("/api/v1/capabilities/candidates?kind=bogus", headers=self.admin).status_code, 422)
         stranger = self.login("other@example.com", self.ids["other"])
         self.assertEqual(self.client.get("/api/v1/capabilities/candidates?kind=skill", headers=stranger).json()["items"], [])

@@ -167,13 +167,13 @@ class WorkerQueueTests(unittest.TestCase):
     def test_worker_loop_step_runs_jobs_and_schedules_once_per_day(self):
         with self.sessions.begin() as db:
             enqueue(db, "noop.echo", {"message": "hello"}, tenant_id=self.tenant_id)
-        self.assertEqual(run_once("worker-1", self.sessions, batch_size=20), 14)  # noop.echo + the 13 scheduled jobs
+        self.assertEqual(run_once("worker-1", self.sessions, batch_size=20), 15)  # noop.echo + the 14 scheduled jobs
         self.assertEqual(run_once("worker-2", self.sessions), 0)  # nothing new, no duplicate schedule
         with self.sessions() as db:
             jobs = list(db.scalars(select(Job)))
             self.assertEqual(
                 sorted(job.kind for job in jobs),
-                ["approvals.sweep", "audit.retention", "auth.release_locks", "conversations.end_inactive", "conversations.retention", "gateway.reconcile_access", "knowledge.expire_faqs", "knowledge.reconcile", "knowledge.sweep_documents", "memory.retention", "noop.echo", "tenants.auto_lifecycle", "usage.month_rollover", "usage.sync"],
+                ["approvals.sweep", "audit.retention", "auth.release_locks", "capabilities.mcp_health", "conversations.end_inactive", "conversations.retention", "gateway.reconcile_access", "knowledge.expire_faqs", "knowledge.reconcile", "knowledge.sweep_documents", "memory.retention", "noop.echo", "tenants.auto_lifecycle", "usage.month_rollover", "usage.sync"],
             )
             self.assertTrue(all(job.status == "succeeded" for job in jobs), [(j.kind, j.status, j.last_error) for j in jobs])
 
@@ -195,6 +195,8 @@ class WorkerQueueTests(unittest.TestCase):
                 "audit.retention:2026-10-23",
                 "auth.release_locks:2026-10-22T08:00",
                 "auth.release_locks:2026-10-23T08:00",
+                "capabilities.mcp_health:2026-10-22T08:00",
+                "capabilities.mcp_health:2026-10-23T08:00",
                 "conversations.end_inactive:2026-10-22T08:00",
                 "conversations.end_inactive:2026-10-23T08:00",
                 "conversations.retention:2026-10-22",

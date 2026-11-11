@@ -44,6 +44,8 @@ import { NoTenantAccessPage } from './pages/auth/NoTenantAccessPage'
 import { Dashboard } from './pages/dashboard/Dashboard'
 import { MembersPage } from './pages/members/MembersPage'
 import { PlatformConsole } from './pages/platform/PlatformConsole'
+import { CapabilitiesPage } from './pages/capabilities/CapabilitiesPage'
+import { McpFormPage } from './pages/capabilities/McpFormPage'
 import { PortalAdminPage } from './pages/portal-admin/PortalAdminPage'
 import { FlowCreatePage } from './pages/flow-studio/FlowCreatePage'
 import { FlowEditorPage } from './pages/flow-studio/FlowEditorPage'
@@ -76,7 +78,7 @@ const navigation = [
 
 // Navigation entries with their own page; every other entry still shows the placeholder (listing them here is what
 // keeps a placeholder route from shadowing the real one at the same path).
-const REAL_PAGES = new Set(['/assistants', '/ai-portal', '/flow-studio', '/approvals', '/channels', '/knowledge'])
+const REAL_PAGES = new Set(['/assistants', '/capabilities', '/ai-portal', '/flow-studio', '/approvals', '/channels', '/knowledge'])
 
 function App() {
   const { t } = useTranslation(['nav', 'common', 'settings', 'notifications', 'channels'])
@@ -403,6 +405,9 @@ function App() {
               <Route key={to} path={to} element={hasPermission(permission) ? <SectionPlaceholder title={t(`nav:${labelKey}`)} icon={<Icon size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             ))}
             <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/capabilities" element={hasPermission('capabilities:view') && activeTenant ? <CapabilitiesPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/capabilities/mcp/new" element={hasPermission('capabilities:edit') && activeTenant && activeTenant.access_mode === 'full' ? <McpFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/capabilities/mcp/:capabilityId" element={hasPermission('capabilities:view') && activeTenant ? <McpFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/ai-portal" element={hasPermission('portal:view') && activeTenant ? <PortalAdminPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/flow-studio" element={hasPermission('agents:view') && activeTenant ? <FlowsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/flow-studio/new" element={hasPermission('agents:edit') && activeTenant && activeTenant.access_mode === 'full' ? <FlowCreatePage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
