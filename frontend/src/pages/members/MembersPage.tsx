@@ -346,7 +346,7 @@ export function MembersPage({
       <div className="panel members-panel">
         <div className="members-table-heading">
           <div><div className="section-kicker">成员席位</div><h2>已用 {seatsUsed} / {seatLimit} 个席位</h2></div>
-          <span className="tenant-role-chip">启用成员与有效邀请计入席位</span>
+          <span className="tenant-role-chip">启用的控制台成员与有效邀请计入席位（员工角色不占席位）</span>
         </div>
         <p className="organization-description">邀请链接有效 7 天。当前未配置邮件投递，请复制链接并通过安全渠道转发；链接仅在创建或重新生成时显示。</p>
         <form className="organization-create-form invitation-form" onSubmit={(event) => void createInvitations(event)}>

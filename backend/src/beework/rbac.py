@@ -17,6 +17,7 @@ ROLE_LABELS = {
     "operator": "运营",
     "viewer": "查看者",
     "auditor": "审计员",
+    "employee": "员工",
 }
 
 # Naming since 2026-11-10 (T-067): the user-facing name of the product is “智能体”. The ``assistants`` module is the
@@ -55,11 +56,17 @@ ALL_PERMISSIONS = frozenset(
 ASSISTANT_SCOPE_MODULES = frozenset({"dashboard", "assistants"})
 
 
+PORTAL_ONLY_ROLES = ("employee",)  # no console seat and no console access; they use the AI portal only
+
+
 def _permissions(*items: str) -> frozenset[str]:
     return frozenset(items)
 
 
+# ``employee`` (T-142) is an AI-portal user: no console permission at all, so every console endpoint answers 403. The
+# portal's own endpoints only need a tenant membership. Employees do not use a console seat (演进 PRD 13.2).
 BUILTIN_PERMISSIONS: dict[str, frozenset[str]] = {
+    "employee": frozenset(),
     "tenant_admin": ALL_PERMISSIONS,
     "builder": _permissions(
         "dashboard:view",

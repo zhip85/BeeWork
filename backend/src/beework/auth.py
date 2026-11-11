@@ -11,6 +11,7 @@ from beework import login_security
 from beework.config import settings
 from beework.db import get_db
 from beework.models import AuthSession, Membership, Tenant, User
+from beework.rbac import PORTAL_ONLY_ROLES
 from beework.security import decode_access_token
 from beework.tenant_access import READ_METHODS, tenant_access_mode
 
@@ -120,6 +121,13 @@ def get_tenant_membership(
     db: Session = Depends(get_db),
 ) -> Membership:
     return _resolve_tenant_membership(request, user, tenant_id_header, db, writable_when_read_only=False)
+
+
+def get_console_membership(membership: Membership = Depends(get_tenant_membership)) -> Membership:
+    """A tenant membership that may use the management console — portal-only ``employee`` members may not."""
+    if membership.role in PORTAL_ONLY_ROLES:
+        raise HTTPException(status_code=403, detail="当前角色无权访问管理控制台")
+    return membership
 
 
 def get_tenant_membership_for_own_state(

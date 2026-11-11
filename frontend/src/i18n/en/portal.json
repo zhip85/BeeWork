@@ -162,5 +162,6 @@
       "readonly": "Keep, readable only (default)",
       "hidden": "Hide"
     }
-  }
+  },
+  "preview": "Preview employee portal"
 }

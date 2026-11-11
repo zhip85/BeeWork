@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus, Search } from 'lucide-react'
+import { ExternalLink, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -66,6 +66,7 @@ export function PortalAdminPage({ tenant }: { tenant: TenantMembership }) {
           <h1>{t('title')}</h1>
           <p>{t('subtitle')}</p>
         </div>
+        <a className="secondary-button" href="/portal" rel="noopener" target="_blank"><ExternalLink size={15} />{t('preview')}</a>
       </div>
       <div className="portal-tabs" role="tablist">
         {TABS.map((key) => (

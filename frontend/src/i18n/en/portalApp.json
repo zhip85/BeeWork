@@ -1,0 +1,48 @@
+{
+  "defaultName": "AI Portal",
+  "newChat": "New chat",
+  "search": "Search",
+  "projects": "Projects",
+  "apps": "AI apps",
+  "pinned": "Pinned",
+  "recent": "Recent",
+  "noneYet": "No conversations yet",
+  "openMenu": "Open navigation",
+  "closeMenu": "Close navigation",
+  "account": "Account menu",
+  "profile": "Profile",
+  "backToConsole": "Back to console",
+  "logout": "Sign out",
+  "greeting": {
+    "morning": "Good morning, {{name}}",
+    "afternoon": "Good afternoon, {{name}}",
+    "evening": "Good evening, {{name}}"
+  },
+  "askPrompt": "What would you like AI to help with today?",
+  "inputLabel": "Ask AI",
+  "send": "Send",
+  "chatSoon": "Conversations are coming soon. You can look around the portal for now.",
+  "style": "Answer style",
+  "styles": {
+    "concise": "Concise",
+    "balanced": "Balanced",
+    "detailed": "Detailed"
+  },
+  "appPicker": "App",
+  "appPickerAll": "Choose automatically",
+  "browseApps": "Browse apps",
+  "sectionSoon": "This page is coming soon.",
+  "configFailed": "Cannot load the portal",
+  "retry": "Retry",
+  "loading": "Loading…",
+  "login": {
+    "title": "Sign in to {{name}}",
+    "subtitle": "Sign in with your work email and password to start using AI.",
+    "email": "Work email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "failed": "Sign-in failed. Check your email and password.",
+    "consoleLink": "Administrator? Sign in to the console"
+  }
+}

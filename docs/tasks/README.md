@@ -136,7 +136,7 @@
 |---|---|---|---|---|---|---|
 | [T-140](./T-140-portal-apps.md) | AI 门户 · 应用管理（管理员端） | T-024、T-070 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-140-portal-apps`；新权限模块 `portal`；连接来源在 T-075 后启用 |；来源现仅智能体，连接待 T-075 |
 | [T-141](./T-141-portal-settings.md) | AI 门户 · 门户设置 | T-140 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-141-portal-settings`；开关须服务端强制 |；员工端接口需在 T-143–T-148 挂上 `require_portal_feature` |
-| [T-142](./T-142-employee-portal-shell.md) | 员工门户外壳与员工身份 | T-141、T-004 | — | 待开发 | | 新内置角色 `employee`（不占席位）；`/portal/*` 独立布局、懒加载 |
+| [T-142](./T-142-employee-portal-shell.md) | 员工门户外壳与员工身份 | T-141、T-004 | — | 待验收 | Claude Sonnet 5.5 | 新内置角色 `employee`（不占席位）；`/portal/*` 独立布局、懒加载 |
 | [T-143](./T-143-portal-conversations-projects.md) | 员工端对话与项目 | T-142、T-140、T-025、T-026 | 供应商 Key | 待开发 | | 走真实运行，不做前端模拟回答 |
 | [T-144](./T-144-portal-app-library.md) | 员工端 AI 应用库与表单模式 | T-143（表单模式另需 T-064、T-075） | — | 待开发 | | 可见性服务端判定 |
 | [T-145](./T-145-portal-profile.md) | 员工个人中心 | T-142、T-056 | — | 待开发 | | 通知在 T-088 后接通 |

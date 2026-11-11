@@ -20,7 +20,7 @@ from beework.auth import (
 )
 from beework.config import settings
 from beework.db import get_db
-from beework.entitlements import quota_limit, seat_usage
+from beework.entitlements import CONSOLE_FREE_ROLES, quota_limit, seat_usage
 from beework.models import (
     AuditEvent,
     AuthSession,
@@ -225,7 +225,8 @@ def create_member_invitations(
 
     seats_used = seat_usage(db, membership.tenant_id)
     seat_limit = _seat_limit(db, membership.tenant_id)
-    if seats_used + len(emails) > seat_limit:
+    needed = 0 if payload.role in CONSOLE_FREE_ROLES else len(emails)  # employees use no console seat
+    if seats_used + needed > seat_limit:
         raise ApiError(
             409,
             "plan.quota_exceeded",
@@ -359,7 +360,7 @@ def accept_member_invitation(
         db.add(user)
         db.flush()
 
-    if seat_usage(db, invitation.tenant_id) > _seat_limit(db, invitation.tenant_id):
+    if invitation.role not in CONSOLE_FREE_ROLES and seat_usage(db, invitation.tenant_id) > _seat_limit(db, invitation.tenant_id):
         raise HTTPException(status_code=409, detail="企业席位已调整，请联系企业管理员")
     member = Membership(
         tenant_id=invitation.tenant_id,
@@ -416,6 +417,7 @@ def resend_member_invitation(
         previous_expiry = previous_expiry.replace(tzinfo=UTC)
     if (
         previous_expiry <= datetime.now(UTC)
+        and invitation.role not in CONSOLE_FREE_ROLES
         and seat_usage(db, membership.tenant_id) >= _seat_limit(db, membership.tenant_id)
     ):
         raise ApiError(409, "plan.quota_exceeded", "席位已满，请联系平台扩容后再重新发送邀请")
@@ -496,7 +498,7 @@ def change_member_status(
         raise HTTPException(status_code=404, detail="未找到该企业成员")
     if target_membership.status == payload.status:
         return _member_response(db, target_user, target_membership)
-    if payload.status == "active":
+    if payload.status == "active" and target_membership.role not in CONSOLE_FREE_ROLES:
         if seat_usage(db, membership.tenant_id) >= _seat_limit(db, membership.tenant_id):
             raise ApiError(409, "plan.quota_exceeded", "席位已满，请联系平台扩容后再恢复成员")
     if (
@@ -667,6 +669,15 @@ def change_member_role(
                 status_code=409, detail="企业至少需要保留一名管理员"
             )
 
+    # An employee becoming a console role takes a console seat: it must fit (an active member only).
+    if (
+        target_membership.role in CONSOLE_FREE_ROLES
+        and payload.role not in CONSOLE_FREE_ROLES
+        and target_membership.status == "active"
+        and target_user.is_active
+        and seat_usage(db, membership.tenant_id) >= _seat_limit(db, membership.tenant_id)
+    ):
+        raise ApiError(409, "plan.quota_exceeded", "席位已满，请联系平台扩容后再调整角色")
     previous_role = target_membership.role
     previous_custom_role_id = target_membership.custom_role_id
     target_membership.role = payload.role

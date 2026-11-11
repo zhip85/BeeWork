@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   ArrowRight,
@@ -65,6 +65,10 @@ import { roleLabel } from './roles'
 import type { CurrentUser, TenantEnvironmentName } from './types'
 import './App.css'
 import './design-system.css'
+
+// The employee portal is its own bundle: employees never download the console, and the console never loads portal styles.
+const PortalApp = lazy(() => import('./portal/PortalApp'))
+const PortalLogin = lazy(() => import('./portal/PortalLogin'))
 
 const navigation = [
   { labelKey: 'dashboard', to: '/', icon: LayoutDashboard, end: true, permission: 'dashboard:view', group: '' },
@@ -265,11 +269,37 @@ function App() {
         if (firstTenant) localStorage.setItem('beework.activeTenant', firstTenant)
       }} />
     }
+    if (location.pathname.startsWith('/portal')) {
+      return (
+        <Suspense fallback={<div className="auth-loading">{t('common:connectingWorkspace')}</div>}>
+          <PortalLogin
+            error={sessionError}
+            onLogin={async (email, password) => {
+              await handleLogin(email, password)
+              if (location.pathname === '/portal/login') navigate('/portal', { replace: true })
+            }}
+          />
+        </Suspense>
+      )
+    }
     return <LoginPage onLogin={handleLogin} error={sessionError} />
   }
 
   if (!user.is_platform_admin && !user.memberships.length) {
     return <NoTenantAccessPage user={user} onLogout={handleLogout} />
+  }
+
+  const inPortal = location.pathname === '/portal' || location.pathname.startsWith('/portal/')
+  if (inPortal && activeTenant) {
+    return (
+      <Suspense fallback={<div className="auth-loading">{t('common:connectingWorkspace')}</div>}>
+        <PortalApp key={activeTenant.id} onLogout={handleLogout} tenant={activeTenant} user={user} />
+      </Suspense>
+    )
+  }
+  // A portal-only employee has no console: send them to the portal wherever they land.
+  if (activeTenant?.role === 'employee' && !user.is_platform_admin) {
+    return <Navigate to="/portal" replace />
   }
 
   if (user.is_platform_admin && !user.memberships.length && !location.pathname.startsWith('/platform')) {

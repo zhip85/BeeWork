@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from beework.api.conventions import current_environment
 from beework.auth import (
-    get_tenant_membership,
+    get_console_membership,
     require_csrf,
 )
 from beework.db import get_db
@@ -137,7 +137,7 @@ def _tenant_model_environment_response(
 @router.get("/tenant/environments", response_model=TenantEnvironmentsResponse)
 def list_tenant_environments(
     current: str = Depends(current_environment),
-    membership: Membership = Depends(get_tenant_membership),
+    membership: Membership = Depends(get_console_membership),
     db: Session = Depends(get_db),
 ) -> TenantEnvironmentsResponse:
     """Environments for the top-bar switcher: which the plan offers, the caller's current one, and gateway health."""
