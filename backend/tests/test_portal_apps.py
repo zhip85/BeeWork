@@ -205,8 +205,9 @@ class PortalAppTests(test_assistants.AssistantTests):
 
     def test_a_source_with_a_broken_capability_reference_cannot_be_listed(self) -> None:
         gone = uuid4()
+        saved = MOUNT_RESOLVERS.get("skill")  # the real resolver (T-074) comes back afterwards
         MOUNT_RESOLVERS["skill"] = lambda db, tenant, ids: {}  # nothing exists: every mounted skill is deleted
-        self.addCleanup(lambda: MOUNT_RESOLVERS.pop("skill", None))
+        self.addCleanup(lambda: MOUNT_RESOLVERS.__setitem__("skill", saved) if saved else MOUNT_RESOLVERS.pop("skill", None))
         agent = self.create(self.admin, "Broken").json()["id"]
         self.publish(agent, {"skill": [str(gone)]})
         app_id = self.add(agent).json()["id"]

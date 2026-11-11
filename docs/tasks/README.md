@@ -106,7 +106,7 @@
 | [T-071](./T-071-tool-executor.md) | 受控工具执行器（出口网关） | T-001、T-054 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-071-tool-executor`；安全关键 |；尚无 provider，运行时调用在 T-061 |
 | [T-072](./T-072-mcp.md) | MCP 连接 | T-070、T-071、T-022 | — | 已完成（有条件） | Claude Sonnet 5.5 | 分支 `task/T-072-mcp`；连过官方 SDK 示例服务器，OAuth 仅模拟验证；运行时调用在 T-061 |
 | [T-073](./T-073-api-plugins.md) | API 插件 | T-072 | — | 待开发 | | |
-| [T-074](./T-074-skills.md) | Skill：上传、安全检查与运行时加载 | T-072、T-002 | — | 待开发 | | 本期不执行脚本 |
+| [T-074](./T-074-skills.md) | Skill：上传、安全检查与运行时加载 | T-072、T-002 | — | 待验收 | Claude Opus 5.5 | 分支 `task/T-074-skills`；本期不执行脚本；运行时调用在 T-061 | |
 | [T-075](./T-075-flow-connections.md) | 流程连接：本平台已发布画布 / Dify 应用 | T-060、T-070、T-071 | Dify 应用 API Key | 待开发 | | 2026-11-10 新增；只做 Dify 与本平台画布 |
 
 ## V0.3 任务（阶段 6–7：渠道、运营、通知）

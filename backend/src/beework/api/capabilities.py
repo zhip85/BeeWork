@@ -7,13 +7,20 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from beework import capability_service as svc
+from beework import file_store, skill_package, skill_service
 from beework.api.assistants import _actor_name
-from beework.api.conventions import ApiError, check_row_version, normalize_name
+from beework.api.conventions import (
+    ApiError,
+    check_row_version,
+    normalize_name,
+    require_platform_admin,
+)
 from beework.approvals import ApplyContext, approval_action, pending_request, submit_change
 from beework.auth import get_current_user, require_csrf
 from beework.capability_catalog import references_to
@@ -21,7 +28,7 @@ from beework.config import settings
 from beework.db import get_db
 from beework.entitlements import ensure_entitlement
 from beework.models import AuditEvent, Membership, TenantRole, User, utc_now
-from beework.models.capabilities import Capability, McpConnection
+from beework.models.capabilities import Capability, McpConnection, PlatformSkill, Skill
 from beework.rbac import flatten_permissions, permissions_for_role, require_tenant_permission
 from beework.schemas.capabilities import (
     CapabilityCounts,
@@ -32,6 +39,10 @@ from beework.schemas.capabilities import (
     McpToolEntry,
     McpWriteRequest,
     OAuthStartResponse,
+    PlatformSkillResponse,
+    PlatformSkillUpdate,
+    SkillDetail,
+    SkillUpdateRequest,
     TestResult,
 )
 from beework.tools.executor import ToolError
@@ -109,18 +120,59 @@ def _mcp_detail(conn: McpConnection) -> McpDetail:
     )
 
 
+def _skill_detail(db: Session, skill: Skill) -> SkillDetail:
+    platform = skill_service.platform_of(db, skill)
+    return SkillDetail(
+        builtin=platform is not None, platform_active=platform is None or platform.status == "active", filename=skill.filename,
+        size_bytes=skill.size_bytes, files=(skill.manifest or [])[:200], has_scripts=skill.has_scripts,
+        security_status=skill.security_status, checks=skill.checks or [], checked_at=skill.checked_at,  # type: ignore[arg-type]
+        enable_warning=skill.enable_warning,
+    )
+
+
+def _skill_meta(db: Session, skill: Skill) -> str:
+    if skill.platform_skill_id is not None:
+        return "平台可信 · Built-in"
+    label = {"passed": "安全检查通过", "failed": "安全检查未通过"}.get(skill.security_status, "待安全检查")
+    return f"{label} · {skill.filename}"
+
+
 def _response(db: Session, membership: Membership, cap: Capability) -> CapabilityResponse:
     conn = db.get(McpConnection, cap.id) if cap.kind == "mcp" else None
+    skill = db.get(Skill, cap.id) if cap.kind == "skill" else None
     pending = pending_request(db, cap.tenant_id, "capability", cap.id)
     base = CapabilityResponse.model_validate(cap)
+    meta = f"{svc.host_of(conn.url)} · MCP" if conn else _skill_meta(db, skill) if skill else ""
+    builtin = skill is not None and skill.platform_skill_id is not None
     return base.model_copy(
         update={
-            "meta": f"{svc.host_of(conn.url)} · MCP" if conn else "", "pending_approval": pending is not None,
+            "meta": meta, "pending_approval": pending is not None,
             "approval_id": pending.id if pending else None, "mcp": _mcp_detail(conn) if conn else None,
-            "can_edit": _can(db, membership, "capabilities:edit"), "can_publish": _can(db, membership, "capabilities:publish"),
-            "can_delete": _can(db, membership, "capabilities:delete"),
+            "skill": _skill_detail(db, skill) if skill else None,
+            "can_edit": _can(db, membership, "capabilities:edit") and not builtin,
+            "can_publish": _can(db, membership, "capabilities:publish"),
+            "can_delete": _can(db, membership, "capabilities:delete") and not builtin,
         }
     )
+
+
+def _ready(db: Session, cap: Capability) -> str | None:
+    """Why the capability cannot be enabled yet (None when it can)."""
+    if cap.kind == "mcp":
+        conn = db.get(McpConnection, cap.id)
+        if conn is None or not svc.is_ready(conn):
+            return "请先测试连接成功并至少勾选一个工具"
+    if cap.kind == "skill":
+        skill = db.get(Skill, cap.id)
+        if skill is None:
+            return "Skill 不存在"
+        if skill.platform_skill_id is not None:
+            platform = skill_service.platform_of(db, skill)
+            if platform is None or platform.status != "active":
+                return "平台已停用该内置 Skill"
+        elif skill.security_status != "passed":
+            return "此 Skill 需要先通过安全检查才能启用。"
+    return None
 
 
 def _request_enable(db: Session, membership: Membership, cap: Capability) -> None:
@@ -151,10 +203,9 @@ def _apply_enable(db: Session, ctx: ApplyContext) -> None:
     cap = db.get(Capability, ctx.object_id)
     if cap is None or cap.deleted_at is not None or cap.tenant_id != ctx.tenant_id:
         return  # deleted while waiting: nothing left to enable
-    if cap.kind == "mcp":
-        conn = db.get(McpConnection, cap.id)
-        if conn is None or not svc.is_ready(conn):
-            raise ApiError(409, "capability.not_ready", "能力尚未测试通过或没有勾选工具，无法启用")
+    reason = _ready(db, cap)
+    if reason:
+        raise ApiError(409, "capability.not_ready", reason)
     cap.status = "available"
     cap.row_version += 1
     db.add(
@@ -175,6 +226,8 @@ def capability_summary(
     membership: Membership = Depends(require_tenant_permission("capabilities:view")),
     db: Session = Depends(get_db),
 ) -> CapabilityCounts:
+    skill_service.sync_builtin_skills(db, membership.tenant_id)
+    db.commit()
     rows = db.execute(
         select(Capability.kind, func.count()).where(Capability.tenant_id == membership.tenant_id, Capability.deleted_at.is_(None)).group_by(Capability.kind)
     ).all()
@@ -189,6 +242,9 @@ def list_capabilities(
     membership: Membership = Depends(require_tenant_permission("capabilities:view")),
     db: Session = Depends(get_db),
 ) -> list[CapabilityResponse]:
+    if kind == "skill":
+        skill_service.sync_builtin_skills(db, membership.tenant_id)
+        db.commit()
     statement = select(Capability).where(Capability.tenant_id == membership.tenant_id, Capability.kind == kind, Capability.deleted_at.is_(None))
     if q and q.strip():
         statement = statement.where(func.lower(Capability.name).like(f"%{q.strip().lower()}%"))
@@ -226,10 +282,16 @@ def enable_capability(
     ensure_entitlement(db, cap.tenant_id, FEATURE[cap.kind])
     if cap.status == "available":
         raise ApiError(409, "capability.already_available", "该能力已经是可用状态")
-    if cap.kind == "mcp":
-        conn = db.get(McpConnection, cap.id)
-        if conn is None or not svc.is_ready(conn):
-            raise ApiError(409, "capability.not_ready", "请先测试连接成功并至少勾选一个工具")
+    reason = _ready(db, cap)
+    if reason:
+        raise ApiError(409, "capability.not_ready", reason)
+    skill = db.get(Skill, cap.id) if cap.kind == "skill" else None
+    if skill is not None and skill.platform_skill_id is not None:
+        cap.status = "available"  # platform-trusted (CAP-009): re-enabling a built-in needs no approval
+        cap.row_version += 1
+        _audit(db, membership, "capability.enabled", cap)
+        db.commit()
+        return _response(db, membership, cap)
     _request_enable(db, membership, cap)
     _audit(db, membership, "capability.updated", cap, change="enable_requested")
     db.commit()
@@ -263,8 +325,10 @@ def delete_capability(
     _: None = Depends(require_csrf),
     db: Session = Depends(get_db),
 ) -> Response:
-    """Soft delete. Things that mounted it keep the reference and show it as invalid (GLB-083)."""
+    """Soft delete. Things that mounted it keep the reference and show it as invalid (GLB-083). Built-in skills cannot
+    be deleted, only disabled (CAP-009)."""
     cap = _load(db, membership, capability_id)
+    _ensure_not_builtin(db, cap)
     references = len(references_to(db, cap.tenant_id, cap.kind, cap.id))
     cap.deleted_at = utc_now()
     cap.updated_by = _actor_name(db, membership)
@@ -305,6 +369,20 @@ def copy_capability(
                 oauth_scopes=conn.oauth_scopes,
             )
         )
+    source_skill = db.get(Skill, source.id) if source.kind == "skill" else None
+    if source_skill is not None:
+        # A copy is always self-built — a copied built-in becomes a package of its SKILL.md — and is checked again.
+        platform = skill_service.platform_of(db, source_skill)
+        if platform is not None:
+            filename, data = "SKILL.md", platform.content.encode("utf-8")
+        else:
+            filename, data = source_skill.filename, file_store.read(source_skill.package_key or "")
+        package = skill_package.load(filename, data)
+        new_skill = Skill(capability_id=copy.id, tenant_id=copy.tenant_id, uploaded_by_user_id=membership.user_id)
+        db.add(new_skill)
+        db.flush()
+        skill_service.store_package(new_skill, filename, data, package)
+        skill_service.queue_check(db, new_skill)
     _audit(db, membership, "capability.copied", copy, source_id=str(source.id))
     db.commit()
     return _response(db, membership, copy)
@@ -495,3 +573,214 @@ def oauth_callback(
     except (ToolError, svc.McpError) as exc:
         db.rollback()
         return RedirectResponse(f"{target}?oauth=error&reason={exc.code}", status_code=status.HTTP_302_FOUND)
+
+
+# ---------------------------------------------------------------------------
+# Skills (T-074).
+# ---------------------------------------------------------------------------
+
+
+def _ensure_not_builtin(db: Session, cap: Capability) -> None:
+    skill = db.get(Skill, cap.id) if cap.kind == "skill" else None
+    if skill is not None and skill.platform_skill_id is not None:
+        raise ApiError(409, "capability.builtin", "平台内置 Skill 只读：可以停用、启用或复制，不能修改或删除")
+
+
+async def _read_upload(request: Request) -> bytes:
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > skill_package.MAX_UPLOAD_BYTES:
+        raise ApiError(413, "capability.package_too_large", "包大小超过 20 MB")
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():  # never buffer more than the limit, whatever Content-Length claimed
+        total += len(chunk)
+        if total > skill_package.MAX_UPLOAD_BYTES:
+            raise ApiError(413, "capability.package_too_large", "包大小超过 20 MB")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _load_package(filename: str, data: bytes) -> skill_package.Package:
+    try:
+        return skill_package.load(filename, data)
+    except skill_package.PackageError as exc:
+        raise ApiError(422, "capability.invalid_package", exc.reason) from exc
+
+
+@router.post("/capabilities/skills", response_model=CapabilityResponse, status_code=status.HTTP_201_CREATED)
+async def upload_skill(
+    request: Request,
+    filename: str = Query(min_length=1, max_length=200),
+    name: str = Query(default="", max_length=200),
+    description: str = Query(default="", max_length=1000),
+    membership: Membership = Depends(require_tenant_permission("capabilities:edit")),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> CapabilityResponse:
+    """“上传并检查” (CAP-020–023): the package is validated now (structure, SKILL.md frontmatter) and checked by the
+    worker; the skill stays a draft until all four checks pass. Empty name / description come from SKILL.md."""
+    data = await _read_upload(request)
+    return await run_in_threadpool(_create_skill, db, membership, filename, data, name, description)
+
+
+def _create_skill(db: Session, membership: Membership, filename: str, data: bytes, name: str, description: str) -> CapabilityResponse:
+    ensure_entitlement(db, membership.tenant_id, "skills")
+    package = _load_package(filename, data)
+    final_name = _validate_name(db, membership.tenant_id, "skill", name.strip() or package.name or filename.rsplit(".", 1)[0])
+    final_description = (description.strip() or package.description)[:DESCRIPTION_MAX]
+    actor = _actor_name(db, membership)
+    cap = Capability(tenant_id=membership.tenant_id, kind="skill", name=final_name, description=final_description, status="draft", created_by=actor, updated_by=actor)
+    db.add(cap)
+    db.flush()
+    skill = Skill(capability_id=cap.id, tenant_id=cap.tenant_id, uploaded_by_user_id=membership.user_id)
+    db.add(skill)
+    db.flush()
+    skill_service.store_package(skill, filename, data, package)
+    skill_service.queue_check(db, skill)
+    _audit(db, membership, "capability.created", cap, filename=filename[:100], size=str(len(data)))
+    db.commit()
+    return _response(db, membership, cap)
+
+
+@router.put("/capabilities/skills/{capability_id}", response_model=CapabilityResponse)
+def update_skill(
+    capability_id: UUID,
+    payload: SkillUpdateRequest,
+    membership: Membership = Depends(require_tenant_permission("capabilities:edit")),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> CapabilityResponse:
+    """Name and description only (CAP-025: a checked skill whose file did not change is saved directly)."""
+    cap = _load(db, membership, capability_id, "skill")
+    _ensure_not_builtin(db, cap)
+    if payload.row_version is None:
+        raise ApiError(422, "validation.invalid", "缺少 row_version")
+    check_row_version(cap, payload.row_version, db)
+    cap.name = _validate_name(db, cap.tenant_id, "skill", payload.name, exclude_id=cap.id)
+    if len(payload.description.strip()) > DESCRIPTION_MAX:
+        raise ApiError(400, "validation.invalid_description", f"描述不能超过 {DESCRIPTION_MAX} 字")
+    cap.description = payload.description.strip()
+    cap.row_version += 1
+    cap.updated_by = _actor_name(db, membership)
+    _audit(db, membership, "capability.updated", cap)
+    db.commit()
+    return _response(db, membership, cap)
+
+
+@router.post("/capabilities/skills/{capability_id}/package", response_model=CapabilityResponse)
+async def replace_skill_package(
+    capability_id: UUID,
+    request: Request,
+    filename: str = Query(min_length=1, max_length=200),
+    membership: Membership = Depends(require_tenant_permission("capabilities:edit")),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> CapabilityResponse:
+    data = await _read_upload(request)
+    return await run_in_threadpool(_replace_package, db, membership, capability_id, filename, data)
+
+
+def _replace_package(db: Session, membership: Membership, capability_id: UUID, filename: str, data: bytes) -> CapabilityResponse:
+    """A new file always goes back through the checks (CAP-025); until they pass the skill is not usable."""
+    ensure_entitlement(db, membership.tenant_id, "skills")
+    cap = _load(db, membership, capability_id, "skill")
+    _ensure_not_builtin(db, cap)
+    package = _load_package(filename, data)
+    skill = db.get(Skill, cap.id)
+    assert skill is not None
+    skill_service.store_package(skill, filename, data, package)
+    skill.uploaded_by_user_id, skill.enable_warning = membership.user_id, None
+    if cap.status == "available":
+        cap.status = "draft"
+    cap.row_version += 1
+    cap.updated_by = _actor_name(db, membership)
+    skill_service.queue_check(db, skill)
+    _audit(db, membership, "capability.updated", cap, change="package", filename=filename[:100])
+    db.commit()
+    return _response(db, membership, cap)
+
+
+@router.post("/capabilities/skills/{capability_id}/recheck", response_model=CapabilityResponse)
+def recheck_skill(
+    capability_id: UUID,
+    membership: Membership = Depends(require_tenant_permission("capabilities:edit")),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> CapabilityResponse:
+    """Run the checks again on the current file (for example after a failure caused by a transient problem)."""
+    ensure_entitlement(db, membership.tenant_id, "skills")
+    cap = _load(db, membership, capability_id, "skill")
+    _ensure_not_builtin(db, cap)
+    skill = db.get(Skill, cap.id)
+    assert skill is not None
+    if skill.security_status in ("pending", "running"):
+        raise ApiError(409, "capability.check_running", "安全检查进行中，请稍候")
+    data = file_store.read(skill.package_key or "")
+    skill_service.store_package(skill, skill.filename, data, _load_package(skill.filename, data))
+    skill.uploaded_by_user_id, skill.enable_warning = membership.user_id, None
+    skill_service.queue_check(db, skill)
+    db.commit()
+    return _response(db, membership, cap)
+
+
+def _after_check_passed(db: Session, cap: Capability, skill: Skill) -> None:
+    """A passed check files the enable request on behalf of whoever uploaded the file (approval policy permitting)."""
+    if cap.status != "draft" or skill.uploaded_by_user_id is None:
+        return
+    try:
+        with db.begin_nested():
+            if pending_request(db, cap.tenant_id, "capability", cap.id) is None:
+                submit_change(
+                    db, tenant_id=cap.tenant_id, event="skill", action="capability.enable", object_type="capability",
+                    object_id=cap.id, title=f"接入 {cap.name}", requester_id=skill.uploaded_by_user_id,
+                    description=f"Skill 能力“{cap.name}”申请启用",
+                )
+        skill.enable_warning = None
+    except ApiError as exc:
+        skill.enable_warning = str(exc.detail)[:300]
+
+
+skill_service.ON_PASSED.append(_after_check_passed)
+
+
+# ---------------------------------------------------------------------------
+# Platform built-in skills (CAP-009): platform admins maintain them; tenants only see them.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/platform/skills", response_model=list[PlatformSkillResponse])
+def list_platform_skills(_admin: User = Depends(require_platform_admin), db: Session = Depends(get_db)) -> list[PlatformSkillResponse]:
+    skill_service.ensure_platform_skills(db)
+    db.commit()
+    return [PlatformSkillResponse.model_validate(row) for row in db.scalars(select(PlatformSkill).order_by(PlatformSkill.slug))]
+
+
+@router.put("/platform/skills/{skill_id}", response_model=PlatformSkillResponse)
+def update_platform_skill(
+    skill_id: UUID,
+    payload: PlatformSkillUpdate,
+    admin: User = Depends(require_platform_admin),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> PlatformSkillResponse:
+    """Changes reach every tenant at once (CAP-053); disabling makes the skill unusable everywhere."""
+    row = db.get(PlatformSkill, skill_id)
+    if row is None:
+        raise ApiError(404, "not_found", "未找到指定内置 Skill")
+    name = normalize_name(payload.name, NAME_MAX)
+    meta = skill_package.parse_frontmatter(payload.content)
+    if not isinstance(meta.get("name"), str) or not isinstance(meta.get("description"), str):
+        raise ApiError(422, "capability.invalid_package", "SKILL.md 需要包含 name 与 description 的 frontmatter")
+    before = (row.name, row.status)
+    row.name, row.description, row.content, row.status = name, payload.description.strip()[:DESCRIPTION_MAX], payload.content, payload.status
+    row.updated_by = admin.display_name
+    for cap in db.scalars(select(Capability).join(Skill, Skill.capability_id == Capability.id).where(Skill.platform_skill_id == row.id)):
+        cap.name, cap.description = row.name, row.description  # tenants see the platform's current name
+    db.add(
+        AuditEvent(
+            tenant_id=None, actor_user_id=admin.id, action="platform_skill.updated",
+            details={"skill_id": str(row.id), "slug": row.slug, "name": row.name, "before": f"{before[0]} / {before[1]}", "status": row.status},
+        )
+    )
+    db.commit()
+    return PlatformSkillResponse.model_validate(row)

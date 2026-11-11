@@ -386,8 +386,8 @@ class McpTests(test_assistants.AssistantTests):
         listing = self.client.get("/api/v1/capabilities?kind=mcp", headers=self.admin).json()
         self.assertEqual([c["name"] for c in listing], ["Alpha", "Beta"])
         self.assertEqual([c["name"] for c in self.client.get("/api/v1/capabilities?kind=mcp&q=BET", headers=self.admin).json()], ["Beta"])
-        self.assertEqual(self.client.get("/api/v1/capabilities?kind=skill", headers=self.admin).json(), [])
-        self.assertEqual(self.client.get("/api/v1/capabilities/summary", headers=self.admin).json(), {"skill": 0, "mcp": 2, "api": 0})
+        self.assertEqual([c["skill"]["builtin"] for c in self.client.get("/api/v1/capabilities?kind=skill", headers=self.admin).json()], [True, True, True])  # the platform built-ins (T-074)
+        self.assertEqual(self.client.get("/api/v1/capabilities/summary", headers=self.admin).json(), {"skill": 3, "mcp": 2, "api": 0})
         self.assertEqual(self.client.get("/api/v1/capabilities?kind=bogus", headers=self.admin).status_code, 422)
 
     # -- OAuth 2.1 ---------------------------------------------------------------------------

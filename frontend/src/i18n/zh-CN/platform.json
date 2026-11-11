@@ -93,5 +93,6 @@
   },
   "piiRules": "PII 规则",
   "baseline": "安全基线",
-  "glossaries": "行业术语表"
+  "glossaries": "行业术语表",
+  "skills": "内置 Skill"
 }

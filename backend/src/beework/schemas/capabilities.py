@@ -52,6 +52,51 @@ class McpDetail(BaseModel):
     health: Literal["unknown", "ok", "error"] = "unknown"
 
 
+class SkillCheck(BaseModel):
+    key: Literal["structure", "executables", "secrets", "dependencies"]
+    status: Literal["pending", "running", "passed", "warning", "failed"]
+    issues: list[dict] = Field(default_factory=list)
+
+
+class SkillDetail(BaseModel):
+    builtin: bool
+    platform_active: bool = True
+    filename: str = ""
+    size_bytes: int = 0
+    files: list[dict] = Field(default_factory=list)
+    has_scripts: bool = False
+    security_status: Literal["pending", "running", "passed", "failed"]
+    checks: list[SkillCheck] = Field(default_factory=list)
+    checked_at: datetime | None = None
+    enable_warning: str | None = None
+
+
+class SkillUpdateRequest(BaseModel):
+    name: str = Field(max_length=200)
+    description: str = Field(default="", max_length=1000)
+    row_version: int | None = None
+
+
+class PlatformSkillResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    slug: str
+    name: str
+    description: str
+    content: str
+    status: Literal["active", "disabled"]
+    updated_at: datetime
+    updated_by: str | None = None
+
+
+class PlatformSkillUpdate(BaseModel):
+    name: str = Field(max_length=200)
+    description: str = Field(default="", max_length=1000)
+    content: str = Field(max_length=20000)
+    status: Literal["active", "disabled"] = "active"
+
+
 class CapabilityResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -71,6 +116,7 @@ class CapabilityResponse(BaseModel):
     can_publish: bool = False
     can_delete: bool = False
     mcp: McpDetail | None = None
+    skill: SkillDetail | None = None
 
 
 class CapabilityCounts(BaseModel):

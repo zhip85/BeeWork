@@ -18,6 +18,14 @@ from beework.models.capability_refs import ResourceReference
 from beework.models.channels import ChannelInstance
 
 
+def _restore(saved: tuple) -> None:
+    for registry, value in zip((MOUNT_RESOLVERS, CANDIDATE_LISTERS), saved, strict=False):
+        if value is None:
+            registry.pop("skill", None)
+        else:
+            registry["skill"] = value
+
+
 class CatalogTests(test_assistants.AssistantTests):
     def setUp(self) -> None:
         super().setUp()
@@ -36,8 +44,9 @@ class CatalogTests(test_assistants.AssistantTests):
             items = [{"id": self.skill_ok, "kind": "skill", "name": "Translate", "meta": {"origin": "built-in"}}]
             return [i for i in items if not q or q.lower() in i["name"].lower()][:limit]
 
+        saved = (MOUNT_RESOLVERS.get("skill"), CANDIDATE_LISTERS.get("skill"))  # the real ones (T-074) come back afterwards
         MOUNT_RESOLVERS["skill"], CANDIDATE_LISTERS["skill"] = resolve, lister
-        self.addCleanup(lambda: (MOUNT_RESOLVERS.pop("skill", None), CANDIDATE_LISTERS.pop("skill", None)))
+        self.addCleanup(_restore, saved)
 
     # -- helpers ------------------------------------------------------------------
 

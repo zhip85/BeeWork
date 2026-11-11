@@ -11,6 +11,7 @@ import {
   ScanEye,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -21,6 +22,7 @@ import { PlatformOverviewPage } from './PlatformOverviewPage'
 import { PlatformTenantsPage } from './PlatformTenantsPage'
 import { PlatformJobsPage } from './PlatformJobsPage'
 import { PlatformPlansPage } from './PlatformPlansPage'
+import { PlatformSkillsPage } from './PlatformSkillsPage'
 import { PlatformGlossaryPage } from './glossary/PlatformGlossaryPage'
 import { PlatformBaselinePage } from './governance/PlatformBaselinePage'
 import { PlatformPiiRulesPage } from './governance/PlatformPiiRulesPage'
@@ -43,6 +45,7 @@ export function PlatformConsole({
   const isGlossaryPage = location.pathname === '/platform/glossaries'
   const isPiiPage = location.pathname === '/platform/pii-rules'
   const isBaselinePage = location.pathname === '/platform/baseline'
+  const isSkillsPage = location.pathname === '/platform/skills'
 
   return (
     <div className="platform-shell">
@@ -82,6 +85,9 @@ export function PlatformConsole({
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/pii-rules">
           <ScanEye size={18} strokeWidth={1.8} /><span>{t('piiRules')}</span>
         </NavLink>
+        <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/skills">
+          <Sparkles size={18} strokeWidth={1.8} /><span>{t('skills')}</span>
+        </NavLink>
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/baseline">
           <ShieldAlert size={18} strokeWidth={1.8} /><span>{t('baseline')}</span>
         </NavLink>
@@ -102,7 +108,7 @@ export function PlatformConsole({
       </aside>
       <main className="main-area platform-main">
         <header className="topbar">
-          <div className="breadcrumbs"><span>{t('breadcrumbRoot')}</span><span className="crumb-slash">/</span><strong>{isTenantPage ? t('tenants') : isAuditPage ? t('auditPage') : isModelPage ? t('models') : isJobsPage ? t('jobs') : isPlansPage ? t('plans.nav') : isGlossaryPage ? t('glossaries') : isPiiPage ? t('piiRules') : isBaselinePage ? t('baseline') : t('overviewPage')}</strong></div>
+          <div className="breadcrumbs"><span>{t('breadcrumbRoot')}</span><span className="crumb-slash">/</span><strong>{isTenantPage ? t('tenants') : isAuditPage ? t('auditPage') : isModelPage ? t('models') : isJobsPage ? t('jobs') : isPlansPage ? t('plans.nav') : isGlossaryPage ? t('glossaries') : isPiiPage ? t('piiRules') : isBaselinePage ? t('baseline') : isSkillsPage ? t('skills') : t('overviewPage')}</strong></div>
           <div className="topbar-actions">
             <LanguageSwitch persist /><span className="platform-admin-badge"><i />{t('adminBadge')}</span>
             {user.memberships.length > 0 && <Link className="platform-tenant-link" to="/">{t('enterWorkspace')}</Link>}
@@ -121,6 +127,8 @@ export function PlatformConsole({
                 ? <PlatformPiiRulesPage currentUserId={user.id} />
               : isBaselinePage
                 ? <PlatformBaselinePage currentUserId={user.id} />
+              : isSkillsPage
+                ? <PlatformSkillsPage />
               : isJobsPage
                 ? <PlatformJobsPage />
               : isTenantPage

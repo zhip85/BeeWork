@@ -78,6 +78,7 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "model_catalog.tested": "测试模型连通性",
     "model_environment.tested": "测试环境模型调用",
     "job.retried": "重试后台任务",
+    "platform_skill.updated": "修改平台内置 Skill",
     "capability.created": "添加能力",
     "capability.updated": "修改能力",
     "capability.enabled": "启用能力",

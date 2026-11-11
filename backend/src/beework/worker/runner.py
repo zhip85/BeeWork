@@ -34,6 +34,7 @@ from beework import (
 from beework import (
     notifications as _notifications,  # noqa: F401  (registers the approval notifier)
 )
+from beework import skill_service as _skill_service  # noqa: F401  (registers skills.security_check)
 from beework import (
     tenant_lifecycle as _tenant_lifecycle,  # noqa: F401  (registers tenants.auto_lifecycle and the gateway access hooks)
 )

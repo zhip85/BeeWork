@@ -106,5 +106,49 @@
   "noTools": "No tools yet: they are listed once a test connection succeeds.",
   "toolRead": "read-only",
   "toolWrite": "asks first",
-  "statusRule": "The capability is available only while the last test passed and at least one tool is ticked; new tools start unticked. Write operations ask the user to confirm in the conversation."
+  "statusRule": "The capability is available only while the last test passed and at least one tool is ticked; new tools start unticked. Write operations ask the user to confirm in the conversation.",
+  "skill": {
+    "passedAvailable": "Security check passed · the Skill can be used now.",
+    "passedPending": "Security check passed; an enable request was filed and it becomes available once approved.",
+    "passed": "Security check passed.",
+    "badType": "Only .zip, .skill or .md files are accepted",
+    "tooLarge": "The package is larger than 20 MB",
+    "drop": "Drop a .zip or SKILL.md here, or click to choose a file",
+    "dropHint": "Needs a SKILL.md with name and description; up to 20 MB",
+    "replace": "Current file: {{name}} (drop or click to replace; a new file is checked again)",
+    "builtinNote": "Built-in platform Skill (platform-trusted), read-only for tenants: it can be disabled, enabled or copied, but not changed or deleted.",
+    "platformDisabled": "The platform has switched this Skill off; it cannot be used right now.",
+    "checking": "Automated security check · {{done}}/{{total}}",
+    "allPassed": "Security check passed",
+    "failed": "Security check failed",
+    "notChecked": "Not checked yet",
+    "recheck": "Check again",
+    "gate": "Until every check passes the Skill stays unavailable. Scripts are never executed.",
+    "check": {
+      "structure": "Package structure and manifest",
+      "executables": "Dangerous scripts and executables",
+      "secrets": "Secrets and sensitive data",
+      "dependencies": "Permissions and external dependencies"
+    },
+    "state": {
+      "pending": "Waiting",
+      "running": "Checking",
+      "passed": "Passed",
+      "warning": "Passed (with notes)",
+      "failed": "Failed"
+    },
+    "files": "Files in the package ({{count}})",
+    "checkingButton": "Checking…",
+    "uploadAndCheck": "Upload and check"
+  },
+  "platformSkills": {
+    "title": "Built-in skills",
+    "subtitle": "Skills the platform provides to every tenant; read-only for tenants, who may disable or copy them. Changes reach all tenants at once.",
+    "status": {
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "activeLabel": "Available to tenants",
+    "note": "Once disabled, no tenant can use this Skill and agents that mount it see it as unavailable. Keep the name and description frontmatter in SKILL.md."
+  }
 }
