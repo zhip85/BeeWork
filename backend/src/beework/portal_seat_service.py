@@ -18,7 +18,7 @@ from beework.errors import ApiError
 from beework.models import AuditEvent, Membership, Organization, User
 from beework.models.portal_seats import PortalSeatAssignment, PortalSeatPolicy, PortalSeatRule
 from beework.notifications import notify
-from beework.rbac import organization_subtree
+from beework.rbac import membership_can, organization_subtree
 
 IDLE_CHOICES = (30, 60, 90)
 THRESHOLD_PERCENT = 90
@@ -313,3 +313,100 @@ def reclaim_idle_for_all_tenants(db: Session) -> None:
             db.commit()
         except Exception:  # noqa: BLE001 - isolate tenants from each other
             db.rollback()
+
+
+# ---------------------------------------------------------------------------
+# Employee side (T-151): the member's own seat, the portal session and requests.
+# ---------------------------------------------------------------------------
+
+LOGIN_TOUCH_INTERVAL = timedelta(minutes=5)
+REASON_MAX = 200
+
+
+def member_seat(db: Session, membership: Membership) -> tuple[str, str | None]:
+    """(state, source) of one member: ``assigned`` with ``manual`` / ``auto`` / ``rule`` / ``unlimited``, else
+    ``requested`` or ``unassigned``. A tenant whose grant is “全员不限” gives every active member access."""
+    if portal_grant(db, membership.tenant_id).mode == "unlimited":
+        return "assigned", "unlimited"
+    row = db.scalar(
+        select(PortalSeatAssignment).where(
+            PortalSeatAssignment.tenant_id == membership.tenant_id, PortalSeatAssignment.user_id == membership.user_id
+        )
+    )
+    source = seat_source(membership, row, rule_scope(db, membership.tenant_id))
+    if source is not None:
+        return "assigned", source
+    return ("requested" if row is not None and row.status == "requested" else "unassigned"), None
+
+
+def has_seat(db: Session, membership: Membership) -> bool:
+    return membership.status == "active" and member_seat(db, membership)[0] == "assigned"
+
+
+def open_session(db: Session, membership: Membership) -> tuple[str, str | None, bool]:
+    """Called when the employee enters the portal: records the sign-in time for idle reclaim, and on the very first
+    visit hands out a seat when the tenant enabled auto-assignment and one is still assignable. Returns
+    ``(state, source, auto_assigned)``."""
+    from beework.api.common import lock_tenant
+
+    state, source = member_seat(db, membership)
+    if state == "unassigned":
+        row = db.scalar(
+            select(PortalSeatAssignment).where(
+                PortalSeatAssignment.tenant_id == membership.tenant_id, PortalSeatAssignment.user_id == membership.user_id
+            )
+        )
+        if row is None:  # first visit; serialised so concurrent first sign-ins can never exceed the limit
+            lock_tenant(db, membership.tenant_id)
+            state, source = member_seat(db, membership)
+            row = db.scalar(
+                select(PortalSeatAssignment).where(
+                    PortalSeatAssignment.tenant_id == membership.tenant_id, PortalSeatAssignment.user_id == membership.user_id
+                )
+            )
+            if state == "unassigned" and row is None:
+                db.add(PortalSeatAssignment(tenant_id=membership.tenant_id, user_id=membership.user_id, status="none", excluded=False))
+                db.flush()
+                if try_auto_assign(db, membership):
+                    _touch_login(db, membership)
+                    return "assigned", "auto", True
+    if state == "assigned":
+        _touch_login(db, membership)
+    return state, source, False
+
+
+def _touch_login(db: Session, membership: Membership) -> None:
+    now = datetime.now(UTC)
+    row = _row(db, membership.tenant_id, membership.user_id)
+    last = _aware(row.last_login_at)
+    if last is None or now - last > LOGIN_TOUCH_INTERVAL:
+        row.last_login_at = now
+        db.flush()
+
+
+def request_seat(db: Session, membership: Membership, reason: str) -> str:
+    """The employee asks for a seat. Idempotent: asking again while waiting changes nothing; a seat holder is told so."""
+    from beework.api.common import lock_tenant
+
+    reason = reason.strip()
+    if len(reason) > REASON_MAX:
+        raise ApiError(422, "portal.reason_too_long", f"申请原因不能超过 {REASON_MAX} 字")
+    lock_tenant(db, membership.tenant_id)
+    state, _source = member_seat(db, membership)
+    if state != "unassigned":
+        return state
+    row = _row(db, membership.tenant_id, membership.user_id)
+    row.status, row.request_reason = "requested", reason or None
+    row.decided_by = row.decided_at = None
+    db.flush()
+    user = db.get(User, membership.user_id)
+    approvers = [
+        member.user_id for member, _user in active_members(db, membership.tenant_id)
+        if member.user_id != membership.user_id and membership_can(db, member, "portal:publish")
+    ]
+    notify(
+        db, tenant_id=membership.tenant_id, type="portal.seat_requested", title="有员工申请开通 AI 门户",
+        body=f"{user.display_name if user else ''} 申请开通门户席位" + (f"：{reason}" if reason else ""), link="/ai-portal",
+        params={"user_id": str(membership.user_id)}, recipient_ids=approvers,
+    )
+    return "requested"

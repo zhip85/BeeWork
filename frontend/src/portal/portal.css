@@ -18,6 +18,11 @@
 .portal-login-card label { display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--ink-soft); }
 .portal-login-card input { height: var(--control-h); padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-md); font: inherit; }
 
+.portal-noseat textarea { padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-md); font: inherit; resize: vertical; }
+.portal-linkbutton { border: 0; background: none; cursor: pointer; font: inherit; font-size: var(--fs-sm); justify-self: start; padding: 0; }
+.portal-banner { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: min(720px, 100%); margin: 0 auto 16px; padding: 8px 12px; border-radius: var(--radius-md); background: var(--mint); color: var(--forest); font-size: var(--fs-sm); }
+.portal-banner button { display: grid; place-items: center; border: 0; background: none; color: inherit; cursor: pointer; }
+
 /* shell */
 .portal-shell { display: grid; grid-template-columns: 264px minmax(0, 1fr); }
 .portal-sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 12px; padding: 14px 12px; border-right: 1px solid var(--line); background: #f5f3ee; }

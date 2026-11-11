@@ -24,6 +24,8 @@ from beework.schemas.portal import (
     PortalAppResponse,
     PortalAppWriteRequest,
     PortalMeConfig,
+    PortalSeatRequest,
+    PortalSeatState,
     PortalSettingsResponse,
     PortalSettingsUpdate,
     PortalSummary,
@@ -241,6 +243,41 @@ def my_config(
         **data, portal_name=portal_service.portal_name(db, membership.tenant_id, body),
         has_console=_can(db, membership, "dashboard:view"),
     )
+
+
+def _seat_state(db: Session, membership: Membership, state: str, source: str | None, auto: bool = False) -> PortalSeatState:
+    body, _row = portal_service.load_settings(db, membership.tenant_id)
+    return PortalSeatState(
+        state=state, source=source, auto_assigned=auto, can_request=state == "unassigned",  # type: ignore[arg-type]
+        portal_name=portal_service.portal_name(db, membership.tenant_id, body),
+    )
+
+
+@router.get("/portal/me/seat", response_model=PortalSeatState)
+def my_seat(membership: Membership = Depends(get_tenant_membership), db: Session = Depends(get_db)) -> PortalSeatState:
+    """Entering the portal: identity is already verified (the session); this answers “may you use it?”, records the sign-in
+    for idle reclaim, and on a first visit hands out a seat when the tenant turned auto-assignment on (T-151)."""
+    from beework import portal_seat_service
+
+    state, source, auto = portal_seat_service.open_session(db, membership)
+    result = _seat_state(db, membership, state, source, auto)
+    db.commit()
+    return result
+
+
+@router.post("/portal/me/seat/request", response_model=PortalSeatState)
+def request_my_seat(
+    payload: PortalSeatRequest,
+    membership: Membership = Depends(get_tenant_membership),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> PortalSeatState:
+    from beework import portal_seat_service
+
+    state = portal_seat_service.request_seat(db, membership, payload.reason)
+    result = _seat_state(db, membership, state, None)
+    db.commit()
+    return result
 
 
 @router.get("/portal/apps", response_model=list[PortalAppResponse])

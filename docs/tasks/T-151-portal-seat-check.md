@@ -16,3 +16,21 @@
 
 - [ ] 测试：无席位访问任一门户接口 403 `portal.seat_required`；全员不限时不要求席位；自动分配在满额时不分配并显示无席位页；申请 / 审批通过 / 驳回的状态流转；并发首次登录不超额（PostgreSQL）。
 - [ ] 浏览器验证无席位页、申请、待审批、通过后进入门户的完整流程（中英文各看一次）。
+
+## 完成记录（2026-11-11，Claude Sonnet 5.5）
+
+**后端**（无新迁移，沿用 T-150 的表）
+- `portal_service.require_portal_seat`：所有“使用门户”的员工端接口必须挂的依赖，无席位 403 `portal.seat_required`；全员不限时不要求席位；每次调用都由服务端判断（回收后同一账号的下一次调用立即被拒）。仅 `GET /portal/me/config`、`GET /portal/me/seat`、`POST /portal/me/seat/request` 豁免。测试枚举所有 `/portal/me/*` 路由，断言除这三个外都依赖 `require_portal_seat`——T-143 / T-144 / T-145 新增接口漏挂会直接让测试失败。
+- `portal_service.visible_apps` 对无席位成员返回空（仍是唯一的可见性函数）。
+- `GET /portal/me/seat`：返回 `assigned`（来源 `rule` / `manual` / `auto` / `unlimited`）、`requested`、`unassigned`，`can_request`、门户名称。进入门户时顺带：① 持有席位则更新最近登录时间（5 分钟内不重复写，供 T-150 闲置回收）；② **首次访问**且租户开启“首次登录自动分配”、仍有可分配席位时自动分配（来源 `auto`，响应 `auto_assigned: true` 仅出现一次）。首次访问用 `lock_tenant` 串行化，并发首次登录不会超额；满额时不分配也不报错，之后不再自动分配（被回收 / 被驳回的人也不会被自动再分配）。
+- `POST /portal/me/seat/request`：原因 ≤ 200 字（422 `portal.reason_too_long`）、需要 CSRF；重复申请幂等（不覆盖原因、不重复通知）；已持有席位时直接返回 `assigned`；通知所有拥有 `portal:publish` 的成员（含自定义角色，新增 `rbac.membership_can`）。驳回后回到 `unassigned`，可再次申请。
+
+**前端**（`frontend/src/portal/`）：外壳进入前读取 `/portal/me/seat`；无席位页（中英文）“你暂未开通 {门户名称}”+ 说明身份已验证 + 申请原因（≤ 200 字，带计数）+“申请开通”+“使用其他账号”；待审批页“申请已提交”+“刷新状态”，每 20 秒自动刷新，管理员通过后无需重新登录；自动分配后首页显示可关闭的“已自动为你分配门户席位”。
+
+**验证**：`ruff` 通过；`test_portal_seat_check`（17 个）、`test_portal_seats`、`test_portal_apps`、`test_portal_settings`、`test_employee_role` 共 89 个通过，`test_postgres_integration`（含新增 PostgreSQL 并发测试：8 个并发首次登录、上限 3、自动分配 → 恰好 3 个 `assigned`，已分配数 3）通过。覆盖：无席位 403、有席位 200、全员不限、部门规则授予与回收即时生效、三种状态、申请幂等与通知（一次）、原因超长、通过 / 驳回流转、首次访问自动分配（开关、满额、仅首次、被回收后不再分配）、最近登录写入、无席位访问不写入、跨租户 403、CSRF / 未登录。前端 `tsc` / `lint` / `i18n:check` / `style:check` / `build` 通过；浏览器（开发库，真实员工与租户管理员账号）走通：无席位页（中文、英文各截图）→ 填写原因申请 → 待审批页 → 管理员在“门户成员”点“通过”（提示“已通过 1 个申请”）→ 员工点“刷新状态”进入门户首页。
+
+**遗留 / 说明**
+1. 目前员工端只有 config / seat / request 三个接口，其余（对话、项目、应用库、个人中心）在 T-143 / T-144 / T-145；这些接口必须同时挂 `require_portal_seat`（和按需的 `require_portal_feature`），测试会检查。
+2. 前端状态只用于展示：门户进入后席位被回收时，下一次接口调用会 403，外壳此刻不会自动切换到无席位页（刷新后生效）；T-143 接入真实接口后统一处理 `portal.seat_required`。
+3. “首次访问”以是否已有席位记录为准：首次访问时满额未获席位的人，之后即使有空位也不会自动分配，需要申请或由管理员分配。
+4. 未跑全量后端测试（主机负载高）；合并前补跑。

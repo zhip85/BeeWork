@@ -144,6 +144,23 @@ def permissions_for_role(role: str) -> frozenset[str]:
     return BUILTIN_PERMISSIONS.get(role, frozenset())
 
 
+def membership_can(db: Session, membership: Membership, permission: str) -> bool:
+    """Whether the member holds ``permission`` (a tenant admin holds all; a custom role only while it is active)."""
+    from beework.models import TenantRole
+
+    if membership.role == "tenant_admin":
+        return True
+    if membership.custom_role_id is not None:
+        role = db.scalar(
+            select(TenantRole).where(
+                TenantRole.id == membership.custom_role_id, TenantRole.tenant_id == membership.tenant_id,
+                TenantRole.is_active.is_(True),
+            )
+        )
+        return role is not None and permission in flatten_permissions(role.permissions)
+    return permission in permissions_for_role(membership.role)
+
+
 def require_tenant_permission(permission: str):
     from beework.auth import get_tenant_membership
     from beework.db import get_db

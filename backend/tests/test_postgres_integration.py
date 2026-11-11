@@ -250,6 +250,34 @@ class PostgresIntegrationTests(unittest.TestCase):
         with self.session_factory() as db:
             self.assertEqual(len(db.scalars(select(PortalSeatPolicy).where(PortalSeatPolicy.tenant_id == self.tenant_id)).all()), 1)
 
+    def test_concurrent_first_sign_ins_with_auto_assignment_never_exceed_the_limit(self) -> None:
+        from beework import entitlements, portal_seat_service
+
+        with self.session_factory.begin() as db:
+            entitlements.create_subscription(db, db.get(Tenant, self.tenant_id), seats=20, portal_mode="named", portal_seats=3, portal_overage="hard")
+            portal_seat_service.update_policy(db, self.tenant_id, True, None, None)
+            emails = []
+            for index in range(8):
+                user = User(email=f"first-{index}@example.com", display_name=f"First {index}", password_hash=hash_password("postgres first password"))
+                db.add(user)
+                db.flush()
+                db.add(Membership(tenant_id=self.tenant_id, user_id=user.id, organization_id=self.organization_id, role="employee"))
+                emails.append(user.email)
+
+        def enter(email: str) -> str:
+            client = TestClient(app)
+            login = client.post("/api/v1/auth/login", json={"email": email, "password": "postgres first password"})
+            self.assertEqual(login.status_code, 200, login.text)
+            response = client.get("/api/v1/portal/me/seat", headers={"X-Tenant-ID": str(self.tenant_id)})
+            self.assertEqual(response.status_code, 200, response.text)
+            return response.json()["state"]
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            states = list(pool.map(enter, emails))
+        self.assertEqual(sorted(states), ["assigned"] * 3 + ["unassigned"] * 5)
+        with self.session_factory() as db:
+            self.assertEqual(portal_seat_service.assigned_count(db, self.tenant_id), 3)
+
     def test_two_concurrent_batches_are_applied_whole_or_not_at_all(self) -> None:
         from beework import entitlements
         from beework.portal_seat_service import assigned_count
