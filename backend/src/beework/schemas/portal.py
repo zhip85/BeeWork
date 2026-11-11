@@ -152,3 +152,46 @@ class PortalSeatState(BaseModel):
 
 class PortalSeatRequest(BaseModel):
     reason: str = Field(default="", max_length=200)
+
+
+class AnalyticsMetric(BaseModel):
+    value: float | None
+    previous: float | None
+    change: float | None  # relative to the previous window; null when it cannot be computed
+
+
+class AnalyticsApp(BaseModel):
+    app_id: UUID | None
+    name: str
+    calls: int
+    success_rate: float | None
+    employees: int
+
+
+class AnalyticsDay(BaseModel):
+    day: str
+    calls: int
+    employees: int
+
+
+class AnalyticsSeats(BaseModel):
+    mode: str
+    contract_seats: int | None
+    assigned: int
+    requested: int
+    idle: int
+    monthly_active_employees: int
+    over_active_limit: bool  # “按月活跃” only: more distinct active employees this month than the contract seats
+
+
+class AnalyticsResponse(BaseModel):
+    days: int
+    active_employees: AnalyticsMetric
+    calls: AnalyticsMetric
+    success_rate: AnalyticsMetric
+    satisfaction: AnalyticsMetric
+    ratings_up: int
+    ratings_down: int
+    top_apps: list[AnalyticsApp]
+    trend: list[AnalyticsDay]
+    seats: AnalyticsSeats

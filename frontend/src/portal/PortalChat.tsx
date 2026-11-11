@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { ArrowUp, RotateCcw } from 'lucide-react'
+import { ArrowUp, RotateCcw, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ApiRequestError } from '../api'
 import { usePortal } from './portalContext'
 import type { PortalConversation, PortalMessage } from './portalTypes'
 
-type Shown = { key: string; role: 'user' | 'assistant'; content: string; citations?: PortalMessage['citations'] }
+type Shown = { key: string; id?: string; role: 'user' | 'assistant'; content: string; citations?: PortalMessage['citations']; feedback?: 'up' | 'down' | null }
 
 /** One conversation: the history, a streaming answer and the composer. With no `conversationId` it is the “new chat”
  * screen (greeting + centred input). Answers come from the real runtime over SSE — nothing here invents a reply. */
@@ -31,7 +31,7 @@ export default function PortalChat({ conversationId, projectId }: { conversation
     request<{ conversation: PortalConversation; messages: PortalMessage[] }>(`/api/v1/portal/me/conversations/${conversationId}/messages`)
       .then((result) => {
         setConversation(result.conversation)
-        setShown(result.messages.map((m) => ({ key: m.id, role: m.role, content: m.content, citations: m.citations })))
+        setShown(result.messages.map((m) => ({ key: m.id, id: m.id, role: m.role, content: m.content, citations: m.citations, feedback: m.feedback })))
         setLoadError('')
       })
       .catch((failure: Error) => setLoadError(failure.message))
@@ -89,6 +89,15 @@ export default function PortalChat({ conversationId, projectId }: { conversation
       return
     }
     if (!conversationId && newConversation) navigate(`/portal/c/${newConversation}`, { replace: true })
+    else if (conversationId) load() // fetch the stored messages so the new answer can be rated
+  }
+
+  async function rate(message: Shown, value: 'up' | 'down') {
+    const next = message.feedback === value ? null : value  // pressing the same thumb again clears the rating
+    try {
+      await request(`/api/v1/portal/me/conversations/${conversationId}/messages/${message.id}/feedback`, { method: 'PUT', body: JSON.stringify({ value: next }) })
+      setShown((current) => current.map((m) => (m.key === message.key ? { ...m, feedback: next } : m)))
+    } catch { /* the rating is optional; leave it unchanged */ }
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -146,6 +155,12 @@ export default function PortalChat({ conversationId, projectId }: { conversation
         {shown.map((message) => (
           <div className={`portal-msg ${message.role}`} key={message.key}>
             <p>{message.content || (sending ? t('chat.thinking') : '')}</p>
+            {message.role === 'assistant' && message.id && (
+              <div className="portal-rate">
+                <button aria-label={t('chat.up')} aria-pressed={message.feedback === 'up'} className={message.feedback === 'up' ? 'selected' : ''} onClick={() => void rate(message, 'up')} type="button"><ThumbsUp size={13} /></button>
+                <button aria-label={t('chat.down')} aria-pressed={message.feedback === 'down'} className={message.feedback === 'down' ? 'selected' : ''} onClick={() => void rate(message, 'down')} type="button"><ThumbsDown size={13} /></button>
+              </div>
+            )}
             {message.citations && message.citations.length > 0 && (
               <ul className="portal-citations">{message.citations.map((c, index) => <li key={index}>{c.document}{c.snippet ? ` — ${c.snippet}` : ''}</li>)}</ul>
             )}

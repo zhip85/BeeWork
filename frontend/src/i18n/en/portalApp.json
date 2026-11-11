@@ -102,7 +102,9 @@
     "failed": "Sending failed. Please retry.",
     "retry": "Retry",
     "unavailable": "This app was delisted or is unavailable; you can't send more messages.",
-    "readonly": "This app was delisted or is unavailable. You can read this conversation but not continue it."
+    "readonly": "This app was delisted or is unavailable. You can read this conversation but not continue it.",
+    "up": "Helpful",
+    "down": "Not helpful"
   },
   "conv": {
     "rename": "Rename",

@@ -239,5 +239,25 @@
       "rules": "Rules updated",
       "reclaim": "Reclaimed {{count}} idle seats"
     }
+  },
+  "analytics": {
+    "range": "Time range",
+    "lastDays": "Last {{count}} days",
+    "noChange": "No comparison",
+    "activeEmployees": "Active employees",
+    "calls": "App calls",
+    "successRate": "Success rate",
+    "satisfaction": "Employee rating",
+    "ratings": "{{up}} up · {{down}} down",
+    "trend": "Daily calls",
+    "topApps": "Top apps",
+    "app": "App",
+    "noUsage": "No usage in this period yet.",
+    "assigned": "Assigned seats",
+    "requested": "Pending",
+    "idle": "Idle seats",
+    "monthlyActive": "Active this month",
+    "overActive": "{{active}} employees were active this month, above the contracted {{seats}} portal seats (monthly active mode).",
+    "definitions": "Definitions: only employee-portal runs (source=portal); active employees = distinct employees who made a call; success rate = succeeded / (succeeded + failed), excluding in-flight and cancelled; rating = up / (up + down), hidden until there are ratings; changes compare with the previous period of equal length; “this month” is the UTC calendar month."
   }
 }
