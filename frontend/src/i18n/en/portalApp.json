@@ -99,5 +99,13 @@
     "deleteConfirm": "Deleting a project keeps its conversations; they just leave the project.",
     "failed": "That didn't work. Please retry."
   },
-  "projects": "Projects"
+  "projects": "Projects",
+  "library": {
+    "search": "Search apps by name, description or category",
+    "categories": "App categories",
+    "all": "All",
+    "featured": "Recommended",
+    "empty": "Your administrator has not listed any apps yet. They will appear here once they do.",
+    "noMatch": "No apps match."
+  }
 }

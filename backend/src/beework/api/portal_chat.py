@@ -29,6 +29,7 @@ from beework.models.conversations import Conversation, EndUser, Message
 from beework.models.portal import PortalApp
 from beework.models.portal_chat import PortalProject
 from beework.schemas.portal_chat import (
+    AppLibrary,
     ChatReply,
     ChatRequest,
     CitationEntry,
@@ -120,10 +121,43 @@ def _project(db: Session, membership: Membership, project_id: UUID) -> PortalPro
 
 @router.get("/portal/me/apps", response_model=list[PortalAppEntry])
 def my_apps(membership: Membership = seat, db: Session = Depends(get_db)) -> list[PortalAppEntry]:
-    return [
-        PortalAppEntry(id=a.id, name=a.name, description=a.description, category=a.category, icon=a.icon, featured=a.featured, mode=a.mode)
-        for a in portal_service.visible_apps(db, membership)
+    return [_app_entry(a) for a in portal_service.visible_apps(db, membership)]
+
+
+def _app_entry(app: PortalApp) -> PortalAppEntry:
+    return PortalAppEntry(id=app.id, name=app.name, description=app.description, category=app.category, icon=app.icon, featured=app.featured, mode=app.mode)
+
+
+def _library_access(membership: Membership = seat, db: Session = Depends(get_db)) -> Membership:
+    _feature(db, membership, "app_library")  # the seat is checked first, by the dependency above
+    return membership
+
+
+@router.get("/portal/me/app-library", response_model=AppLibrary)
+def app_library(
+    q: str | None = Query(default=None, max_length=100),
+    category: str | None = Query(default=None, max_length=24),
+    membership: Membership = Depends(_library_access),
+    db: Session = Depends(get_db),
+) -> AppLibrary:
+    """The library page (演进 PRD 11.4): only what this employee may use; search by name / description / category, filter by
+    category, recommended apps first. Off when the administrator switched the app library off (T-141)."""
+    visible = portal_service.visible_apps(db, membership)
+    needle = (q or "").strip().lower()
+    shown = [
+        app for app in visible
+        if (not category or app.category == category)
+        and (not needle or needle in f"{app.name}\n{app.description}\n{app.category}".lower())
     ]
+    return AppLibrary(items=[_app_entry(a) for a in shown], categories=sorted({a.category for a in visible if a.category}), total=len(shown))
+
+
+@router.get("/portal/me/apps/{app_id}", response_model=PortalAppEntry)
+def my_app(app_id: UUID, membership: Membership = seat, db: Session = Depends(get_db)) -> PortalAppEntry:
+    app = next((a for a in portal_service.visible_apps(db, membership) if a.id == app_id), None)
+    if app is None:  # unlisted, out of scope and non-existent look the same
+        raise ApiError(404, *NOT_FOUND)
+    return _app_entry(app)
 
 
 # ---------------------------------------------------------------------------

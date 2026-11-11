@@ -16,6 +16,12 @@ class PortalAppEntry(BaseModel):
     mode: str
 
 
+class AppLibrary(BaseModel):
+    items: list[PortalAppEntry]  # featured first
+    categories: list[str]  # of the apps this employee can see (not of the search result), for the filter chips
+    total: int
+
+
 class ChatRequest(BaseModel):
     app_id: UUID
     message: str = Field(min_length=1, max_length=20000)
