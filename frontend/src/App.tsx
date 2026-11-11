@@ -46,6 +46,7 @@ import { MembersPage } from './pages/members/MembersPage'
 import { PlatformConsole } from './pages/platform/PlatformConsole'
 import { CapabilitiesPage } from './pages/capabilities/CapabilitiesPage'
 import { McpFormPage } from './pages/capabilities/McpFormPage'
+import { SkillFormPage } from './pages/capabilities/SkillFormPage'
 import { PortalAdminPage } from './pages/portal-admin/PortalAdminPage'
 import { FlowCreatePage } from './pages/flow-studio/FlowCreatePage'
 import { FlowEditorPage } from './pages/flow-studio/FlowEditorPage'
@@ -406,6 +407,8 @@ function App() {
             ))}
             <Route path="/operations" element={canViewOperations ? <SectionPlaceholder title={t('nav:operations')} icon={<Activity size={22} />} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/capabilities" element={hasPermission('capabilities:view') && activeTenant ? <CapabilitiesPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/capabilities/skill/new" element={hasPermission('capabilities:edit') && activeTenant && activeTenant.access_mode === 'full' ? <SkillFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/capabilities/skill/:capabilityId" element={hasPermission('capabilities:view') && activeTenant ? <SkillFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/capabilities/mcp/new" element={hasPermission('capabilities:edit') && activeTenant && activeTenant.access_mode === 'full' ? <McpFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/capabilities/mcp/:capabilityId" element={hasPermission('capabilities:view') && activeTenant ? <McpFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/ai-portal" element={hasPermission('portal:view') && activeTenant ? <PortalAdminPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />

@@ -14,7 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import Uuid
 
-from beework.models import Base
+from beework.models import Base, utc_now
 from beework.models.mixins import SoftDeleteMixin, TenantOwnedMixin, TimestampMixin, VersionedMixin
 
 
@@ -76,3 +76,47 @@ class McpConnection(Base):
     health: Mapped[str] = mapped_column(String(8), nullable=False, default="unknown")  # unknown | ok | error
     health_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     health_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PlatformSkill(Base):
+    """A Skill the platform provides to every tenant (CAP-009): read-only for tenants, maintained by platform admins."""
+
+    __tablename__ = "platform_skills"
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    slug: Mapped[str] = mapped_column(String(40), nullable=False, unique=True)  # e.g. "handoff"
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    content: Mapped[str] = mapped_column(String(20000), nullable=False, default="")  # the SKILL.md text
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")  # active | disabled
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+    updated_by: Mapped[str | None] = mapped_column(String(64))
+
+
+class Skill(Base):
+    """A tenant's Skill (PRD 3.5.3). Built-in ones point at ``platform_skills`` and carry no package; self-built ones keep
+    the uploaded package in the file store and must pass the security check before they can be enabled (CAP-026)."""
+
+    __tablename__ = "skills"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["capability_id", "tenant_id"], ["capabilities.id", "capabilities.tenant_id"],
+            ondelete="CASCADE", name="fk_skills_capability_same_tenant",
+        ),
+    )
+
+    capability_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
+    platform_skill_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), index=True)  # set for built-in skills
+    filename: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    package_key: Mapped[str | None] = mapped_column(String(300))
+    package_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # bumps on every new file
+    manifest: Mapped[list] = mapped_column(JSON, nullable=False, default=list)  # [{path, size}]
+    has_scripts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    security_status: Mapped[str] = mapped_column(String(10), nullable=False, default="pending")  # pending | running | passed | failed
+    checks: Mapped[list] = mapped_column(JSON, nullable=False, default=list)  # [{key, status, issues: [{path, reason}]}]
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    uploaded_by_user_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))  # files the enable request once checks pass
+    enable_warning: Mapped[str | None] = mapped_column(String(300))  # why that request could not be filed

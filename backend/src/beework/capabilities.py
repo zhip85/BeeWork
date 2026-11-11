@@ -12,8 +12,6 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from beework.schemas.assistants import MOUNT_KINDS
-
 MountState = Literal["available", "disabled", "deleted"]
 
 
@@ -32,6 +30,9 @@ MOUNT_RESOLVERS: dict[str, MountResolver] = {}
 
 
 def resolve_mounts(db: Session, tenant_id: UUID, mounts: dict[str, Any]) -> list[MountItem]:
+    # Imported here: the schemas package imports the API package, which imports modules that import this one.
+    from beework.schemas.assistants import MOUNT_KINDS
+
     items: list[MountItem] = []
     for kind in MOUNT_KINDS:
         ids = [UUID(str(value)) for value in mounts.get(kind) or []]

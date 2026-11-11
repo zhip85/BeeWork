@@ -106,5 +106,49 @@
   "noTools": "还没有工具：测试连接成功后会列出服务提供的工具。",
   "toolRead": "只读",
   "toolWrite": "需确认",
-  "statusRule": "只有最近一次测试成功且至少勾选一个工具时，能力才会可用；新工具默认不勾选。写操作在对话中执行前会向用户确认。"
+  "statusRule": "只有最近一次测试成功且至少勾选一个工具时，能力才会可用；新工具默认不勾选。写操作在对话中执行前会向用户确认。",
+  "skill": {
+    "passedAvailable": "安全检查通过 · 该 Skill 现在可以使用。",
+    "passedPending": "安全检查通过，已提交启用申请，审批通过后可用。",
+    "passed": "安全检查通过。",
+    "badType": "只接受 .zip、.skill 或 .md 文件",
+    "tooLarge": "包大小超过 20 MB",
+    "drop": "拖入 .zip 或 SKILL.md，或点击选择文件",
+    "dropHint": "需包含带 name 与 description 的 SKILL.md；不超过 20 MB",
+    "replace": "当前文件：{{name}}（拖入或点击以更换，更换后会重新检查）",
+    "builtinNote": "平台内置 Skill（平台可信），对租户只读：可以停用、启用或复制，不能修改或删除。",
+    "platformDisabled": "平台已停用此 Skill，暂不可使用。",
+    "checking": "自动化安全检查中 · {{done}}/{{total}}",
+    "allPassed": "安全检查通过",
+    "failed": "安全检查未通过",
+    "notChecked": "尚未检查",
+    "recheck": "重新检查",
+    "gate": "所有检查通过前，Skill 不会进入可用状态。脚本不会被执行。",
+    "check": {
+      "structure": "包结构与清单",
+      "executables": "危险脚本与可执行文件",
+      "secrets": "密钥与敏感信息",
+      "dependencies": "权限与外部依赖"
+    },
+    "state": {
+      "pending": "等待",
+      "running": "检查中",
+      "passed": "通过",
+      "warning": "通过（有提示）",
+      "failed": "未通过"
+    },
+    "files": "包内文件（{{count}}）",
+    "checkingButton": "安全检查中…",
+    "uploadAndCheck": "上传并检查"
+  },
+  "platformSkills": {
+    "title": "内置 Skill",
+    "subtitle": "平台提供给所有租户的 Skill；租户只读，可停用或复制。修改会立即对所有租户生效。",
+    "status": {
+      "active": "启用",
+      "disabled": "已停用"
+    },
+    "activeLabel": "对租户启用",
+    "note": "停用后所有租户都不能再使用此 Skill；已挂载的智能体会看到它不可用。SKILL.md 需保留 name 与 description 的 frontmatter。"
+  }
 }
