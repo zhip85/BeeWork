@@ -139,7 +139,7 @@
 | [T-142](./T-142-employee-portal-shell.md) | 员工门户外壳与员工身份 | T-141、T-004 | — | 待验收 | Claude Sonnet 5.5 | 新内置角色 `employee`（不占席位）；`/portal/*` 独立布局、懒加载 |
 | [T-143](./T-143-portal-conversations-projects.md) | 员工端对话与项目 | T-142、T-140、T-025、T-026 | 供应商 Key | 待验收 | Claude Sonnet 5.5 | 走真实运行，不做前端模拟回答 |
 | [T-144](./T-144-portal-app-library.md) | 员工端 AI 应用库与表单模式 | T-143（表单模式另需 T-064、T-075） | — | 待验收 | Claude Sonnet 5.5 | 只做了对话模式的应用库；表单模式等 T-064 / T-075 |
-| [T-145](./T-145-portal-profile.md) | 员工个人中心 | T-142、T-056 | — | 待开发 | | 通知在 T-088 后接通 |
+| [T-145](./T-145-portal-profile.md) | 员工个人中心 | T-142、T-056 | — | 待验收 | Claude Sonnet 5.5 | 通知在 T-088 后接通 |
 | [T-147](./T-147-portal-analytics.md) | AI 门户 · 使用分析 | T-143、T-011 | — | 待开发 | | 2026-11-11：加门户席位指标 |
 | [T-149](./T-149-portal-seat-entitlement.md) | 平台授予 AI 门户席位权益（创建租户、订阅与权益、配额） | T-010、T-140 | — | 待验收 | Claude Sonnet 5.5 | 2026-11-11 新增；与控制台席位分开计量 |
 | [T-150](./T-150-portal-members.md) | AI 门户 · 门户成员与席位分配（部门规则、手动 / 自动分配、闲置回收、申请审批） | T-149、T-142 | — | 待验收 | Claude Sonnet 5.5 | 2026-11-11 新增；需 PostgreSQL 并发测试 |

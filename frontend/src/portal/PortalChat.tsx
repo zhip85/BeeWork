@@ -42,8 +42,9 @@ export default function PortalChat({ conversationId, projectId }: { conversation
   const requestedApp = searchParams.get('app')
   useEffect(() => {
     if (appId || portal.apps.length === 0) return
-    setAppId(portal.apps.find((app) => app.id === requestedApp)?.id ?? portal.apps[0].id)
-  }, [appId, portal.apps, requestedApp])
+    const preferred = [requestedApp, portal.defaultAppId].map((id) => portal.apps.find((app) => app.id === id)?.id).find(Boolean)
+    setAppId(preferred ?? portal.apps[0].id)
+  }, [appId, portal.apps, portal.defaultAppId, requestedApp])
 
   const activeAppId = conversation?.app_id ?? appId
   const readonly = Boolean(conversation?.readonly)

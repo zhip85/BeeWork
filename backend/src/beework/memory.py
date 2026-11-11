@@ -256,6 +256,10 @@ def extract_conversation_memory(
     conversation = db.get(Conversation, conversation_id)
     if conversation is None or conversation.end_user_id is None or conversation.turns < 1:
         return {}
+    from beework.portal_profile_service import memory_allowed_for_end_user
+
+    if not memory_allowed_for_end_user(db, conversation.tenant_id, conversation.end_user_id):
+        return {}  # the administrator or the employee switched personal memory off: nothing is written (T-145)
     run = db.scalar(
         select(Run).where(Run.conversation_id == conversation.id).order_by(Run.created_at.desc()).limit(1)
     )
