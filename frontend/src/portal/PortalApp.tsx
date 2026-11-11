@@ -10,6 +10,7 @@ import PortalChat from './PortalChat'
 import PortalConversationItem from './PortalConversationItem'
 import { PortalProjectDetail, PortalProjects } from './PortalProjects'
 import { PortalLibrary } from './PortalLibrary'
+import { PortalProfile } from './PortalProfile'
 import { PortalSearch } from './PortalSearch'
 import { PortalProvider } from './portalContext'
 import type { PortalAppEntry, PortalConfig, PortalConversation, PortalProject, PortalSeat } from './portalTypes'
@@ -18,16 +19,6 @@ import './portal.css'
 function ConversationRoute() {
   const { conversationId = '' } = useParams()
   return <PortalChat conversationId={conversationId} key={conversationId} />
-}
-
-function Soon({ title }: { title: string }) {
-  const { t } = useTranslation('portalApp')
-  return (
-    <section className="portal-soon">
-      <h1>{title}</h1>
-      <p>{t('sectionSoon')}</p>
-    </section>
-  )
 }
 
 /** The employee-side shell. Everything it shows is decided by the server's /portal/me/config. */
@@ -43,6 +34,7 @@ export default function PortalApp({ user, tenant, onLogout }: { user: CurrentUse
   const [apps, setApps] = useState<PortalAppEntry[]>([])
   const [conversations, setConversations] = useState<PortalConversation[]>([])
   const [projects, setProjects] = useState<PortalProject[]>([])
+  const [defaultAppId, setDefaultAppId] = useState<string | null>(null)
   const location = useLocation()
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -75,6 +67,7 @@ export default function PortalApp({ user, tenant, onLogout }: { user: CurrentUse
     if (!seatReady) return
     apiRequest<PortalAppEntry[]>('/api/v1/portal/me/apps', {}, tenant.id).then(setApps).catch(() => undefined)
     apiRequest<{ items: PortalConversation[] }>('/api/v1/portal/me/conversations?limit=100', {}, tenant.id).then((result) => setConversations(result.items)).catch(() => undefined)
+    apiRequest<{ default_app_id: string | null }>('/api/v1/portal/me/profile', {}, tenant.id).then((result) => setDefaultAppId(result.default_app_id)).catch(() => undefined)
     if (projectsOn) apiRequest<PortalProject[]>('/api/v1/portal/me/projects', {}, tenant.id).then(setProjects).catch(() => undefined)
   }, [seatReady, projectsOn, tenant.id])
   useEffect(() => { reload() }, [reload])
@@ -114,7 +107,7 @@ export default function PortalApp({ user, tenant, onLogout }: { user: CurrentUse
   return (
     <PortalProvider
       onSeatLost={loadSeat}
-      value={{ tenantId: tenant.id, config, userName: user.display_name, apps, conversations, projects, reload }}
+      value={{ tenantId: tenant.id, config, userName: user.display_name, apps, conversations, projects, defaultAppId, reload }}
     >
     <div className="portal portal-shell">
       <header className="portal-mobilebar">
@@ -175,7 +168,7 @@ export default function PortalApp({ user, tenant, onLogout }: { user: CurrentUse
           {config.nav_projects && <Route path="/portal/projects" element={<PortalProjects />} />}
           {config.nav_projects && <Route path="/portal/projects/:projectId" element={<PortalProjectDetail />} />}
           {config.nav_app_library && <Route path="/portal/apps" element={<PortalLibrary />} />}
-          <Route path="/portal/profile" element={<Soon title={t('profile')} />} />
+          <Route path="/portal/profile" element={<PortalProfile onLogout={onLogout} />} />
           <Route path="/portal/*" element={<Navigate replace to="/portal" />} />
         </Routes>
       </main>

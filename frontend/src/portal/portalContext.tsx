@@ -10,6 +10,7 @@ type PortalState = {
   apps: PortalAppEntry[]
   conversations: PortalConversation[]
   projects: PortalProject[]
+  defaultAppId: string | null
   reload: () => void
   /** Request helper for portal endpoints: when the server says the seat is gone, the shell falls back to the no-seat page. */
   request: <T>(path: string, options?: RequestInit) => Promise<T>

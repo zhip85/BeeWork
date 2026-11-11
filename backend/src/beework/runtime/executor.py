@@ -290,6 +290,10 @@ def _execute_run(
 
         def memory_context(query: str) -> list[dict[str, str]]:
             with Session(bind=bind) as side:  # called from a graph worker thread: own session
+                from beework.portal_profile_service import memory_allowed_for_end_user
+
+                if not memory_allowed_for_end_user(side, run.tenant_id, end_user_id):
+                    return []  # personal memory switched off by the administrator or the employee (T-145)
                 return load_memory_context(
                     side, tenant_id=run.tenant_id, end_user_id=end_user_id, assistant_id=run.assistant_id,
                     oc=dsl.oc, query=query,
