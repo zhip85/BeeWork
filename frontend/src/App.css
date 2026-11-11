@@ -4400,3 +4400,14 @@ textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .portal-seat-link small { color: var(--ink-soft); font-size: var(--fs-xs); }
 .portal-seat-link small:last-child { color: var(--brand); }
 .portal-seat-link strong { font-size: var(--fs-xl); }
+
+.portal-analytics { display: grid; gap: 14px; }
+.portal-stats .portal-up { color: var(--ok); }
+.portal-stats .portal-down { color: var(--danger); }
+.portal-trend { display: flex; align-items: flex-end; gap: 2px; height: 120px; padding-top: 8px; }
+.portal-trend-bar { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 2px; }
+.portal-trend-bar i { display: block; width: 100%; background: var(--forest); border-radius: 2px 2px 0 0; }
+.portal-trend-axis { display: flex; justify-content: space-between; color: var(--muted); }
+.portal-analytics .portal-chips, .portal-members .portal-chips { display: flex; gap: 8px; }
+.portal-analytics .portal-chips button { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); font: inherit; font-size: var(--fs-sm); cursor: pointer; color: var(--ink); }
+.portal-analytics .portal-chips button.selected { background: var(--forest); border-color: var(--forest); color: #fff; }

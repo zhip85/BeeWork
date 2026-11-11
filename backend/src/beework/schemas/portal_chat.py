@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -75,11 +76,16 @@ class CitationEntry(BaseModel):
     kind: str = "document"
 
 
+class FeedbackBody(BaseModel):
+    value: Literal["up", "down"] | None  # null clears the rating
+
+
 class MessageEntry(BaseModel):
     id: UUID
     seq: int
     role: str
     content: str
+    feedback: Literal["up", "down"] | None = None
     citations: list[CitationEntry] = Field(default_factory=list)
     created_at: datetime
 

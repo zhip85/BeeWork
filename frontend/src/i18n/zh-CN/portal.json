@@ -239,5 +239,25 @@
       "rules": "已更新分配规则",
       "reclaim": "已回收 {{count}} 个闲置席位"
     }
+  },
+  "analytics": {
+    "range": "时间范围",
+    "lastDays": "近 {{count}} 天",
+    "noChange": "无对比数据",
+    "activeEmployees": "活跃员工",
+    "calls": "应用调用量",
+    "successRate": "成功率",
+    "satisfaction": "员工评分",
+    "ratings": "赞 {{up}} · 踩 {{down}}",
+    "trend": "每日调用趋势",
+    "topApps": "热门应用",
+    "app": "应用",
+    "noUsage": "这段时间还没有使用记录。",
+    "assigned": "已分配席位",
+    "requested": "待审批",
+    "idle": "闲置席位",
+    "monthlyActive": "本月活跃员工",
+    "overActive": "本月活跃员工 {{active}} 人，已超过合同的 {{seats}} 个门户席位（按月活跃）。",
+    "definitions": "口径：只统计员工端（source=portal）的运行；活跃员工 = 发起过调用的不同员工；成功率 = 成功 /（成功 + 失败），不含进行中与已取消；员工评分 = 赞 /（赞 + 踩），没有评价时不显示；环比与前一个相同时长的时间范围比较；本月活跃为自然月（UTC）。"
   }
 }

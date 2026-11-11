@@ -300,7 +300,7 @@ class PortalAppTests(test_assistants.AssistantTests):
 
     # -- summary, permissions, isolation ------------------------------------------------
 
-    def test_summary_counts_per_status_and_never_invents_usage_numbers(self) -> None:
+    def test_summary_counts_per_status_and_reports_real_monthly_usage(self) -> None:
         first, second, third = self.agent("A"), self.agent("B"), self.agent("C")
         a = self.add(first, name="A app").json()["id"]
         b = self.add(second, name="B app").json()["id"]
@@ -309,7 +309,7 @@ class PortalAppTests(test_assistants.AssistantTests):
         self.action(b, "list")
         self.action(b, "delist")
         summary = self.client.get("/api/v1/portal/summary", headers=self.admin).json()
-        self.assertEqual(summary, {"listed": 1, "draft": 1, "delisted": 1, "monthly_active_employees": None, "monthly_calls": None})
+        self.assertEqual(summary, {"listed": 1, "draft": 1, "delisted": 1, "monthly_active_employees": 0, "monthly_calls": 0})  # real zeros since T-147; the figures are tested in test_portal_analytics
 
     def test_builtin_roles_get_the_portal_permissions_of_the_matrix(self) -> None:
         for role, actions in {"tenant_admin": {"view", "edit", "publish"}, "builder": {"view", "edit"}, "operator": {"view"},

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from beework import portal_service
+from beework import portal_analytics, portal_service
 from beework.api import assistant_checks
 from beework.api import assistants as assistants_api
 from beework.api.assistants import _actor_name
@@ -19,6 +19,11 @@ from beework.models.portal import PortalApp, PortalAppOrganization, PortalSettin
 from beework.rbac import flatten_permissions, permissions_for_role, require_tenant_permission
 from beework.schemas.assistant_checks import DependencyEntry
 from beework.schemas.portal import (
+    AnalyticsApp,
+    AnalyticsDay,
+    AnalyticsMetric,
+    AnalyticsResponse,
+    AnalyticsSeats,
     DelistRequest,
     ListRequest,
     PortalAppResponse,
@@ -138,7 +143,39 @@ def portal_summary(
         .group_by(PortalApp.status)
     ).all()
     counts = dict(rows)
-    return PortalSummary(listed=counts.get("listed", 0), draft=counts.get("draft", 0), delisted=counts.get("delisted", 0))
+    employees, calls = portal_analytics.monthly_figures(db, membership.tenant_id)
+    return PortalSummary(
+        listed=counts.get("listed", 0), draft=counts.get("draft", 0), delisted=counts.get("delisted", 0),
+        monthly_active_employees=employees, monthly_calls=calls,
+    )
+
+
+@router.get("/portal/analytics", response_model=AnalyticsResponse)
+def analytics(
+    days: int = Query(default=30),
+    membership: Membership = Depends(require_tenant_permission("portal:view")),
+    db: Session = Depends(get_db),
+) -> AnalyticsResponse:
+    """Usage of the employee portal (演进 PRD 10.5): read-only; the definitions are in ``portal_analytics``."""
+    if days not in portal_analytics.WINDOWS:
+        raise ApiError(422, "validation_error", "时间范围只能是 7、30 或 90 天")
+    from beework.api.portal_seats import _summary as seat_summary
+
+    result = portal_analytics.compute(db, membership.tenant_id, days)
+    seats = seat_summary(db, membership.tenant_id)
+    metric = lambda m: AnalyticsMetric(value=m.value, previous=m.previous, change=m.change)  # noqa: E731
+    over = seats.grant.mode == "active" and seats.grant.seats is not None and result.monthly_active_employees > seats.grant.seats
+    return AnalyticsResponse(
+        days=days, active_employees=metric(result.active_employees), calls=metric(result.calls),
+        success_rate=metric(result.success_rate), satisfaction=metric(result.satisfaction),
+        ratings_up=result.ratings["up"], ratings_down=result.ratings["down"],
+        top_apps=[AnalyticsApp(app_id=a.app_id, name=a.name, calls=a.calls, success_rate=a.success_rate, employees=a.employees) for a in result.top_apps],
+        trend=[AnalyticsDay(day=d.day, calls=d.calls, employees=d.employees) for d in result.trend],
+        seats=AnalyticsSeats(
+            mode=seats.grant.mode, contract_seats=seats.grant.seats, assigned=seats.assigned, requested=seats.requested, idle=seats.idle,
+            monthly_active_employees=result.monthly_active_employees, over_active_limit=over,
+        ),
+    )
 
 
 @router.get("/portal/app-sources", response_model=SourcesResponse)

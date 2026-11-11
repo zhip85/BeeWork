@@ -36,6 +36,7 @@ from beework.schemas.portal_chat import (
     ConversationEntry,
     ConversationList,
     ConversationPatch,
+    FeedbackBody,
     MessageEntry,
     MessageList,
     PortalAppEntry,
@@ -202,12 +203,27 @@ def conversation_messages(conversation_id: UUID, membership: Membership = seat, 
         conversation=entry,
         messages=[
             MessageEntry(
-                id=m.id, seq=m.seq, role=m.role, content=m.content, created_at=m.created_at,
+                id=m.id, seq=m.seq, role=m.role, content=m.content, created_at=m.created_at, feedback=m.feedback,
                 citations=[CitationEntry(document=c.get("document_name"), snippet=c.get("snippet"), kind=c.get("kind", "document")) for c in (m.citations or [])],
             )
             for m in rows
         ],
     )
+
+
+@router.put("/portal/me/conversations/{conversation_id}/messages/{message_id}/feedback", response_model=MessageEntry)
+def rate_message(
+    conversation_id: UUID, message_id: UUID, payload: FeedbackBody,
+    membership: Membership = seat, _: None = Depends(require_csrf), db: Session = Depends(get_db),
+) -> MessageEntry:
+    """Thumbs up / down on an answer of the employee's own conversation; feeds the portal's satisfaction metric (T-147)."""
+    conversation = _conversation(db, membership, conversation_id)
+    message = db.get(Message, message_id)
+    if message is None or message.conversation_id != conversation.id or message.role != "assistant":
+        raise ApiError(404, *NOT_FOUND)
+    message.feedback = payload.value
+    db.commit()
+    return MessageEntry(id=message.id, seq=message.seq, role=message.role, content=message.content, created_at=message.created_at, feedback=message.feedback)
 
 
 @router.patch("/portal/me/conversations/{conversation_id}", response_model=ConversationEntry)
