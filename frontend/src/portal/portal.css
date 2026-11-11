@@ -114,3 +114,10 @@
 .portal-conv-menu { top: 100%; bottom: auto; left: auto; right: 0; min-width: 160px; }
 .portal-conv-rename input { width: 100%; height: 32px; padding: 0 8px; border: 1px solid var(--forest); border-radius: var(--radius-md); font: inherit; font-size: var(--fs-sm); }
 @media (max-width: 767px) { .portal-chat { height: calc(100vh - 100px); } .portal-conv-more { display: grid; } }
+
+.portal-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.portal-chips button { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); font: inherit; font-size: var(--fs-sm); cursor: pointer; color: var(--ink); }
+.portal-chips button.selected { background: var(--forest); border-color: var(--forest); color: #fff; }
+.portal-app-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: var(--radius-md); background: var(--mint); color: var(--forest); }
+.portal-featured { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; padding: 1px 6px; border-radius: 10px; background: var(--pollen-pale); color: var(--warn); font-size: var(--fs-2xs); font-weight: var(--fw-medium); }
+.portal-tag { justify-self: start; padding: 1px 8px; border-radius: 10px; background: var(--canvas); }

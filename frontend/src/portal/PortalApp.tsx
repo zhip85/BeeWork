@@ -9,6 +9,7 @@ import type { CurrentUser, TenantMembership } from '../types'
 import PortalChat from './PortalChat'
 import PortalConversationItem from './PortalConversationItem'
 import { PortalProjectDetail, PortalProjects } from './PortalProjects'
+import { PortalLibrary } from './PortalLibrary'
 import { PortalSearch } from './PortalSearch'
 import { PortalProvider } from './portalContext'
 import type { PortalAppEntry, PortalConfig, PortalConversation, PortalProject, PortalSeat } from './portalTypes'
@@ -173,7 +174,7 @@ export default function PortalApp({ user, tenant, onLogout }: { user: CurrentUse
           {config.nav_search && <Route path="/portal/search" element={<PortalSearch />} />}
           {config.nav_projects && <Route path="/portal/projects" element={<PortalProjects />} />}
           {config.nav_projects && <Route path="/portal/projects/:projectId" element={<PortalProjectDetail />} />}
-          {config.nav_app_library && <Route path="/portal/apps" element={<Soon title={t('apps')} />} />}
+          {config.nav_app_library && <Route path="/portal/apps" element={<PortalLibrary />} />}
           <Route path="/portal/profile" element={<Soon title={t('profile')} />} />
           <Route path="/portal/*" element={<Navigate replace to="/portal" />} />
         </Routes>

@@ -271,6 +271,86 @@ class PortalChatTests(test_open_api.OpenApiTests):
         self.assertEqual([(a["name"], a["category"]) for a in apps], [("员工助手", "员工服务")])
         self.assertTrue({"source_type", "source_id", "status"}.isdisjoint(apps[0]))
 
+    # -- the app library (T-144) -------------------------------------------------------------------------------
+
+    def add_app(self, name: str, category: str, description: str = "", featured: bool = False, **extra) -> str:
+        admin = self.login("admin")
+        assistant = self.make_assistant(admin, name, "p")
+        self.client.post(f"/api/v1/assistants/{assistant}/publish", json={}, headers=admin)
+        created = self.client.post(
+            "/api/v1/portal/apps",
+            json={"source_type": "agent", "source_id": assistant, "name": name, "description": description, "category": category,
+                  "audience": extra.get("audience", "all"), "mode": "chat", "icon": "sparkles", "featured": featured,
+                  "organization_ids": extra.get("organization_ids", [])},
+            headers=admin,
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        self.assertEqual(self.client.post(f"/api/v1/portal/apps/{created.json()['id']}/list", json={}, headers=admin).status_code, 200)
+        return created.json()["id"]
+
+    def library(self, headers, **params):
+        return self.client.get("/api/v1/portal/me/app-library", params=params, headers=headers)
+
+    def test_the_library_searches_filters_and_puts_recommended_apps_first(self) -> None:
+        self.add_app("合同审阅", "法务", "检查合同条款风险")
+        self.add_app("差旅助手", "行政", "报销与出差", featured=True)
+        headers = self.emp()
+        everything = self.library(headers).json()
+        self.assertEqual((everything["total"], everything["categories"]), (3, ["员工服务", "法务", "行政"]))
+        self.assertEqual(everything["items"][0]["name"], "差旅助手")  # recommended first
+        self.assertEqual([a["name"] for a in self.library(headers, q="条款").json()["items"]], ["合同审阅"])  # description
+        self.assertEqual([a["name"] for a in self.library(headers, q="法务").json()["items"]], ["合同审阅"])  # category text
+        self.assertEqual([a["name"] for a in self.library(headers, category="行政").json()["items"]], ["差旅助手"])
+        self.assertEqual(self.library(headers, q="没有这个").json()["items"], [])
+        self.assertEqual(self.library(headers, q="没有这个").json()["categories"], ["员工服务", "法务", "行政"])  # chips stay stable
+
+    def test_the_library_shows_only_what_this_employee_may_use(self) -> None:
+        with self.session_factory.begin() as db:
+            sales = Organization(tenant_id=self.ids["tenant"], name="Sales", parent_id=db.scalar(select(Organization.id).where(Organization.tenant_id == self.ids["tenant"], Organization.parent_id.is_(None))))
+            db.add(sales)
+            db.flush()
+            child = Organization(tenant_id=self.ids["tenant"], name="Sales East", parent_id=sales.id)
+            db.add(child)
+            db.flush()
+            db.scalar(select(Membership).where(Membership.user_id == self.ids["emp1"])).organization_id = child.id
+            sales_id = str(sales.id)
+        self.add_app("销售专用", "销售", audience="orgs", organization_ids=[sales_id])  # an organization includes its children
+        self.add_app("仅管理员", "管理", audience="admins")
+        names = {a["name"] for a in self.library(self.emp("emp1")).json()["items"]}
+        self.assertEqual(names, {"员工助手", "销售专用"})
+        self.assertEqual({a["name"] for a in self.library(self.emp("emp2")).json()["items"]}, {"员工助手"})
+        admin_names = {a["name"] for a in self.library(self.login("admin")).json()["items"]}
+        self.assertEqual(admin_names, {"员工助手", "仅管理员"}.union({"销售专用"}))
+        # delisting or a stopped source removes the app at once
+        self.assertEqual(self.client.post(f"/api/v1/portal/apps/{self.app_id}/delist", json={"reason": "x"}, headers=self.login("admin")).status_code, 200)
+        self.assertEqual({a["name"] for a in self.library(self.emp("emp1")).json()["items"]}, {"销售专用"})
+
+    def test_an_app_detail_is_visible_only_when_the_app_is(self) -> None:
+        admins_only = self.add_app("仅管理员", "管理", audience="admins")
+        headers = self.emp()
+        self.assertEqual(self.client.get(f"/api/v1/portal/me/apps/{self.app_id}", headers=headers).json()["name"], "员工助手")
+        self.assertEqual(self.client.get(f"/api/v1/portal/me/apps/{admins_only}", headers=headers).status_code, 404)
+        self.assertEqual(self.client.get(f"/api/v1/portal/me/apps/{UUID(int=3)}", headers=headers).status_code, 404)
+        self.assertEqual(self.send(headers, app_id=admins_only).status_code, 404)  # a forged id cannot start a conversation
+
+    def test_the_library_follows_the_switch_and_the_seat(self) -> None:
+        self.settings(nav_app_library=False)
+        headers = self.emp()
+        self.assertEqual(self.library(headers).json()["code"], "portal.feature_disabled")
+        self.assertEqual(len(self.client.get("/api/v1/portal/me/apps", headers=headers).json()), 1)  # the chat picker is not the library
+        self.settings(nav_app_library=True)
+        with self.session_factory.begin() as db:
+            tenant = db.get(Tenant, self.ids["tenant"])
+            entitlements.change_subscription(db, tenant, tenant.plan, portal_mode="named", portal_seats=5, portal_overage="hard")
+        denied = self.library(self.emp())
+        self.assertEqual((denied.status_code, denied.json()["code"]), (403, "portal.seat_required"))
+        self.assertEqual(self.client.get(f"/api/v1/portal/me/apps/{self.app_id}", headers=self.emp()).status_code, 403)
+
+    def test_an_empty_library_is_empty_not_an_error(self) -> None:
+        self.client.post(f"/api/v1/portal/apps/{self.app_id}/delist", json={"reason": "x"}, headers=self.login("admin"))
+        body = self.library(self.emp()).json()
+        self.assertEqual((body["items"], body["categories"], body["total"]), ([], [], 0))
+
     def test_conversation_continuation_must_use_the_same_app(self) -> None:
         conversation = self.send(self.emp()).json()["conversation_id"]
         with self.session_factory.begin() as db:

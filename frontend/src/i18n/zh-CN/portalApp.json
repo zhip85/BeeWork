@@ -99,5 +99,13 @@
     "deleteConfirm": "删除项目不会删除其中的对话，它们会移出项目。",
     "failed": "操作失败，请重试"
   },
-  "projects": "项目"
+  "projects": "项目",
+  "library": {
+    "search": "搜索应用名称、说明或分类",
+    "categories": "应用分类",
+    "all": "全部",
+    "featured": "推荐",
+    "empty": "管理员尚未上架应用。上架后会出现在这里。",
+    "noMatch": "没有找到符合条件的应用。"
+  }
 }

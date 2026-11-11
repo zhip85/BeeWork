@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { ArrowUp, RotateCcw } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ApiRequestError } from '../api'
 import { usePortal } from './portalContext'
@@ -15,6 +15,7 @@ export default function PortalChat({ conversationId, projectId }: { conversation
   const { t } = useTranslation('portalApp')
   const portal = usePortal()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [shown, setShown] = useState<Shown[]>([])
   const [conversation, setConversation] = useState<PortalConversation | null>(null)
   const [text, setText] = useState('')
@@ -37,7 +38,12 @@ export default function PortalChat({ conversationId, projectId }: { conversation
   }, [conversationId, request])
   useEffect(() => { setShown([]); setConversation(null); setError(null); load() }, [load])
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [shown])
-  useEffect(() => { if (!appId && portal.apps.length) setAppId(portal.apps[0].id) }, [appId, portal.apps])
+  // `?app=` comes from the library; only an app the employee can actually use is accepted.
+  const requestedApp = searchParams.get('app')
+  useEffect(() => {
+    if (appId || portal.apps.length === 0) return
+    setAppId(portal.apps.find((app) => app.id === requestedApp)?.id ?? portal.apps[0].id)
+  }, [appId, portal.apps, requestedApp])
 
   const activeAppId = conversation?.app_id ?? appId
   const readonly = Boolean(conversation?.readonly)
