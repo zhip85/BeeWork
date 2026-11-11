@@ -225,11 +225,29 @@ MAX_KB_MOUNTS = 10
 MAX_OTHER_MOUNTS = 30
 
 
+def _validate_team(db: Session, membership: Membership, config: AssistantDraftConfig, assistant_id: UUID | None) -> None:
+    """The leaf rules of multi-agent collaboration (T-066, 演进 PRD 6.7)."""
+    from beework.capability_catalog import references_to
+
+    agents = list(dict.fromkeys(config.mounts.agent))
+    if agents and not config.multi_agent.enabled:
+        raise ApiError(422, "assistant.multi_agent_disabled", "请先开启多智能体协作，再挂载智能体")
+    if assistant_id is not None and assistant_id in agents:
+        raise ApiError(422, "assistant.agent_self_mount", "智能体不能挂载自己")
+    if config.multi_agent.enabled and assistant_id is not None:
+        parents = [r for r in references_to(db, membership.tenant_id, "assistant", assistant_id) if r.type == "assistant" and r.id != assistant_id]
+        if parents:  # it is somebody's leaf: letting it collaborate would make two levels
+            names = "、".join(r.name for r in parents[:5])
+            raise ApiError(409, "assistant.multi_agent_mounted", f"该智能体已被主智能体挂载（{names}），不能开启多智能体协作")
+
+
 def _validate_config(
-    db: Session, membership: Membership, config: AssistantDraftConfig, *, already_mounted: frozenset[str] = frozenset()
+    db: Session, membership: Membership, config: AssistantDraftConfig, *, already_mounted: frozenset[str] = frozenset(),
+    assistant_id: UUID | None = None,
 ) -> None:
     if config.driven_by is not None:
         raise ApiError(422, "assistant.driver_unavailable", "驱动方式暂未开放")
+    _validate_team(db, membership, config, assistant_id)
     mounted_ids: set[str] = set()
     for kind in MOUNT_KINDS:
         ids = list(dict.fromkeys(getattr(config.mounts, kind)))
@@ -251,7 +269,10 @@ def _validate_config(
             if item is None:
                 raise ApiError(422, "assistant.mount_unavailable", "所选能力不存在")
             if item.state != "available":
-                raise ApiError(422, "assistant.mount_unavailable", f"“{item.name}”当前不可用，暂不能挂载")
+                from beework.agent_teams import REASON_TEXT
+
+                reason = f"：{REASON_TEXT[item.meta['reason']]}" if kind == "agent" and item.meta.get("reason") in REASON_TEXT else ""
+                raise ApiError(422, "assistant.mount_unavailable", f"“{item.name}”当前不可用，暂不能挂载{reason}")
     unknown = set(config.mount_settings) - mounted_ids
     if unknown:
         raise ApiError(422, "assistant.mount_settings_invalid", "能力设置只能针对已挂载的能力")
@@ -571,7 +592,10 @@ def update_assistant(
     name = _resolve_name_and_required(db, membership, payload, exclude_id=assistant.id, relaxed=relaxed)
     config = payload.config.model_copy(deep=True)
     _fill_default_model(db, membership, config, relaxed=relaxed)
-    _validate_config(db, membership, config, already_mounted=frozenset(str(target_id) for _r, _t, target_id in assistant_edges(assistant.draft_config)))
+    _validate_config(
+        db, membership, config, assistant_id=assistant.id,
+        already_mounted=frozenset(str(target_id) for _r, _t, target_id in assistant_edges(assistant.draft_config)),
+    )
 
     assistant.name = name
     assistant.description = payload.description.strip()

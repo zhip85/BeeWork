@@ -59,7 +59,7 @@ def _section(path: str) -> str | None:
         return "prompt"
     if path in {"config.model_id", "model_id"}:
         return "model"
-    if path.startswith("config.mounts") or path == "config.driven_by":
+    if path.startswith(("config.mounts", "config.mount_settings", "config.multi_agent")) or path == "config.driven_by":
         return "capabilities"
     if path.startswith("config.oc."):
         parts = path.split(".")

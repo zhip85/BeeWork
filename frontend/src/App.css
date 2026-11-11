@@ -4417,3 +4417,5 @@ textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .mount-settings-body { display: grid; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--canvas); }
 .mount-settings-body label { display: grid; gap: 4px; font-size: var(--fs-sm); }
 .mount-write { color: var(--warn); font-style: normal; font-size: var(--fs-xs); }
+
+.team-toggle { padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--canvas); }

@@ -23,6 +23,7 @@ export function MountSettings({ assistant, item, tenantId, canEdit, onSaved }: {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const hasTools = item.kind === 'mcp'
+  const delegateRequired = item.kind === 'agent'
 
   async function toggle() {
     setOpen((value) => !value)
@@ -64,7 +65,7 @@ export function MountSettings({ assistant, item, tenantId, canEdit, onSaved }: {
 
   const summary = [
     hasTools ? (current?.tools?.length ? t('mountSettings.someTools', { count: current.tools.length }) : t('mountSettings.allTools')) : null,
-    current?.delegate ? t('mountSettings.hasDelegate') : null,
+    current?.delegate ? t('mountSettings.hasDelegate') : delegateRequired ? t('mountSettings.delegateMissing') : null,
   ].filter(Boolean).join(' · ')
 
   return (
@@ -90,11 +91,11 @@ export function MountSettings({ assistant, item, tenantId, canEdit, onSaved }: {
               {tools && tools.length > 0 && allowed.size === 0 && <small className="form-error">{t('mountSettings.noneTicked')}</small>}
             </fieldset>
           )}
-          <label>{t('mountSettings.delegate')}
+          <label>{t(delegateRequired ? 'mountSettings.delegateRequired' : 'mountSettings.delegate')}
             <textarea disabled={!canEdit} maxLength={500} onChange={(event) => setDelegate(event.target.value)} placeholder={t('mountSettings.delegateHint')} rows={2} value={delegate} />
           </label>
           {error && <p className="form-error" role="alert">{error}</p>}
-          {canEdit && <button className="primary-button" disabled={saving || (hasTools && tools !== null && tools.length > 0 && allowed.size === 0)} onClick={() => void save()} type="button">{saving ? t('picker.saving') : t('picker.save')}</button>}
+          {canEdit && <button className="primary-button" disabled={saving || (hasTools && tools !== null && tools.length > 0 && allowed.size === 0) || (delegateRequired && !delegate.trim())} onClick={() => void save()} type="button">{saving ? t('picker.saving') : t('picker.save')}</button>}
         </div>
       )}
     </div>

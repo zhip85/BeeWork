@@ -36,7 +36,7 @@ log = logging.getLogger(__name__)
 
 MAX_CALL_DEPTH = 5  # RUL-014
 MAX_RESULT_CHARS = 20_000  # what is handed back to the model
-SOURCES = ("mcp", "api", "workflow", "skill", "connection")
+SOURCES = ("mcp", "api", "workflow", "skill", "connection", "agent")
 
 
 @dataclass(frozen=True)
@@ -97,6 +97,8 @@ class ToolContext:
     assistant_id: UUID | None = None
     end_user: str | None = None
     depth: int = 1
+    environment: str = "production"  # which model environment a tool that calls a model (a leaf agent) uses
+    check_stop: Callable[[], None] = lambda: None  # raises when the run was cancelled or timed out
     # The pipeline's pii_output hook (CAP-054): text -> text.
     guard_output: Callable[[str], str] = lambda text: text
     span: Callable[[str], AbstractContextManager] = lambda name: nullcontext()
