@@ -4,6 +4,7 @@
   "subtitle": "List published agents for employees; they only see the name, description and category — never the type of the underlying resource.",
   "tabs": {
     "apps": "Apps",
+    "members": "Members",
     "settings": "Portal settings",
     "login": "Sign-in & identity",
     "analytics": "Usage analytics"
@@ -12,7 +13,9 @@
   "stats": {
     "listed": "Listed apps",
     "mau": "Monthly active employees",
-    "calls": "Uses this month"
+    "calls": "Uses this month",
+    "seats": "AI portal seats",
+    "manageSeats": "Manage portal members →"
   },
   "search": "Search app names…",
   "addApp": "Add AI app",
@@ -163,5 +166,78 @@
       "hidden": "Hide"
     }
   },
-  "preview": "Preview employee portal"
+  "preview": "Preview employee portal",
+  "members": {
+    "grantTitle": "AI portal seats granted by the platform",
+    "grantNote": "Set by the platform per contract; tenant admins cannot change it",
+    "consoleSeats": "Console seats (metered separately)",
+    "unlimited": "Unlimited",
+    "modes": {
+      "named": "Named users",
+      "active": "Monthly active",
+      "unlimited": "Unlimited"
+    },
+    "overages": {
+      "hard": "Hard limit",
+      "grace_5": "5% grace",
+      "grace_10": "10% grace"
+    },
+    "assigned": "Assigned",
+    "requested": "Pending",
+    "idle": "Idle",
+    "overContract": "Over the contracted {{seats}} seats — in the grace allowance.",
+    "rules": "Assignment rules",
+    "rulesHint": "When on, everyone in the department (and its sub-departments) gets a portal seat; someone recalled inside a department is not re-assigned by the rule.",
+    "people": "{{count}} people",
+    "autoAssign": "Assign a seat on first sign-in (while seats are available)",
+    "idleDays": "Idle reclaim",
+    "never": "Never",
+    "days": "{{count}} days without sign-in",
+    "reclaim": "Reclaim {{count}} now",
+    "search": "Search name or email",
+    "filter": "Filter",
+    "filters": {
+      "all": "All members",
+      "assigned": "Assigned",
+      "unassigned": "Unassigned",
+      "requested": "Pending",
+      "idle": "Idle"
+    },
+    "picked": "{{count}} selected",
+    "assign": "Assign",
+    "revoke": "Recall",
+    "approve": "Approve",
+    "reject": "Reject",
+    "pickAll": "Select all on this page",
+    "col": {
+      "member": "Member",
+      "source": "Source / request reason",
+      "login": "Last sign-in",
+      "state": "Status",
+      "actions": "Actions"
+    },
+    "sources": {
+      "rule": "Department rule",
+      "manual": "Assigned manually",
+      "auto": "Auto on first sign-in"
+    },
+    "states": {
+      "assigned": "Assigned",
+      "requested": "Pending",
+      "unassigned": "Unassigned"
+    },
+    "idleTag": "idle",
+    "empty": "No matching members.",
+    "total": "{{count}} members",
+    "prev": "Previous",
+    "next": "Next",
+    "done": {
+      "assign": "Assigned {{count}} seats",
+      "revoke": "Recalled {{count}} seats",
+      "approve": "Approved {{count}} requests",
+      "reject": "Rejected {{count}} requests",
+      "rules": "Rules updated",
+      "reclaim": "Reclaimed {{count}} idle seats"
+    }
+  }
 }

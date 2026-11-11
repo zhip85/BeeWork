@@ -39,3 +39,24 @@
 
 - 部门规则对接企业目录的入职 / 离职自动同步（T-092 SCIM、T-095 企业微信；本任务按 BeeWork 组织架构计算）。
 - 按月活跃模式的计量（见 T-149“不在范围”）。
+
+## 完成记录（2026-11-11，Claude Sonnet 5.5）
+
+**迁移**：`0046_portal_seats`（可降级）：`portal_seat_rules`（租户、部门；一行 = 该部门规则开启，关闭即删除，所以没有单独的“是否开启”列）、`portal_seat_assignments`（`status` 取 `assigned` / `requested` / `none`；`none` 行只保存最近登录时间，以及 `excluded` 标记——规则部门内被单独回收的成员，避免再次被规则分配）、`portal_seat_policy`（每租户一行）。
+
+**核心逻辑**（`portal_seat_service.py`，全部服务端计算，不缓存）：持有席位 = 个人分配（手动 / 自动）或所在部门（含下级）规则开启且未被排除，仅统计启用成员，去重；容量 = T-149 的 `assignable_limit`（硬限制 = 合同数，宽限向下取整，全员不限无上限）。**任何会增加持有者的变更先在事务内应用并计数，超限则抛 409 `portal.seats_exhausted` 回滚整个请求**（整批拒绝、无部分变更；提示剩余可分配数或“合同席位已用尽，请联系客户成功经理扩容”）；超出合同数但在宽限内，响应带 `notice`“当前已超出合同 N 席位，处于宽限期”。分配 / 回收 / 审批 / 驳回 / 规则 / 策略 / 闲置回收都写租户审计；达到合同席位 90% 通知租户管理员；注册配额计数器 `portal_seats`（订阅与用量页现在显示已分配数）。
+
+**接口**（`/portal/seats/*`，`portal:view` 查看、`portal:edit` 规则与策略、`portal:publish` 分配 / 回收 / 审批 / 驳回 / 一键回收）：`GET summary`、`GET members?q&filter&page`、`POST assign|revoke|approve|reject`（成员 ID 列表）、`GET/PUT rules`、`GET/PUT policy`、`POST reclaim-idle`。Worker 每日任务 `portal.reclaim_idle_seats` 按各租户策略自动回收（策略“不回收”的租户跳过，单个租户失败不影响其他租户）。同时提供 `try_auto_assign`、通过 / 驳回申请的服务函数，供 T-151 使用。
+
+**并发**：所有写操作先 `lock_tenant`。发现并修复一个真实竞态：页面同时请求 summary 与 policy 时两个请求都去创建策略行，违反唯一约束 → 500；现在用 savepoint + 重读处理，并有 PostgreSQL 回归测试。
+
+**前端**：AI 门户新增“门户成员”页签：合同授予条（只读，注明由平台设定，右侧单独显示控制台席位）、统计卡（已分配 / 合同数与进度条、待审批、闲置，点击筛选）、分配规则（部门开关与人数、首次登录自动分配、闲置回收天数、“一键回收 N 个”）、成员列表（搜索、筛选、分页、来源 / 申请原因、最近登录、单人与批量操作，批量只作用于已勾选且当前页可见的成员）；应用管理页新增“AI 门户席位”卡片可跳转到这里。中英文齐全。
+
+**验证**：`ruff` 通过；`test_portal_seats`（21 个）、`test_portal_entitlement`、`test_employee_role`、`test_worker`、`test_postgres_integration`（含 3 个新增 PostgreSQL 并发测试：8 个并发单人分配恰好成功 5 个、两个并发批量恰好成功 1 个且不超额、并发首次读取策略只建一行）通过，迁移升降级通过。前端 `tsc` / `lint` / `i18n:check` / `style:check` / `build` 通过；浏览器（开发库，租户管理员）验证页签加载、分配后提示与数字刷新。
+
+**遗留 / 说明**
+1. 成员列表在 Python 中计算再分页（按租户成员规模可接受；成员数达到数万再改 SQL 分页）。
+2. 部门规则按 BeeWork 组织架构计算，不对接企业目录入离职同步（T-092 / T-095，按规格不在范围）。
+3. 员工端的申请、最近登录写入、`require_portal_seat` 校验属 T-151：本任务里“待审批”行目前只能由 T-151 产生（测试直接写库造数据）。
+4. 90% 通知只通知租户管理员；客户成功经理通知待 T-101。
+5. 未跑全量后端测试（主机负载高）；合并前补跑。

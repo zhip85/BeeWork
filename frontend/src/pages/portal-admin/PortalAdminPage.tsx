@@ -5,11 +5,12 @@ import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
 import { AppDialog } from './AppDialog'
+import { MembersPanel } from './MembersPanel'
 import { SettingsPanel } from './SettingsPanel'
 import type { PortalApp, Summary } from './types'
 
-const TABS = ['apps', 'settings', 'login', 'analytics'] as const
-const READY: readonly string[] = ['apps', 'settings']
+const TABS = ['apps', 'members', 'settings', 'login', 'analytics'] as const
+const READY: readonly string[] = ['apps', 'members', 'settings']
 
 /** AI portal for administrators (演进 PRD 10): put published agents in front of employees. Settings, login and
  * analytics arrive with T-141 / T-146 / T-147 and say so rather than pretending. */
@@ -19,6 +20,7 @@ export function PortalAdminPage({ tenant }: { tenant: TenantMembership }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>('apps')
   const [apps, setApps] = useState<PortalApp[]>([])
   const [summary, setSummary] = useState<Summary | null>(null)
+  const [seatSummary, setSeatSummary] = useState<{ assigned: number; grant: { mode: string; seats: number | null } } | null>(null)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -32,8 +34,9 @@ export function PortalAdminPage({ tenant }: { tenant: TenantMembership }) {
     Promise.all([
       apiRequest<PortalApp[]>(`/api/v1/portal/apps?${params}`, {}, tenant.id),
       apiRequest<Summary>('/api/v1/portal/summary', {}, tenant.id),
+      apiRequest<{ assigned: number; grant: { mode: string; seats: number | null } }>('/api/v1/portal/seats/summary', {}, tenant.id).catch(() => null),
     ])
-      .then(([list, counts]) => { setApps(list); setSummary(counts); setError('') })
+      .then(([list, counts, seats]) => { setApps(list); setSummary(counts); setSeatSummary(seats); setError('') })
       .catch((requestError: Error) => setError(requestError.message || t('loadFailed')))
       .finally(() => setLoading(false))
   }, [search, tenant.id, t])
@@ -75,6 +78,7 @@ export function PortalAdminPage({ tenant }: { tenant: TenantMembership }) {
           </button>
         ))}
       </div>
+      {tab === 'members' && <MembersPanel tenant={tenant} />}
       {tab === 'settings' && <SettingsPanel tenant={tenant} />}
       {tab === 'apps' && (
         <>
@@ -82,6 +86,13 @@ export function PortalAdminPage({ tenant }: { tenant: TenantMembership }) {
         <div><small>{t('stats.listed')}</small><strong>{summary?.listed ?? '–'}</strong></div>
         <div><small>{t('stats.mau')}</small><strong>{summary?.monthly_active_employees ?? '–'}</strong></div>
         <div><small>{t('stats.calls')}</small><strong>{summary?.monthly_calls ?? '–'}</strong></div>
+        {seatSummary && (
+          <button className="portal-seat-link" onClick={() => setTab('members')} type="button">
+            <small>{t('stats.seats')}</small>
+            <strong>{seatSummary.grant.mode === 'unlimited' ? `${seatSummary.assigned} · ${t('members.modes.unlimited')}` : `${seatSummary.assigned} / ${seatSummary.grant.seats?.toLocaleString()}`}</strong>
+            <small>{t('stats.manageSeats')}</small>
+          </button>
+        )}
       </div>
       <div className="knowledge-toolbar">
         <label className="search-field"><Search size={15} /><input aria-label={t('search')} onChange={(event) => setSearch(event.target.value)} placeholder={t('search')} value={search} /></label>

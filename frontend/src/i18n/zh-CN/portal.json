@@ -4,6 +4,7 @@
   "subtitle": "把已发布的智能体上架给员工使用；员工只会看到名称、说明和分类，看不到底层资源类型。",
   "tabs": {
     "apps": "应用管理",
+    "members": "门户成员",
     "settings": "门户设置",
     "login": "登录与身份",
     "analytics": "使用分析"
@@ -12,7 +13,9 @@
   "stats": {
     "listed": "已上架应用",
     "mau": "月活跃员工",
-    "calls": "本月使用次数"
+    "calls": "本月使用次数",
+    "seats": "AI 门户席位",
+    "manageSeats": "管理门户成员 →"
   },
   "search": "搜索应用名称…",
   "addApp": "添加 AI 应用",
@@ -163,5 +166,78 @@
       "hidden": "隐藏"
     }
   },
-  "preview": "预览员工端"
+  "preview": "预览员工端",
+  "members": {
+    "grantTitle": "平台授予的 AI 门户席位",
+    "grantNote": "由平台按合同设定，租户管理员不能修改",
+    "consoleSeats": "控制台席位（单独计量）",
+    "unlimited": "不限",
+    "modes": {
+      "named": "指定用户",
+      "active": "按月活跃",
+      "unlimited": "全员不限"
+    },
+    "overages": {
+      "hard": "硬限制",
+      "grace_5": "宽限 5%",
+      "grace_10": "宽限 10%"
+    },
+    "assigned": "已分配",
+    "requested": "待审批",
+    "idle": "闲置",
+    "overContract": "当前已超出合同 {{seats}} 席位，处于宽限期。",
+    "rules": "分配规则",
+    "rulesHint": "开启后，该部门（含下级部门）的全部成员自动获得门户席位；在部门内回收某人后不会被规则重新分配。",
+    "people": "{{count}} 人",
+    "autoAssign": "首次登录自动分配席位（有可分配席位时）",
+    "idleDays": "闲置回收",
+    "never": "不回收",
+    "days": "{{count}} 天未登录",
+    "reclaim": "一键回收 {{count}} 个",
+    "search": "搜索姓名或邮箱",
+    "filter": "筛选",
+    "filters": {
+      "all": "全部成员",
+      "assigned": "已分配",
+      "unassigned": "未分配",
+      "requested": "待审批",
+      "idle": "闲置"
+    },
+    "picked": "已选 {{count}} 人",
+    "assign": "分配",
+    "revoke": "回收",
+    "approve": "通过",
+    "reject": "驳回",
+    "pickAll": "选择当前页全部",
+    "col": {
+      "member": "成员",
+      "source": "来源 / 申请原因",
+      "login": "最近登录",
+      "state": "状态",
+      "actions": "操作"
+    },
+    "sources": {
+      "rule": "部门规则",
+      "manual": "手动分配",
+      "auto": "首次登录自动分配"
+    },
+    "states": {
+      "assigned": "已分配",
+      "requested": "待审批",
+      "unassigned": "未分配"
+    },
+    "idleTag": "闲置",
+    "empty": "没有符合条件的成员。",
+    "total": "共 {{count}} 人",
+    "prev": "上一页",
+    "next": "下一页",
+    "done": {
+      "assign": "已分配 {{count}} 个席位",
+      "revoke": "已回收 {{count}} 个席位",
+      "approve": "已通过 {{count}} 个申请",
+      "reject": "已驳回 {{count}} 个申请",
+      "rules": "已更新分配规则",
+      "reclaim": "已回收 {{count}} 个闲置席位"
+    }
+  }
 }

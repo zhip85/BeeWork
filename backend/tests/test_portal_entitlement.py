@@ -152,7 +152,7 @@ class PortalEntitlementTests(test_plans.PlanManagementTests):
         seats = next(q for q in subscription["quotas"] if q["key"] == "seats")
         self.assertEqual((seats["limit"], seats["used"]), (3, 1))
         portal = next(q for q in subscription["quotas"] if q["key"] == "portal_seats")
-        self.assertEqual((portal["limit"], portal["used"]), (200, None))  # the counter is registered by T-150
+        self.assertEqual((portal["limit"], portal["used"]), (200, 0))  # counted by T-150: nobody holds a portal seat yet
 
 
 for _name in [n for n in dir(test_plans.PlanManagementTests) if n.startswith("test_")]:
