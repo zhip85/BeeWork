@@ -45,6 +45,7 @@ import { Dashboard } from './pages/dashboard/Dashboard'
 import { MembersPage } from './pages/members/MembersPage'
 import { PlatformConsole } from './pages/platform/PlatformConsole'
 import { CapabilitiesPage } from './pages/capabilities/CapabilitiesPage'
+import { FlowConnectionFormPage } from './pages/capabilities/FlowConnectionFormPage'
 import { McpFormPage } from './pages/capabilities/McpFormPage'
 import { SkillFormPage } from './pages/capabilities/SkillFormPage'
 import { PortalAdminPage } from './pages/portal-admin/PortalAdminPage'
@@ -441,6 +442,10 @@ function App() {
             <Route path="/capabilities/skill/:capabilityId" element={hasPermission('capabilities:view') && activeTenant ? <SkillFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/capabilities/mcp/new" element={hasPermission('capabilities:edit') && activeTenant && activeTenant.access_mode === 'full' ? <McpFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/capabilities/mcp/:capabilityId" element={hasPermission('capabilities:view') && activeTenant ? <McpFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/capabilities/chatflow/new" element={hasPermission('capabilities:edit') && activeTenant && activeTenant.access_mode === 'full' ? <FlowConnectionFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/capabilities/chatflow/:connectionId" element={hasPermission('capabilities:view') && activeTenant ? <FlowConnectionFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/capabilities/workflow/new" element={hasPermission('capabilities:edit') && activeTenant && activeTenant.access_mode === 'full' ? <FlowConnectionFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/capabilities/workflow/:connectionId" element={hasPermission('capabilities:view') && activeTenant ? <FlowConnectionFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/ai-portal" element={hasPermission('portal:view') && activeTenant ? <PortalAdminPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/flow-studio" element={hasPermission('agents:view') && activeTenant ? <FlowsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/flow-studio/new" element={hasPermission('agents:edit') && activeTenant && activeTenant.access_mode === 'full' ? <FlowCreatePage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />

@@ -8,17 +8,23 @@
   "kind": {
     "skill": "Skill",
     "mcp": "MCP",
-    "api": "API 插件"
+    "api": "API 插件",
+    "chatflow": "Chatflow",
+    "workflow": "Workflow"
   },
   "kindHint": {
     "skill": "可复用的任务指令与专业能力包",
     "mcp": "通过 MCP 服务连接工具与数据",
-    "api": "连接 REST 或 GraphQL 业务接口"
+    "api": "连接 REST 或 GraphQL 业务接口",
+    "chatflow": "把对话流程包装成可被智能体调用的连接",
+    "workflow": "把工作流包装成可被智能体调用的连接"
   },
   "create": {
     "skill": "上传 Skill",
     "mcp": "连接 MCP",
-    "api": "添加 API 插件"
+    "api": "添加 API 插件",
+    "chatflow": "添加 Chatflow 连接",
+    "workflow": "添加 Workflow 连接"
   },
   "soon": "{{kind}} 的管理将在后续版本提供。",
   "search": "搜索{{kind}}…",
@@ -150,5 +156,88 @@
     },
     "activeLabel": "对租户启用",
     "note": "停用后所有租户都不能再使用此 Skill；已挂载的智能体会看到它不可用。SKILL.md 需保留 name 与 description 的 frontmatter。"
+  },
+  "flowConn": {
+    "source": {
+      "native": "本平台已发布画布",
+      "dify": "Dify 应用",
+      "recommended": "推荐"
+    },
+    "sourceLabel": "来源",
+    "stateLabel": {
+      "available": "可用",
+      "disabled": "已停用",
+      "invalid": "失效"
+    },
+    "summaryNative": "本平台画布 · {{flow}}",
+    "summaryDify": "Dify · {{host}}",
+    "footer": {
+      "available": "可挂载到智能体和门户应用",
+      "disabled": "智能体与应用暂不可使用",
+      "invalid": "底层流程不可用，引用方将提示失效"
+    },
+    "references": "{{count}} 处引用",
+    "empty": "还没有 {{kind}} 连接",
+    "emptyFiltered": "没有匹配的连接",
+    "menuTest": "测试连接",
+    "deleteTitle": "删除连接“{{name}}”？",
+    "deleteBody": "删除后不可恢复。",
+    "deleteBodyReferenced": "该连接被 {{count}} 处引用，删除后引用方会在配置检查中提示失效。",
+    "disableTitle": "停用连接“{{name}}”？",
+    "disableBody": "停用后智能体与应用将无法调用它。",
+    "disableBodyReferenced": "该连接被 {{count}} 处引用，停用后这些引用方将无法调用它。",
+    "form": {
+      "name": "名称",
+      "description": "说明",
+      "descriptionHint": "告诉智能体这个流程能做什么，它会决定何时调用",
+      "flow": "选择流程",
+      "flowPlaceholder": "请选择已发布的流程",
+      "noFlows": "还没有已发布的 {{kind}} 画布。先到“流程画布”设计并发布一个，或改用 Dify 应用。",
+      "goFlows": "去流程画布",
+      "baseUrl": "Base URL",
+      "baseUrlHint": "必须是公网 https 地址，例如 https://api.dify.ai/v1",
+      "appId": "App ID",
+      "apiKey": "API Key",
+      "apiKeyHint": "该应用的 API Key，仅在服务端加密保存",
+      "keepHint": "已保存，留空则保持不变",
+      "inputMapping": "输入映射",
+      "inputMappingHint": "左侧是 Dify 应用的输入变量，右侧是智能体要填写的参数名（只能含字母、数字和下划线）",
+      "variable": "Dify 变量",
+      "argument": "智能体参数",
+      "addRow": "添加一行",
+      "removeRow": "删除这一行",
+      "outputField": "输出字段",
+      "outputFieldHint": "Workflow：只把这个输出字段返回给智能体；留空则返回全部输出",
+      "streaming": "流式输出",
+      "streamingHint": "当前调用以阻塞方式返回，开关先保存为配置"
+    },
+    "test": "测试连接",
+    "testing": "测试中…",
+    "testOk": "测试成功，耗时 {{ms}} 毫秒",
+    "testNativeOk": "底层流程已发布且可用",
+    "testFailed": "测试失败（{{category}}）：{{reason}}",
+    "retry": "重试",
+    "lastTestOk": "最近测试成功：{{when}}，{{ms}} 毫秒",
+    "lastTestFailed": "最近测试失败：{{when}} — {{reason}}",
+    "category": {
+      "auth_failed": "凭据被拒绝",
+      "not_found": "找不到应用",
+      "rate_limited": "被限流",
+      "invalid_arguments": "输入不符",
+      "upstream_error": "Dify 异常",
+      "network": "网络",
+      "timeout": "超时",
+      "config": "配置",
+      "forbidden": "地址被拒绝",
+      "response": "响应过大",
+      "bad_response": "响应异常",
+      "workflow_failed": "工作流失败",
+      "invalid": "流程失效"
+    },
+    "created": "已添加连接",
+    "saved": "已保存",
+    "backTo": "返回{{kind}}",
+    "editTitle": "编辑 {{kind}} 连接",
+    "readonly": "你没有编辑权限，只能查看。"
   }
 }
