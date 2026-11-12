@@ -352,6 +352,27 @@ class McpTests(test_assistants.AssistantTests):
         blocked = self.post(f"{cap_id}/enable")
         self.assertEqual((blocked.status_code, blocked.json()["code"]), (409, "capability.not_ready"))
 
+    def test_pointing_a_connection_at_another_host_needs_the_token_again(self) -> None:
+        self.server.token = SECRET
+        cap_id = self.create_mcp(auth_type="bearer", token=SECRET).json()["capability"]["id"]
+        refused = self.update(cap_id, url="https://attacker.example.com/mcp")  # the token field is left blank
+        self.assertEqual((refused.status_code, refused.json()["code"]), (422, "capability.credential_reentry"))
+        self.assertEqual(self.get(cap_id)["mcp"]["host"], "mcp.example.com")  # nothing was saved
+        requests_before = len(self.server.requests)
+        self.assertEqual(self.update(cap_id, url="https://mcp.example.com/other/path").status_code, 200)  # the same host: fine
+        self.assertEqual(len(self.server.requests), requests_before)  # and nothing was sent anywhere by the refused edit
+        moved = self.update(cap_id, url="https://mcp2.example.com/mcp", token="new-token-0000")
+        self.assertEqual((moved.status_code, moved.json()["mcp"]["token_mask"]), (200, "••••0000"))
+
+    def test_moving_the_oauth_token_url_to_another_host_needs_the_client_secret_again(self) -> None:
+        cap_id = self.oauth_setup()
+        refused = self.update(cap_id, oauth_token_url="https://attacker.example.com/token")
+        self.assertEqual((refused.status_code, refused.json()["code"]), (422, "capability.credential_reentry"))
+        self.assertEqual(self.get(cap_id)["mcp"]["oauth_token_url"], "https://auth.example.com/token")
+        self.assertEqual(self.update(cap_id, oauth_token_url="https://auth.example.com/v2/token").status_code, 200)  # the same host
+        moved = self.update(cap_id, oauth_token_url="https://auth2.example.com/token", oauth_client_secret="new-secret-0000")
+        self.assertEqual((moved.status_code, moved.json()["mcp"]["oauth_client_secret_mask"]), (200, "••••0000"))
+
     def test_copying_makes_a_draft_without_the_test_result_or_oauth_tokens(self) -> None:
         self.server.token = SECRET
         cap_id = self.create_mcp(auth_type="bearer", token=SECRET).json()["capability"]["id"]

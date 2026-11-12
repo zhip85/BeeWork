@@ -49,3 +49,9 @@
 - 真实 TLS 下的“固定 IP + 证书按原域名校验”仍只靠 httpx 的 `sni_hostname`，需要连一个真实 https 的 MCP 服务验证一次。
 - 删除 / 停用时“被路由规则引用”的确认文案在 T-058；列表页现在只显示引用数。
 - 开发库里“小智科技”的套餐快照被临时打开了 `mcp` / `skills` 权益，并留有测试连接（视环境而定）。
+
+## 评审修正（2026-11-12）
+
+只改 MCP 服务地址的主机而把访问令牌留空，会把已保存的令牌发到新主机；同样，只改 OAuth 令牌地址的主机而把客户端密钥留空，会把已保存的密钥发到新主机。有 `capabilities:edit` 权限的人可借此把凭据套到自己的服务器上（凭据本来永远读不出来）。
+
+现在更换服务地址的主机必须重新填写访问令牌，更换令牌地址的主机必须重新填写客户端密钥，否则 422 `capability.credential_reentry` 且不保存、不发任何请求；同主机改路径不受影响。新增 `test_pointing_a_connection_at_another_host_needs_the_token_again` 与 `test_moving_the_oauth_token_url_to_another_host_needs_the_client_secret_again`（已确认不带修复时失败）。T-075（Dify 连接）与 T-073（API 插件）在各自分支里已做同样处理。
