@@ -53,6 +53,6 @@
 8. 认证头与模型填写的同名请求头按大小写不敏感比较，模型填的那份被丢弃。
 9. `GET /capabilities?kind=api` 只返回工具名与勾选状态，不带 `input_schema`（单个详情才带）。
 10. `host_of` / `mask` 复用 `capability_service` 里的实现。
-11. **同类问题（评审未报）**：只改 Base URL / Token URL 的主机而不重填凭据，会把已保存的凭据发到新主机（有 `capabilities:edit` 的人可借此套取密钥）。现在换主机必须重新填写凭据（422 `capability.credential_reentry`）；同主机改路径不受影响。T-072 的 MCP 连接有同样的问题，**本次未改**，建议单独处理。
+11. **同类问题（评审未报）**：只改 Base URL / Token URL 的主机而不重填凭据，会把已保存的凭据发到新主机（有 `capabilities:edit` 的人可借此套取密钥）。现在换主机必须重新填写凭据（422 `capability.credential_reentry`）；同主机改路径不受影响。T-072 的 MCP 连接有同样的问题，已另行修复（见 `T-072-mcp.md` 的“评审修正”）。
 
 测试：`test_api_spec` 24 项、`test_api_plugins` 56 项（含继承）、`test_flow_connections` 64 项（含继承）。

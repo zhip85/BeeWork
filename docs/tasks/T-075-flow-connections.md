@@ -68,4 +68,4 @@
 
 ## 评审修正（2026-11-12）
 
-与 T-073 同类的问题：只改 Dify 连接的 Base URL 主机而把 API Key 留空，会把已保存的 Key 发到新主机。现在更换主机必须重新填写 API Key（422 `flow_connection.credential_reentry`）；同主机改路径不受影响；新增回归测试 `test_pointing_a_dify_connection_at_another_host_needs_the_key_again`。T-072 的 MCP 连接有同样的问题，本次未改。
+与 T-073 同类的问题：只改 Dify 连接的 Base URL 主机而把 API Key 留空，会把已保存的 Key 发到新主机。现在更换主机必须重新填写 API Key（422 `flow_connection.credential_reentry`）；同主机改路径不受影响；新增回归测试 `test_pointing_a_dify_connection_at_another_host_needs_the_key_again`。T-072 的 MCP 连接有同样的问题，已另行修复（见 `T-072-mcp.md` 的“评审修正”）。
