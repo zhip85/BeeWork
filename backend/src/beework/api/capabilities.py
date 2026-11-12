@@ -400,6 +400,10 @@ def _apply_mcp_fields(conn: McpConnection, payload: McpWriteRequest, *, creating
     if not url:
         raise ApiError(422, "capability.invalid_url", "请填写服务地址")
     changed = creating or url != conn.url or payload.auth_type != conn.auth_type
+    # A stored secret belongs to the host it was entered for: pointing the connection at another host must not carry it
+    # along (someone who may edit connections could otherwise read the token out by pointing it at their own server).
+    same_host = creating or svc.host_of(url) == svc.host_of(conn.url)
+    old_token_host = svc.host_of(conn.oauth_token_url)
     conn.transport, conn.url, conn.auth_type = payload.transport, url, payload.auth_type
     if payload.auth_type == "bearer":
         token = (payload.token or "").strip()
@@ -407,6 +411,8 @@ def _apply_mcp_fields(conn: McpConnection, payload: McpWriteRequest, *, creating
             conn.secret_encrypted, conn.secret_last4, changed = svc.encrypt(token), token[-4:], True
         elif not conn.secret_encrypted:
             raise ApiError(422, "capability.token_required", "请填写访问令牌")
+        elif not same_host:
+            raise ApiError(422, "capability.credential_reentry", "更换了服务地址的主机，请重新填写访问令牌（已保存的令牌不会发往新主机）")
     else:
         conn.secret_encrypted = conn.secret_last4 = None
     if payload.auth_type == "oauth":
@@ -421,6 +427,8 @@ def _apply_mcp_fields(conn: McpConnection, payload: McpWriteRequest, *, creating
         secret = (payload.oauth_client_secret or "").strip()
         if secret:
             conn.oauth_client_secret_encrypted, conn.oauth_client_secret_last4, changed = svc.encrypt(secret), secret[-4:], True
+        elif conn.oauth_client_secret_encrypted and not creating and svc.host_of(token_url) != old_token_host:
+            raise ApiError(422, "capability.credential_reentry", "更换了令牌地址的主机，请重新填写客户端密钥（已保存的密钥不会发往新主机）")
     else:
         conn.oauth_authorize_url = conn.oauth_token_url = conn.oauth_client_id = conn.oauth_scopes = ""
         conn.oauth_client_secret_encrypted = conn.oauth_client_secret_last4 = None
