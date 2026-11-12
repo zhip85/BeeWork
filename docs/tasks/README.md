@@ -105,7 +105,7 @@
 | [T-070](./T-070-capability-catalog.md) | 能力目录、挂载选择器与引用完整性 | T-033、T-060 | — | 已完成 | Claude Sonnet 5.5 | 分支 `task/T-070-capability-catalog`；2026-11-10：类型改为叶子智能体与流程连接，引用方加门户应用 |；现仅知识库注册，其余类型随 T-066 / T-072–T-075；2026-11-12 验收通过 |
 | [T-071](./T-071-tool-executor.md) | 受控工具执行器（出口网关） | T-001、T-054 | — | 已完成（有条件） | Claude Sonnet 5.5 | 分支 `task/T-071-tool-executor`；安全关键 |；尚无 provider，运行时调用在 T-061；2026-11-12 验收：真实 TLS 固定 IP 握手待 T-072/T-075 实测 |
 | [T-072](./T-072-mcp.md) | MCP 连接 | T-070、T-071、T-022 | — | 已完成（有条件） | Claude Sonnet 5.5 | 分支 `task/T-072-mcp`；连过官方 SDK 示例服务器，OAuth 仅模拟验证；运行时调用在 T-061 |
-| [T-073](./T-073-api-plugins.md) | API 插件 | T-072 | — | 待开发 | | |
+| [T-073](./T-073-api-plugins.md) | API 插件 | T-072 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-073-api-plugins`（叠在 T-075 之上：迁移 0050 依赖 0049）；**未连真实第三方 API** |
 | [T-074](./T-074-skills.md) | Skill：上传、安全检查与运行时加载 | T-072、T-002 | — | 已完成（有条件） | Claude Opus 5.5 | 分支 `task/T-074-skills`；本期不执行脚本；运行时调用在 T-061 | |
 | [T-075](./T-075-flow-connections.md) | 流程连接：本平台已发布画布 / Dify 应用 | T-060、T-070、T-071 | Dify 应用 API Key | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-075-flow-connections`；2026-11-10 新增；只做 Dify 与本平台画布；**未连真实 Dify；native 画布运行时待 T-062–T-064** |
 

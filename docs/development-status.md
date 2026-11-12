@@ -443,6 +443,11 @@
 - `flow_connections`（迁移 0049）；能力页 Chatflow / Workflow 页签；来源为本平台已发布画布（native）或 Dify 应用（dify）；Dify 调用经受控出口，API Key 加密、只显示掩码；画布停用 / 删除 → 连接“失效”，引用方配置检查提示；挂载、候选列表、`connection:{id}` 工具已注册，智能体可把连接作为工具调用。
 - 验证：ruff；PostgreSQL 迁移升降级 + `alembic check`；`test_flow_connections` 23 项新增 + 继承 40 项；前端 tsc / lint / i18n / style / build。**未连过真实 Dify（缺应用 API Key）；本平台画布的运行时在 T-062–T-064 之前不能被调用（返回 `tool.flow_runtime_unavailable`）。**
 
+### T-073 API 插件（待验收）
+
+- `api_plugins`（迁移 0050，叠在 T-075 的 0049 之上）；OpenAPI 3.0 / 3.1 与 GraphQL SDL 解析为工具（外部 `$ref` 拒绝、行号报错）；认证含无 / API Key / Bearer / OAuth 客户端凭证（令牌加密缓存与刷新）；调用经受控执行器且限定插件自己的主机；测试调用写操作需二次确认；满足“规范 + 测试成功 + 勾选工具”后按审批策略启用；可挂载到智能体并作为工具提供给模型。
+- 验证：ruff；PostgreSQL 迁移升降级 + `alembic check`；`test_api_spec` 20 项、`test_api_plugins` 45 项；前端 tsc / lint / i18n / style / build。**未连过真实第三方 API（只用 mock 传输）。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

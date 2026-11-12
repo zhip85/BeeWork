@@ -36,7 +36,7 @@ class OfferedTool:
 
 
 def _alias(index: int, spec: ToolSpec) -> str:
-    tool = spec.name.split(":", 2)[2] if spec.source == "mcp" and spec.name.count(":") >= 2 else spec.source
+    tool = spec.name.split(":", 2)[2] if spec.source in ("mcp", "api") and spec.name.count(":") >= 2 else spec.source
     return f"{spec.source}_{index}_{re.sub(r'[^a-zA-Z0-9_-]', '_', tool)}"[:ALIAS_MAX]
 
 
@@ -70,6 +70,11 @@ class ToolRuntime:
             return agent_tool_specs(side, self.tenant_id, [mount.capability_id]) if self._allow_agents else []
         if mount.kind == "mcp":
             specs = mcp_tool_specs(side, self.tenant_id, [mount.capability_id])
+            return [s for s in specs if not mount.tools or s.name.split(":", 2)[2] in mount.tools]  # ticked for this agent
+        if mount.kind == "api":
+            from beework.api_plugin_service import api_tool_specs
+
+            specs = api_tool_specs(side, self.tenant_id, [mount.capability_id])
             return [s for s in specs if not mount.tools or s.name.split(":", 2)[2] in mount.tools]  # ticked for this agent
         if mount.kind in ("chatflow", "flow"):
             from beework.flow_connection_service import connection_tool_specs

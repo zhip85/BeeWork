@@ -330,7 +330,7 @@ class FlowTests(test_assistants.AssistantTests):
     def test_flows_are_not_mountable_directly(self) -> None:
         from beework.capabilities import MOUNT_RESOLVERS
 
-        self.assertEqual(sorted(MOUNT_RESOLVERS), ["agent", "chatflow", "flow", "kb", "mcp", "skill"])  # flows are reached through flow connections (T-075): they mount as chatflow / flow
+        self.assertEqual(sorted(MOUNT_RESOLVERS), ["agent", "api", "chatflow", "flow", "kb", "mcp", "skill"])  # flows are reached through flow connections (T-075): they mount as chatflow / flow
         row = self.create(self.admin, "Mounting").json()["id"]
         with self.session_factory.begin() as db:
             assistant = db.get(Assistant, UUID(row))

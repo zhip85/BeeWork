@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 CapabilityKind = Literal["skill", "mcp", "api"]
 CapabilityStatus = Literal["draft", "available", "disabled"]
 AuthType = Literal["none", "bearer", "oauth"]
+ApiType = Literal["rest", "graphql"]
+ApiAuthType = Literal["none", "api_key", "bearer", "oauth_cc"]
 
 
 class McpWriteRequest(BaseModel):
@@ -50,6 +52,73 @@ class McpDetail(BaseModel):
     last_test_ok: bool = False
     last_test_error: str | None = None
     health: Literal["unknown", "ok", "error"] = "unknown"
+
+
+class ApiPluginWrite(BaseModel):
+    """Create / update an API plugin (T-073). Secrets blank or absent keep the stored value; ``spec_text`` absent keeps the stored spec."""
+
+    name: str = Field(max_length=200)
+    description: str = Field(default="", max_length=1000)
+    api_type: ApiType = "rest"
+    base_url: str = Field(default="", max_length=500)  # GraphQL: the endpoint
+    auth_type: ApiAuthType = "none"
+    api_key_header: str = Field(default="", max_length=100)
+    secret: str | None = Field(default=None, max_length=2000)  # the API key value or the bearer token
+    oauth_token_url: str = Field(default="", max_length=500)
+    oauth_client_id: str = Field(default="", max_length=200)
+    oauth_client_secret: str | None = Field(default=None, max_length=2000)
+    oauth_scope: str = Field(default="", max_length=300)
+    spec_text: str | None = Field(default=None, max_length=1_100_000)
+    spec_filename: str = Field(default="", max_length=200)
+    selected_tools: list[str] | None = Field(default=None, max_length=500)  # None keeps the current selection
+    row_version: int | None = None  # required on update
+
+
+class ApiToolEntry(BaseModel):
+    name: str
+    description: str = ""
+    writes: bool = False
+    selected: bool = False
+    input_schema: dict = Field(default_factory=dict)
+
+
+class ApiDetail(BaseModel):
+    api_type: ApiType
+    base_url: str
+    host: str
+    auth_type: ApiAuthType
+    api_key_header: str = ""
+    secret_mask: str | None = None
+    oauth_token_url: str = ""
+    oauth_client_id: str = ""
+    oauth_client_secret_mask: str | None = None
+    oauth_scope: str = ""
+    spec_filename: str = ""
+    has_spec: bool = False
+    tools: list[ApiToolEntry] = Field(default_factory=list)
+    last_test_at: datetime | None = None
+    last_test_ok: bool = False
+    last_test_tool: str | None = None
+    last_test_error: str | None = None
+
+
+class ApiParseRequest(BaseModel):
+    api_type: ApiType = "rest"
+    spec_text: str = Field(max_length=1_100_000)
+
+
+class ApiParseResult(BaseModel):
+    ok: bool
+    tool_count: int = 0
+    tools: list[ApiToolEntry] = Field(default_factory=list)
+    error: str | None = None
+    line: int | None = None
+
+
+class ApiTestCallRequest(BaseModel):
+    tool: str = Field(max_length=64)
+    arguments: dict = Field(default_factory=dict)
+    confirmed: bool | None = None  # a write needs True (“二次确认”)
 
 
 class SkillCheck(BaseModel):
@@ -117,6 +186,7 @@ class CapabilityResponse(BaseModel):
     can_delete: bool = False
     mcp: McpDetail | None = None
     skill: SkillDetail | None = None
+    api: ApiDetail | None = None
 
 
 class CapabilityCounts(BaseModel):
@@ -134,6 +204,14 @@ class TestResult(BaseModel):
     ok: bool
     error: str | None = None
     tool_count: int = 0
+    capability: CapabilityResponse | None = None
+
+
+class ApiTestCallResult(BaseModel):
+    ok: bool
+    status: Literal["ok", "error", "cancelled", "confirmation_required"]
+    content: str = ""
+    code: str | None = None
     capability: CapabilityResponse | None = None
 
 
