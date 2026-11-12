@@ -223,7 +223,9 @@
     "cancel": "取消",
     "saved": "挂载已保存到草稿",
     "unknown": "（已失效）",
-    "emptyGeneric": "暂无可挂载的资源"
+    "emptyGeneric": "暂无可挂载的资源",
+    "rulesWarning": "以下优先规则指向将被移除的能力，保存后它们会显示“目标失效”并在运行时被跳过：{{rules}}",
+    "saveAnyway": "仍然保存"
   },
   "dependencies": {
     "title": "依赖 {{count}}",

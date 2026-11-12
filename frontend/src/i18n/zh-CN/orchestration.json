@@ -42,8 +42,8 @@
       "subtitle": "改写策略"
     },
     "routing": {
-      "name": "路由",
-      "subtitle": "分发到已挂载智能体 / 流程"
+      "name": "意图判断",
+      "subtitle": "能力直达 · 优先规则 · 交给智能体"
     },
     "components": {
       "name": "组件编排",
@@ -166,6 +166,62 @@
       "timeout": "改写超时，已使用原问题。",
       "error": "改写调用失败，已使用原问题。",
       "invalid": "改写结果无法解析，已使用原问题。"
+    }
+  },
+  "routing": {
+    "hint": "意图判断决定一条消息由哪个能力直接回答（路径 A），还是交给智能体自行规划（路径 B）。判断失败、置信度不足、需要写操作时一律交给智能体。",
+    "enable": "启用意图判断",
+    "enableHint": "关闭时智能体自行决定是否调用能力。当前范围内有 {{count}} 个可用能力。",
+    "model": "意图判断模型",
+    "modelDefault": "使用智能体的模型",
+    "modelHint": "仅可选择本租户已启用的对话模型；建议使用速度快的分类模型。",
+    "threshold": "置信度阈值：{{value}}",
+    "thresholdHint": "最高置信度低于该值时交给智能体。",
+    "margin": "与第二名的最小差距：{{value}}",
+    "marginHint": "前两名过于接近时视为不确定，交给智能体。",
+    "recallK": "候选数量（召回 Top K）",
+    "faqDirect": "FAQ 直接回答",
+    "faqDirectHint": "命中知识库中足够确定的 FAQ 时直接返回答案。",
+    "custom": "自定义判断提示词",
+    "customHint": "追加到分类提示词末尾，用于补充业务口径。",
+    "rules": {
+      "title": "优先规则",
+      "enable": "启用优先规则",
+      "enableHint": "命中规则的消息跳过模型判断，直接调用目标能力。数字越小越先匹配。",
+      "counts": "{{valid}} 条有效 · {{invalid}} 条目标失效",
+      "empty": "还没有规则",
+      "enabled": "启用规则 {{name}}",
+      "noTarget": "（未选择目标）",
+      "invalid": "目标失效 / 待重选",
+      "edit": "编辑",
+      "remove": "删除",
+      "add": "添加规则",
+      "dialog": "优先规则",
+      "name": "规则名称",
+      "priority": "优先级",
+      "priorityHint": "数字越小越先匹配；相同时先创建的先匹配。",
+      "matchType": "匹配方式",
+      "type": {
+        "keyword": "关键词",
+        "regex": "正则"
+      },
+      "pattern": "匹配条件",
+      "keywordHint": "多个关键词用逗号或换行分隔，命中任一即可。",
+      "regexHint": "正则表达式，忽略大小写。",
+      "target": "目标能力",
+      "pickTarget": "请选择目标能力",
+      "reason": {
+        "disabled": "不可用",
+        "not_direct": "未允许直达",
+        "write": "写操作",
+        "kb": "知识库"
+      },
+      "testQuestion": "输入一句话测试规则",
+      "test": "测试规则",
+      "hit": "命中",
+      "miss": "未命中",
+      "cancel": "取消",
+      "save": "保存规则"
     }
   }
 }

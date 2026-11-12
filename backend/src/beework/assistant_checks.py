@@ -78,6 +78,24 @@ def check_assistant(
                 CheckIssue(code="mount.invalid", severity="high", message=f"挂载的能力“{label}”{state}", target="capabilities")
             )
 
+    issues.extend(_intent_issues(db, assistant, config))
+
     if not (config.get("greeting") or "").strip():
         issues.append(CheckIssue(code="greeting_empty", severity="info", message="未设置开场白", target="basic"))
     return issues
+
+
+def _intent_issues(db: Session, assistant: Assistant, config: dict[str, Any]) -> list[CheckIssue]:
+    """T-161: a priority rule whose target is no longer a directly callable capability of the agent's scope would be skipped at run
+    time; say so before publishing. Only while intent judgement and the priority rules are switched on (they are what runs)."""
+    from beework import intent_service
+    from beework.runtime.oc import OCConfig
+
+    intent = OCConfig.model_validate(config.get("oc") or {}).intent
+    if not (intent.enabled and intent.priority_rules_enabled):
+        return []
+    callable_ids = set(intent_service.load_scope(db, assistant.tenant_id, config).callable_by_id())
+    return [
+        CheckIssue(code="route.rule_target_invalid", severity="high", message=f"意图规则“{rule.name}”的目标已失效、未挂载或不再允许直达，运行时将被跳过", target="orchestration")
+        for rule in intent.rules if rule.enabled and rule.target_entry_id not in callable_ids
+    ]

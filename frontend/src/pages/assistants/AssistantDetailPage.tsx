@@ -337,6 +337,16 @@ function MountDialog({
   const [names, setNames] = useState<Record<string, string>>(Object.fromEntries(current.map((item) => [item.id, item.name])))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [warning, setWarning] = useState<string[] | null>(null)
+
+  // AST-065: priority rules of the intent stage that point into a capability about to be unmounted.
+  async function referencedRules(): Promise<string[]> {
+    const before = new Set(Object.values(assistant.config.mounts ?? {}).flat() as string[])
+    const after = new Set(Object.values(selected).flat())
+    const removed = [...before].filter((id) => !after.has(id))
+    const found = await Promise.all(removed.map((id) => apiRequest<{ rules: string[] }>(`/api/v1/assistants/${assistant.id}/oc/routing/references?source_id=${id}`, {}, tenantId).then((data) => data.rules).catch(() => [] as string[])))
+    return [...new Set(found.flat())]
+  }
 
   // Settings of a capability that is no longer mounted go with it.
   function keptSettings() {
@@ -348,6 +358,14 @@ function MountDialog({
     setSaving(true)
     setError('')
     try {
+      if (warning === null) {
+        const rules = await referencedRules()
+        if (rules.length > 0) {
+          setWarning(rules)
+          setSaving(false)
+          return
+        }
+      }
       await apiRequest(
         `/api/v1/assistants/${assistant.id}`,
         {
@@ -377,11 +395,12 @@ function MountDialog({
     <div className="modal-backdrop confirm-backdrop" onClick={onClose} role="presentation">
       <div aria-labelledby="mount-title" aria-modal="true" className="create-modal mount-dialog" onClick={(event) => event.stopPropagation()} role="dialog">
         <h2 id="mount-title">{t('picker.title')}</h2>
-        <CapabilityPicker hiddenKinds={teamEnabled ? [] : ['agent']} names={names} onChange={(next, nextNames) => { setSelected(next); setNames(nextNames) }} selected={selected} tenantId={tenantId} />
+        <CapabilityPicker hiddenKinds={teamEnabled ? [] : ['agent']} names={names} onChange={(next, nextNames) => { setSelected(next); setNames(nextNames); setWarning(null) }} selected={selected} tenantId={tenantId} />
+        {warning && <p className="form-error" role="alert">{t('picker.rulesWarning', { rules: warning.join('、') })}</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="confirm-actions">
           <button className="secondary-button" disabled={saving} onClick={onClose} type="button">{t('picker.cancel')}</button>
-          <button className="primary-button" disabled={saving} onClick={() => void save()} type="button">{saving ? t('picker.saving') : t('picker.save')}</button>
+          <button className="primary-button" disabled={saving} onClick={() => void save()} type="button">{saving ? t('picker.saving') : warning ? t('picker.saveAnyway') : t('picker.save')}</button>
         </div>
       </div>
     </div>

@@ -223,7 +223,9 @@
     "cancel": "Cancel",
     "saved": "Mounts saved to the draft",
     "unknown": "(no longer available)",
-    "emptyGeneric": "Nothing to mount yet"
+    "emptyGeneric": "Nothing to mount yet",
+    "rulesWarning": "These priority rules point at a capability being removed; after saving they show as invalid and are skipped at run time: {{rules}}",
+    "saveAnyway": "Save anyway"
   },
   "dependencies": {
     "title": "Dependencies {{count}}",
