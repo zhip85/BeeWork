@@ -9,7 +9,6 @@ import test_assistants
 from beework.capabilities import CANDIDATE_LISTERS, MOUNT_RESOLVERS, MountItem
 from beework.capability_catalog import (
     assistant_edges,
-    flow_edges,
     invalid_references,
     references_to,
 )
@@ -63,27 +62,13 @@ class CatalogTests(test_assistants.AssistantTests):
                 ResourceReference.referrer_type == referrer_type, ResourceReference.referrer_id == UUID(referrer_id)))
             return {(r.layer, r.relation, r.target_type, r.target_id) for r in rows if layer in (None, r.layer)}
 
-    def flow(self, name: str, target_id: str | None = None, target_kind: str = "assistant") -> str:
-        flow_id = self.client.post("/api/v1/agents", json={"kind": "workflow", "name": name}, headers=self.admin).json()["id"]
-        if target_id:
-            current = self.client.get(f"/api/v1/agents/{flow_id}", headers=self.admin).json()
-            node = {"id": "n9", "type": "agent", "name": "Call", "target_id": target_id, "target_kind": target_kind}
-            body = {"row_version": current["row_version"], "config": {**current["config"], "nodes": [node]}}
-            self.assertEqual(self.client.put(f"/api/v1/agents/{flow_id}", json=body, headers=self.admin).status_code, 200)
-        return flow_id
-
     # -- edges and the reference table ----------------------------------------------
 
-    def test_edges_come_from_mounts_and_flow_nodes(self) -> None:
+    def test_edges_come_from_mounts(self) -> None:
         a, b = uuid4(), uuid4()
         config = {"mounts": {"kb": [str(a)], "agent": [str(b)], "chatflow": [str(a)], "flow": [], "bad": ["x"]}}
         self.assertEqual(assistant_edges(config), {("mount", "kb", a), ("mount", "assistant", b), ("mount", "chatflow_connection", a)})
         self.assertEqual(assistant_edges({"mounts": {"kb": ["not-a-uuid"]}}), set())
-        nodes = {"nodes": [
-            {"type": "agent", "target_id": str(a), "target_kind": "assistant"}, {"type": "copilot", "target_id": str(b), "target_kind": "flow"},
-            {"type": "note", "target_id": str(a), "target_kind": "flow"}, {"type": "agent", "target_id": None, "target_kind": "flow"},
-        ]}
-        self.assertEqual(flow_edges(nodes), {("node", "assistant", a), ("node", "flow", b)})
 
     def test_saving_replaces_the_rows_of_the_draft_as_a_whole(self) -> None:
         assistant_id = self.create(self.admin).json()["id"]
@@ -136,19 +121,6 @@ class CatalogTests(test_assistants.AssistantTests):
         copy = self.client.post(f"/api/v1/assistants/{assistant_id}/copy", headers=self.admin)
         self.assertEqual(copy.status_code, 201, copy.text)
         self.assertEqual(self.edges("assistant", copy.json()["id"]), {("draft", "mount", "skill", self.skill_ok)})
-
-    def test_flows_are_referrers_too_and_the_flow_counts_use_the_same_table(self) -> None:
-        assistant_id = self.create(self.admin).json()["id"]
-        flow_id = self.flow("Caller", assistant_id, "assistant")
-        self.assertEqual(self.edges("flow", flow_id), {("draft", "node", "assistant", UUID(assistant_id))})
-        with self.session_factory() as db:
-            (ref,) = references_to(db, UUID(self.ids["tenant"]), "assistant", UUID(assistant_id))
-            self.assertEqual((ref.type, ref.kind, ref.name), ("flow", "workflow", "Caller"))
-        target = self.flow("Target")
-        self.flow("Calls target", target, "flow")
-        self.assertEqual(self.client.get(f"/api/v1/agents/{target}/references", headers=self.admin).json()["total"], 1)
-        self.client.delete(f"/api/v1/agents/{flow_id}", headers=self.admin)
-        self.assertEqual(self.edges("flow", flow_id), set())
 
     # -- invalid references ---------------------------------------------------------
 
@@ -227,20 +199,18 @@ class CatalogTests(test_assistants.AssistantTests):
 
     # -- dependencies tab ---------------------------------------------------------------
 
-    def test_dependencies_list_channels_flows_and_registered_providers(self) -> None:
+    def test_dependencies_list_channels_and_registered_providers(self) -> None:
         from beework.api import assistant_checks
         from beework.schemas.assistant_checks import DependencyEntry
 
         assistant_id = self.create(self.admin).json()["id"]
         with self.session_factory.begin() as db:
             db.add(ChannelInstance(tenant_id=UUID(self.ids["tenant"]), name="Web", assistant_id=UUID(assistant_id), site_key="k" * 20, status="active"))
-        self.flow("Caller", assistant_id, "assistant")
         provider = lambda db, assistant: [DependencyEntry(kind="portal_app", id=UUID(int=5), name="Portal app", status="listed")]  # noqa: E731
         assistant_checks.DEPENDENCY_PROVIDERS.append(provider)
         self.addCleanup(assistant_checks.DEPENDENCY_PROVIDERS.remove, provider)
         items = self.client.get(f"/api/v1/assistants/{assistant_id}/dependencies", headers=self.admin).json()["items"]
-        self.assertEqual([(i["kind"], i["name"], i["status"]) for i in items], [("channel", "Web", "active"), ("flow", "Caller", "draft"), ("portal_app", "Portal app", "listed")])
-        self.assertEqual(items[1]["detail"], "workflow")
+        self.assertEqual([(i["kind"], i["name"], i["status"]) for i in items], [("channel", "Web", "active"), ("portal_app", "Portal app", "listed")])
 
     def test_dependencies_respect_permissions_and_tenant_isolation(self) -> None:
         assistant_id = self.create(self.admin).json()["id"]

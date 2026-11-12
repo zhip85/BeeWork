@@ -19,7 +19,6 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
-  Workflow,
 } from 'lucide-react'
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -50,9 +49,6 @@ import { FlowConnectionFormPage } from './pages/capabilities/FlowConnectionFormP
 import { McpFormPage } from './pages/capabilities/McpFormPage'
 import { SkillFormPage } from './pages/capabilities/SkillFormPage'
 import { PortalAdminPage } from './pages/portal-admin/PortalAdminPage'
-import { FlowCreatePage } from './pages/flow-studio/FlowCreatePage'
-import { FlowEditorPage } from './pages/flow-studio/FlowEditorPage'
-import { FlowsPage } from './pages/flow-studio/FlowsPage'
 import { KnowledgeCreatePage } from './pages/knowledge/KnowledgeCreatePage'
 import { KnowledgeDetailPage } from './pages/knowledge/KnowledgeDetailPage'
 import { KnowledgeListPage } from './pages/knowledge/KnowledgeListPage'
@@ -76,7 +72,6 @@ const navigation = [
   { labelKey: 'dashboard', to: '/', icon: LayoutDashboard, end: true, permission: 'dashboard:view', group: '' },
   { labelKey: 'assistants', to: '/assistants', icon: Bot, permission: 'assistants:view', group: 'build' },
   { labelKey: 'knowledge', to: '/knowledge', icon: BookOpen, permission: 'knowledge:view', group: 'build' },
-  { labelKey: 'flowStudio', to: '/flow-studio', icon: Workflow, permission: 'agents:view', group: 'build' },
   { labelKey: 'capabilities', to: '/capabilities', icon: Boxes, permission: 'capabilities:view', group: 'build' },
   { labelKey: 'aiPortal', to: '/ai-portal', icon: Globe2, permission: 'portal:view', group: 'run' },
   { labelKey: 'channels', to: '/channels', icon: Radio, permission: 'channels:view', group: 'run' },
@@ -85,7 +80,7 @@ const navigation = [
 
 // Navigation entries with their own page; every other entry still shows the placeholder (listing them here is what
 // keeps a placeholder route from shadowing the real one at the same path).
-const REAL_PAGES = new Set(['/assistants', '/capabilities', '/ai-portal', '/flow-studio', '/approvals', '/channels', '/knowledge'])
+const REAL_PAGES = new Set(['/assistants', '/capabilities', '/ai-portal', '/approvals', '/channels', '/knowledge'])
 
 function App() {
   const { t } = useTranslation(['nav', 'common', 'settings', 'notifications', 'channels'])
@@ -450,9 +445,6 @@ function App() {
             <Route path="/capabilities/workflow/new" element={hasPermission('capabilities:edit') && activeTenant && activeTenant.access_mode === 'full' ? <FlowConnectionFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/capabilities/workflow/:connectionId" element={hasPermission('capabilities:view') && activeTenant ? <FlowConnectionFormPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/ai-portal" element={hasPermission('portal:view') && activeTenant ? <PortalAdminPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            <Route path="/flow-studio" element={hasPermission('agents:view') && activeTenant ? <FlowsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            <Route path="/flow-studio/new" element={hasPermission('agents:edit') && activeTenant && activeTenant.access_mode === 'full' ? <FlowCreatePage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
-            <Route path="/flow-studio/:flowId" element={hasPermission('agents:view') && activeTenant ? <FlowEditorPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/knowledge" element={hasPermission('knowledge:view') && activeTenant ? <KnowledgeListPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/knowledge/new" element={hasPermission('knowledge:edit') && activeTenant && activeTenant.access_mode === 'full' ? <KnowledgeCreatePage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/knowledge/:kbId" element={hasPermission('knowledge:view') && activeTenant ? <KnowledgeDetailPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />

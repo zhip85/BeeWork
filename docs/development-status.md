@@ -343,7 +343,7 @@
 - 用户可见文案统一为“智能体 / Agent”（前后端、审计分类、网页挂件）；权限模块名：`assistants`=智能体，`agents`=流程画布；左侧导航按“构建 / 发布与运营 / 管理”分组，“流程画布”入口为占位（T-060 返工后接入）。内部标识、旧深链保持不变。
 - 验证：ruff；全量后端 709 项；前端 tsc / lint / i18n / style / build；无头 Chrome 看过列表与详情页。
 
-### T-060 流程画布领域基础（返工后，待验收）
+### T-060 流程画布领域基础（返工后；**已下线，见 T-169**）
 
 - `agents` 表现在只放 Chatflow / Workflow（界面“流程画布”）；草稿与已发布版本分开，发布生成不可变版本（`flow_versions`），保存草稿不影响线上；配置检查、复制为草稿、停用 / 启用、软删除、引用查询、环检测、节点调用目标失效标红。列表 / 创建 / 编辑器外壳已接入，导航“流程画布”为真实页面。
 - 验证：ruff；全量后端（含迁移升降级）；前端 tsc / lint / i18n / style / build；无头 Chrome 走了新建 → 发布流程。**画布与各配置页是占位（T-062–T-064）；流程连接与门户应用的引用待 T-075 / T-140 注册。**
@@ -449,6 +449,12 @@
 - 验证：ruff；PostgreSQL 迁移升降级 + `alembic check`；`test_api_spec` 20 项、`test_api_plugins` 45 项；前端 tsc / lint / i18n / style / build。**未连过真实第三方 API（只用 mock 传输）。**
 
 > **2026-11-12 架构调整**：运行时改为 L2 JEV + L3 Agent + 统一能力注册中心，Dify 为流程引擎，自研画布取消（T-062–T-065 取消、T-058 由 T-161 取代、T-060 待 T-169 下线、WhatsApp 暂缓）。新增任务 T-160–T-169，见 [`architecture-runtime-v2.md`](./architecture-runtime-v2.md) 与任务看板。下面各节中关于画布的“进度”以此为准。
+
+### T-169 下线自研画布（待验收）
+
+- 自研画布取消（2026-11-12）：移除“流程画布”导航与页面、`/api/v1/agents*`、`agent_service`、`agents` / `flow_versions` 表（迁移 0051：有未删除的画布时拒绝并报数量，设 `BEEWORK_DROP_FLOW_CANVAS=1` 确认后才删；同时清掉画布的引用记录与 `flow_connections.flow_id`；可降级）；流程连接去掉 `native` 来源（遗留的 native 连接显示为失效，可改成 Dify 连接；这是 T-163 第 1 项的一部分，已在此完成）；`agents:*` 权限码保留为已弃用（角色矩阵不再显示）。
+- 验证：ruff；PostgreSQL 迁移升级 → `alembic check` → 降级 → 升级；迁移测试 4 项（有 / 无活画布、确认后删除与引用清理、降级重建）；前端 tsc / lint / i18n / style / build；全量后端。
+- **开发库里如有画布数据，执行迁移前要先确认丢弃**（见上）。
 
 ## 4. 下一步
 

@@ -5,14 +5,12 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { apiRequest } from '../../api'
 import type { TenantMembership } from '../../types'
-import type { AvailableFlow, FlowConnection, FlowKind, FlowSource, FlowTestResult } from './types'
+import type { FlowConnection, FlowKind, FlowTestResult } from './types'
 
 type Row = { variable: string; argument: string }
 type Form = {
   name: string
   description: string
-  source: FlowSource
-  flowId: string
   baseUrl: string
   appId: string
   apiKey: string
@@ -20,11 +18,11 @@ type Form = {
   outputField: string
   streaming: boolean
 }
-const EMPTY: Form = { name: '', description: '', source: 'native', flowId: '', baseUrl: '', appId: '', apiKey: '', rows: [], outputField: '', streaming: false }
+const EMPTY: Form = { name: '', description: '', baseUrl: '', appId: '', apiKey: '', rows: [], outputField: '', streaming: false }
 
 function toForm(conn: FlowConnection): Form {
   return {
-    name: conn.name, description: conn.description, source: conn.source_type, flowId: conn.flow_id ?? '', baseUrl: conn.base_url, appId: conn.app_id,
+    name: conn.name, description: conn.description, baseUrl: conn.base_url, appId: conn.app_id,
     apiKey: '', rows: Object.entries(conn.input_mapping).map(([variable, argument]) => ({ variable, argument })),
     outputField: conn.output_mapping.field ?? '', streaming: conn.streaming,
   }
@@ -43,7 +41,6 @@ export function FlowConnectionFormPage({ tenant }: { tenant: TenantMembership })
   const writable = tenant.access_mode === 'full' && tenant.permissions.includes('capabilities:edit')
   const [conn, setConn] = useState<FlowConnection | null>(null)
   const [form, setForm] = useState<Form>(EMPTY)
-  const [flows, setFlows] = useState<AvailableFlow[] | null>(null)
   const [loading, setLoading] = useState(!creating)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -61,24 +58,14 @@ export function FlowConnectionFormPage({ tenant }: { tenant: TenantMembership })
       .finally(() => setLoading(false))
   }, [connectionId, tenant.id, apply, t])
 
-  useEffect(() => {
-    if (!writable) return
-    apiRequest<AvailableFlow[]>(`/api/v1/flow-connections/available-flows?kind=${kind}`, {}, tenant.id)
-      .then(setFlows)
-      .catch(() => setFlows([]))
-  }, [kind, tenant.id, writable])
-
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((current) => ({ ...current, [key]: value }))
   const setRow = (index: number, patch: Partial<Row>) => set('rows', form.rows.map((row, i) => (i === index ? { ...row, ...patch } : row)))
   const savedKey = conn?.source_type === 'dify' && Boolean(conn.credential_mask)
-  const complete = form.source === 'native'
-    ? Boolean(form.flowId)
-    : Boolean(form.baseUrl.trim() && form.appId.trim() && (form.apiKey.trim() || savedKey))
+  const complete = Boolean(form.baseUrl.trim() && form.appId.trim() && (form.apiKey.trim() || savedKey))
   const canSubmit = Boolean(form.name.trim()) && complete && !busy
 
   function payload() {
-    const base = { name: form.name.trim(), description: form.description.trim(), source_type: form.source }
-    if (form.source === 'native') return { ...base, flow_id: form.flowId }
+    const base = { name: form.name.trim(), description: form.description.trim(), source_type: 'dify' }
     const input_mapping: Record<string, string> = {}
     for (const row of form.rows) if (row.variable.trim() || row.argument.trim()) input_mapping[row.variable.trim()] = row.argument.trim()
     return {
@@ -138,29 +125,7 @@ export function FlowConnectionFormPage({ tenant }: { tenant: TenantMembership })
           <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: 0, display: 'grid', gap: 14 }}>
             <label className="kb-field"><span>{t('flowConn.form.name')} <em>*</em></span><input maxLength={50} onChange={(event) => set('name', event.target.value)} required value={form.name} /></label>
             <label className="kb-field"><span>{t('flowConn.form.description')}</span><textarea maxLength={500} onChange={(event) => set('description', event.target.value)} placeholder={t('flowConn.form.descriptionHint')} rows={3} value={form.description} /></label>
-            <div className="kb-field" role="radiogroup" aria-label={t('flowConn.sourceLabel')}>
-              <span>{t('flowConn.sourceLabel')}</span>
-              {(['native', 'dify'] as FlowSource[]).map((value) => (
-                <label key={value} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input checked={form.source === value} name="flow-source" onChange={() => set('source', value)} type="radio" />
-                  {t(`flowConn.source.${value}`)}{value === 'native' && <em>{t('flowConn.source.recommended')}</em>}
-                </label>
-              ))}
-            </div>
-            {form.source === 'native' ? (
-              <label className="kb-field">
-                <span>{t('flowConn.form.flow')} <em>*</em></span>
-                <select onChange={(event) => set('flowId', event.target.value)} value={form.flowId}>
-                  <option value="">{t('flowConn.form.flowPlaceholder')}</option>
-                  {(flows ?? []).map((flow) => <option key={flow.id} value={flow.id}>{flow.name}</option>)}
-                  {form.flowId && !(flows ?? []).some((flow) => flow.id === form.flowId) && <option value={form.flowId}>{conn?.flow_name ?? form.flowId}</option>}
-                </select>
-                {flows !== null && flows.length === 0 && (
-                  <small>{t('flowConn.form.noFlows', { kind: kindName })} <Link to="/flow-studio">{t('flowConn.form.goFlows')}</Link></small>
-                )}
-              </label>
-            ) : (
-              <>
+            <>
                 <label className="kb-field"><span>{t('flowConn.form.baseUrl')} <em>*</em></span><input onChange={(event) => set('baseUrl', event.target.value)} placeholder="https://api.dify.ai/v1" required value={form.baseUrl} /><small>{t('flowConn.form.baseUrlHint')}</small></label>
                 <label className="kb-field"><span>{t('flowConn.form.appId')} <em>*</em></span><input onChange={(event) => set('appId', event.target.value)} required value={form.appId} /></label>
                 <label className="kb-field">
@@ -187,8 +152,7 @@ export function FlowConnectionFormPage({ tenant }: { tenant: TenantMembership })
                   <input checked={form.streaming} onChange={(event) => set('streaming', event.target.checked)} type="checkbox" />
                   <span>{t('flowConn.form.streaming')}</span><small>{t('flowConn.form.streamingHint')}</small>
                 </label>
-              </>
-            )}
+            </>
           </fieldset>
           {!creating && conn && (
             <div className="capability-tools">
@@ -199,7 +163,7 @@ export function FlowConnectionFormPage({ tenant }: { tenant: TenantMembership })
               {test ? (
                 <p className={test.ok ? 'capability-test ok' : 'capability-test bad'}>
                   {test.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />}{' '}
-                  {test.ok ? (conn.source_type === 'native' ? t('flowConn.testNativeOk') : t('flowConn.testOk', { ms: test.duration_ms ?? 0 })) : t('flowConn.testFailed', { category: category(test.error_category), reason: test.error ?? '' })}
+                  {test.ok ? t('flowConn.testOk', { ms: test.duration_ms ?? 0 }) : t('flowConn.testFailed', { category: category(test.error_category), reason: test.error ?? '' })}
                 </p>
               ) : conn.last_test_at && (
                 <p className={conn.last_test_ok ? 'capability-test ok' : 'capability-test bad'}>

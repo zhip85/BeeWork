@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 
 from beework.api import (
-    agents,
     api_keys,
     approvals,
     assistant_checks,
@@ -46,7 +45,6 @@ from beework.api import (
 
 router = APIRouter(prefix="/api/v1")
 for module in (
-    agents,
     api_keys,
     approvals,
     assistants,

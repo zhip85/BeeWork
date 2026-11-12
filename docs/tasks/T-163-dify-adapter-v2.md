@@ -25,3 +25,7 @@
 ## 外部条件
 
 Dify 应用 API Key（Chatflow 与 Workflow 各一个）。
+
+## 进展（2026-11-12）
+
+范围第 1 项“去掉 native 来源”已随 `T-169` 完成（接口与前端不再提供本平台画布来源；遗留的 native 连接显示为失效，可改成 Dify 连接；`flow_connections.flow_id` 已在迁移 0051 删除）。其余各项仍待做。

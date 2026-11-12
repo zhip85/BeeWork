@@ -1,8 +1,9 @@
 """Who references what (T-070, GLB-083, RUL-011 / RUL-012, 演进 PRD 15.2).
 
-``resource_references`` is derived data: whenever an assistant (智能体) or a flow is flushed with a changed
-configuration, deleted or published, its rows are replaced as a whole inside the same transaction — so every write path
-(API, restore, rollback, copy, tests) is covered and nothing has to remember to call a hook.
+``resource_references`` is derived data: whenever an assistant (智能体) is flushed with a changed configuration, deleted
+or published, its rows are replaced as a whole inside the same transaction — so every write path (API, restore, rollback,
+copy, tests) is covered and nothing has to remember to call a hook. (The self-built flow canvas, which was also a referrer,
+was retired in T-169.)
 """
 
 from collections import defaultdict
@@ -14,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from beework.capabilities import MOUNT_RESOLVERS, MountItem
 from beework.models import utc_now
-from beework.models.agents import Agent
 from beework.models.assistants import Assistant, AssistantVersion
 from beework.models.capability_refs import ResourceReference
 
@@ -24,9 +24,6 @@ TARGET_FOR_MOUNT = {
     "chatflow": "chatflow_connection", "flow": "workflow_connection",
 }
 MOUNT_FOR_TARGET = {target: mount for mount, target in TARGET_FOR_MOUNT.items()}
-# What a flow node's ``target_kind`` points at.
-NODE_TARGET = {"assistant": "assistant", "flow": "flow", "connection": "connection"}
-
 Edge = tuple[str, str, UUID]  # (relation, target_type, target_id)
 
 
@@ -37,18 +34,6 @@ def assistant_edges(config: dict | None) -> set[Edge]:
         for value in mounts.get(mount_kind) or []:
             try:
                 edges.add(("mount", target_type, UUID(str(value))))
-            except ValueError:
-                continue
-    return edges
-
-
-def flow_edges(config: dict | None) -> set[Edge]:
-    edges: set[Edge] = set()
-    for node in (config or {}).get("nodes") or []:
-        target_type = NODE_TARGET.get(node.get("target_kind") or "")
-        if target_type and node.get("target_id") and node.get("type") != "note":
-            try:
-                edges.add(("node", target_type, UUID(str(node["target_id"]))))
             except ValueError:
                 continue
     return edges
@@ -97,21 +82,12 @@ def sync_assistant(session: Session, assistant: Assistant) -> None:
     _replace(session, assistant.tenant_id, "assistant", assistant.id, "live", live)
 
 
-def sync_flow(session: Session, flow: Agent) -> None:
-    gone = flow.deleted_at is not None
-    _replace(session, flow.tenant_id, "flow", flow.id, "draft", set() if gone else flow_edges(flow.draft_config))
-    _replace(session, flow.tenant_id, "flow", flow.id, "live", set() if gone else flow_edges(flow.published_config))
-
-
 @event.listens_for(Session, "after_flush")
 def _sync_after_flush(session: Session, _context) -> None:
     for obj in list(session.new) + list(session.dirty):
         if isinstance(obj, Assistant):
             if obj in session.new or _changed(obj, "draft_config", "live_version_id", "deleted_at"):
                 sync_assistant(session, obj)
-        elif isinstance(obj, Agent):
-            if obj in session.new or _changed(obj, "draft_config", "published_config", "deleted_at"):
-                sync_flow(session, obj)
 
 
 # ---------------------------------------------------------------------------
@@ -121,13 +97,12 @@ def _sync_after_flush(session: Session, _context) -> None:
 
 @dataclass
 class Referrer:
-    type: str  # assistant | flow
+    type: str  # assistant
     id: UUID
     name: str
     status: str  # the referrer's own status (draft / published / disabled)
     layers: set[str] = field(default_factory=set)
     relations: set[str] = field(default_factory=set)
-    kind: str = ""  # for flows: chatflow | workflow
 
 
 def references_to(db: Session, tenant_id: UUID, target_type: str, target_id: UUID) -> list[Referrer]:
@@ -149,16 +124,12 @@ def references_to(db: Session, tenant_id: UUID, target_type: str, target_id: UUI
     assistants = {
         a.id: a for a in db.scalars(select(Assistant).where(Assistant.id.in_(by_type["assistant"]), Assistant.deleted_at.is_(None)))
     } if by_type["assistant"] else {}
-    flows = {
-        f.id: f for f in db.scalars(select(Agent).where(Agent.id.in_(by_type["flow"]), Agent.deleted_at.is_(None)))
-    } if by_type["flow"] else {}
     result: list[Referrer] = []
     for (referrer_type, referrer_id), entry in grouped.items():
-        owner = assistants.get(referrer_id) if referrer_type == "assistant" else flows.get(referrer_id)
+        owner = assistants.get(referrer_id) if referrer_type == "assistant" else None
         if owner is None:
             continue
         entry.name, entry.status = owner.name, owner.status
-        entry.kind = getattr(owner, "kind", "") if referrer_type == "flow" else ""
         result.append(entry)
     return sorted(result, key=lambda r: (r.type, r.name.lower(), str(r.id)))
 

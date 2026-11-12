@@ -760,7 +760,6 @@ def prevent_audit_event_mutation(session, _flush_context, _instances) -> None:
 # Alembic autogenerate and `Base.metadata.create_all` see its tables.
 # from beework.models import assistants  # noqa: E402,F401  (example)
 from beework.models import (  # noqa: E402,F401
-    agents,
     approvals,
     assistants,
     capabilities,

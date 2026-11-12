@@ -159,17 +159,14 @@
   },
   "flowConn": {
     "source": {
-      "native": "本平台已发布画布",
-      "dify": "Dify 应用",
-      "recommended": "推荐"
+      "native": "本平台画布（已取消）",
+      "dify": "Dify 应用"
     },
-    "sourceLabel": "来源",
     "stateLabel": {
       "available": "可用",
       "disabled": "已停用",
       "invalid": "失效"
     },
-    "summaryNative": "本平台画布 · {{flow}}",
     "summaryDify": "Dify · {{host}}",
     "footer": {
       "available": "可挂载到智能体和门户应用",
@@ -190,10 +187,6 @@
       "name": "名称",
       "description": "说明",
       "descriptionHint": "告诉智能体这个流程能做什么，它会决定何时调用",
-      "flow": "选择流程",
-      "flowPlaceholder": "请选择已发布的流程",
-      "noFlows": "还没有已发布的 {{kind}} 画布。先到“流程画布”设计并发布一个，或改用 Dify 应用。",
-      "goFlows": "去流程画布",
       "baseUrl": "Base URL",
       "baseUrlHint": "必须是公网 https 地址，例如 https://api.dify.ai/v1",
       "appId": "App ID",
@@ -214,7 +207,6 @@
     "test": "测试连接",
     "testing": "测试中…",
     "testOk": "测试成功，耗时 {{ms}} 毫秒",
-    "testNativeOk": "底层流程已发布且可用",
     "testFailed": "测试失败（{{category}}）：{{reason}}",
     "retry": "重试",
     "lastTestOk": "最近测试成功：{{when}}，{{ms}} 毫秒",

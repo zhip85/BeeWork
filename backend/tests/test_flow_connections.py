@@ -7,12 +7,13 @@ from uuid import UUID, uuid4
 import httpx
 from sqlalchemy import select
 
-import test_agents
+import test_assistants
 from beework import flow_connection_service as svc
 from beework.capabilities import CANDIDATE_LISTERS, MOUNT_RESOLVERS
-from beework.models import AuditEvent
+from beework.models import AuditEvent, Membership, User
 from beework.models.flow_connections import FlowConnection
 from beework.models.tools import ToolInvocation
+from beework.security import hash_password
 from beework.tools.executor import PROVIDERS, ToolContext, invoke_tool
 
 PUBLIC = "93.184.216.34"
@@ -53,17 +54,20 @@ class FakeDify:
         return httpx.Response(404, json={"message": "not found"})
 
 
-class FlowConnectionTests(test_agents.FlowTests):
+class FlowConnectionTests(test_assistants.AssistantTests):
     def setUp(self) -> None:
         super().setUp()
+        with self.session_factory.begin() as db:
+            account = User(email="operator@example.com", display_name="Operator", password_hash=hash_password(test_assistants.PASSWORD))
+            db.add(account)
+            db.flush()
+            db.add(Membership(tenant_id=UUID(self.ids["tenant"]), user_id=account.id, organization_id=UUID(self.ids["root"]), role="operator"))
+        self.admin = self.login("admin@example.com")
         self.server = FakeDify()
         svc.TRANSPORT, svc.RESOLVER = httpx.MockTransport(self.server), lambda host: [PUBLIC]
         self.addCleanup(lambda: (setattr(svc, "TRANSPORT", None), setattr(svc, "RESOLVER", None)))
 
     # -- helpers ------------------------------------------------------------------
-
-    def native_body(self, kind: str = "chatflow", name: str = "Refund flow", **extra) -> dict:
-        return {"kind": kind, "name": name, "description": "Handles refunds", "source_type": "native", **extra}
 
     def dify_body(self, kind: str = "chatflow", name: str = "Dify refund", **extra) -> dict:
         return {
@@ -73,12 +77,6 @@ class FlowConnectionTests(test_agents.FlowTests):
 
     def connect(self, body: dict, headers=None):
         return self.client.post("/api/v1/flow-connections", json=body, headers=headers or self.admin)
-
-    def native(self, kind: str = "chatflow", name: str = "Refund flow") -> dict:
-        flow_id = self.ready(kind, f"Flow for {name}")
-        response = self.connect(self.native_body(kind, name, flow_id=flow_id))
-        self.assertEqual(response.status_code, 201, response.text)
-        return response.json()
 
     def dify(self, kind: str = "chatflow", name: str = "Dify refund", **extra) -> dict:
         response = self.connect(self.dify_body(kind, name, **extra))
@@ -94,7 +92,7 @@ class FlowConnectionTests(test_agents.FlowTests):
         current = self.conn(connection_id)
         body = {
             "name": current["name"], "description": current["description"], "source_type": current["source_type"],
-            "flow_id": current["flow_id"], "base_url": current["base_url"], "app_id": current["app_id"],
+            "base_url": current["base_url"], "app_id": current["app_id"],
             "input_mapping": current["input_mapping"], "output_mapping": current["output_mapping"],
             "streaming": current["streaming"], "row_version": current["row_version"], **changes,
         }
@@ -122,75 +120,52 @@ class FlowConnectionTests(test_agents.FlowTests):
     def tool_ctx(self, *names: str, tenant: str | None = None) -> ToolContext:
         return ToolContext(tenant_id=UUID(tenant or self.ids["tenant"]), allowed=frozenset(names), run_id=uuid4())
 
-    # -- native connections --------------------------------------------------------
+    # -- the retired canvas source -----------------------------------------------------------
 
-    def test_a_native_connection_points_at_a_published_flow_of_the_same_type(self) -> None:
-        flow_id = self.ready("chatflow", "Published chatflow")
-        response = self.connect(self.native_body(flow_id=flow_id))
-        self.assertEqual(response.status_code, 201, response.text)
-        data = response.json()
-        self.assertEqual(
-            (data["kind"], data["source_type"], data["status"], data["state"], data["flow_id"], data["flow_name"], data["credential_mask"]),
-            ("chatflow", "native", "enabled", "available", flow_id, "Published chatflow", None),
-        )
-        self.assertEqual(len(self.flow_audits("flow_connection.created")), 1)
+    def test_a_native_connection_can_no_longer_be_created_or_switched_to(self) -> None:
+        refused = self.connect({"kind": "chatflow", "name": "Native", "source_type": "native"})
+        self.assertEqual((refused.status_code, refused.json()["code"]), (422, "flow_connection.source_retired"))
+        data = self.dify()
+        switched = self.update(data["id"], source_type="native")
+        self.assertEqual((switched.status_code, switched.json()["code"]), (422, "flow_connection.source_retired"))
+        self.assertEqual(self.conn(data["id"])["source_type"], "dify")
+        self.assertIn(self.client.get("/api/v1/flow-connections/available-flows?kind=chatflow", headers=self.admin).status_code, (404, 405, 422))  # the endpoint is gone
+        self.assertNotIn("flow_id", self.conn(data["id"]))
 
-    def test_only_published_flows_of_the_matching_type_can_be_chosen(self) -> None:
-        draft = self.make("chatflow", "Still a draft").json()["id"]
-        workflow = self.ready("workflow", "A workflow")
-        self.assertEqual(self.client.get("/api/v1/flow-connections/available-flows?kind=chatflow", headers=self.admin).json(), [])  # the empty state
-        for flow_id in (draft, workflow, str(uuid4())):
-            refused = self.connect(self.native_body("chatflow", flow_id=flow_id))
-            self.assertEqual((refused.status_code, refused.json()["code"]), (422, "flow_connection.flow_unavailable"), flow_id)
-        self.assertEqual(self.connect(self.native_body("chatflow", flow_id=None)).status_code, 422)
-        listed = self.client.get("/api/v1/flow-connections/available-flows?kind=workflow", headers=self.admin).json()
-        self.assertEqual([(f["id"], f["name"]) for f in listed], [(workflow, "A workflow")])
-
-    def test_another_tenants_flow_cannot_be_used(self) -> None:
-        flow_id = self.ready("chatflow", "Mine")
-        stranger = self.login("other@example.com", self.ids["other"])
-        refused = self.connect(self.native_body(flow_id=flow_id), headers=stranger)
-        self.assertEqual((refused.status_code, refused.json()["code"]), (422, "flow_connection.flow_unavailable"))
+    def test_a_leftover_native_connection_is_invalid_not_callable_and_never_a_candidate(self) -> None:
+        legacy = self.dify("chatflow", "Was native")["id"]
+        agent_id = self.agent_with("chatflow", legacy)  # mounted before the canvas was retired
+        with self.session_factory.begin() as db:
+            row = db.get(FlowConnection, UUID(legacy))
+            row.source_type, row.base_url, row.app_id, row.credential_encrypted, row.credential_last4 = "native", "", "", None, None
+        shown = self.conn(legacy)
+        self.assertEqual((shown["source_type"], shown["state"], shown["state_reason"]), ("native", "invalid", "本平台画布已取消，请改用 Dify 应用"))
+        self.assertEqual(self.client.get("/api/v1/capabilities/candidates?kind=chatflow", headers=self.admin).json()["items"], [])
+        result = self.act(legacy, "test").json()
+        self.assertEqual((result["ok"], result["error_category"]), (False, "invalid"))
+        self.assertEqual(self.server.requests, [])
+        name = svc.tool_name(UUID(legacy))
+        with self.session_factory() as db:
+            self.assertEqual(invoke_tool(db, self.tool_ctx(name), name, {"query": "x"}).code, "tool.not_found")
+        codes = [i["code"] for i in self.client.get(f"/api/v1/assistants/{agent_id}/checks", headers=self.admin).json()["issues"]]
+        self.assertIn("mount.invalid", codes)  # the agent that mounted it sees the dangling reference — never silently ignored
+        moved = self.update(legacy, source_type="dify", base_url=BASE, app_id="a", credential=KEY)  # it can be converted to a Dify connection
+        self.assertEqual((moved.status_code, moved.json()["source_type"], moved.json()["state"]), (200, "dify", "available"))
 
     def test_names_are_unique_per_kind_and_trimmed_and_limited(self) -> None:
-        first = self.native("chatflow", "Same name")
-        again = self.connect(self.native_body("chatflow", " same NAME ", flow_id=self.ready("chatflow", "Another")))
+        self.dify("chatflow", "Same name")
+        again = self.connect(self.dify_body("chatflow", " same NAME "))
         self.assertEqual((again.status_code, again.json()["code"]), (409, "flow_connection.name_taken"))
-        self.assertEqual(self.native("workflow", "Same name")["kind"], "workflow")  # another kind is fine
-        self.assertEqual(self.connect(self.native_body(name="  ", flow_id=first["flow_id"])).status_code, 400)
-        self.assertEqual(self.connect(self.native_body(name="x" * 51, flow_id=first["flow_id"])).status_code, 400)
-        self.assertEqual(self.connect(self.native_body(description="d" * 501, flow_id=first["flow_id"], name="Long")).status_code, 400)
-        self.assertEqual(self.connect({**self.native_body(flow_id=first["flow_id"], name="No kind"), "kind": None}).status_code, 422)
+        self.assertEqual(self.dify("workflow", "Same name")["kind"], "workflow")  # another kind is fine
+        self.assertEqual(self.connect(self.dify_body(name="  ")).status_code, 400)
+        self.assertEqual(self.connect(self.dify_body(name="x" * 51)).status_code, 400)
+        self.assertEqual(self.connect(self.dify_body(description="d" * 501, name="Long")).status_code, 400)
+        self.assertEqual(self.connect({**self.dify_body(name="No kind"), "kind": None}).status_code, 422)
 
-    def test_a_connection_becomes_invalid_when_its_flow_is_disabled_deleted_or_unpublished(self) -> None:
-        data = self.native()
-        agent_id = self.agent_with("chatflow", data["id"])
-        flow_id = data["flow_id"]
-        self.assertEqual(self.conn(data["id"])["state"], "available")
-        self.assertEqual(self.action(flow_id, "disable").status_code, 200)
-        invalid = self.conn(data["id"])
-        self.assertEqual((invalid["state"], invalid["state_reason"], invalid["status"]), ("invalid", "底层流程已停用", "enabled"))
-        # the agent that mounts it lists the dangling reference in its own configuration check — never silently ignored
-        codes = [i["code"] for i in self.client.get(f"/api/v1/assistants/{agent_id}/checks", headers=self.admin).json()["issues"]]
-        self.assertIn("mount.invalid", codes)
-        self.assertEqual(self.action(flow_id, "enable").status_code, 200)
-        self.assertEqual(self.conn(data["id"])["state"], "available")
-        with self.session_factory.begin() as db:  # a flow whose published snapshot is gone
-            from beework.models.agents import Agent
-
-            flow = db.get(Agent, UUID(flow_id))
-            flow.status, flow.published_config = "draft", None
-        self.assertEqual(self.conn(data["id"])["state_reason"], "底层流程尚未发布")
-        deleted = self.client.delete(f"/api/v1/agents/{flow_id}", headers=self.admin)
-        self.assertIn(deleted.status_code, (200, 204, 409))
-        if deleted.status_code != 409:
-            self.assertEqual(self.conn(data["id"])["state_reason"], "底层流程已被删除")
-
-    def test_a_flow_used_by_a_connection_reports_it_as_a_reference(self) -> None:
-        data = self.native()
-        refs = self.client.get(f"/api/v1/agents/{data['flow_id']}/references", headers=self.admin)
-        self.assertEqual(refs.status_code, 200, refs.text)
-        self.assertIn(data["name"], json.dumps(refs.json(), ensure_ascii=False))
+    def test_a_dify_connection_is_created_available(self) -> None:
+        data = self.dify()
+        self.assertEqual((data["kind"], data["source_type"], data["status"], data["state"], data["credential_mask"]), ("chatflow", "dify", "enabled", "available", "****7890"))
+        self.assertEqual(len(self.flow_audits("flow_connection.created")), 1)
 
     # -- Dify connections --------------------------------------------------------------
 
@@ -284,14 +259,6 @@ class FlowConnectionTests(test_agents.FlowTests):
         refused = self.act(data["id"], "test").json()
         self.assertEqual((refused["ok"], refused["error_category"]), (False, "config"))
 
-    def test_a_native_connection_is_checked_not_called(self) -> None:
-        data = self.native()
-        self.assertTrue(self.act(data["id"], "test").json()["ok"])
-        self.action(data["flow_id"], "disable")
-        failed = self.act(data["id"], "test").json()
-        self.assertEqual((failed["ok"], failed["error_category"], failed["error"]), (False, "invalid", "底层流程已停用"))
-        self.assertEqual(self.server.requests, [])
-
     def test_pointing_a_dify_connection_at_another_host_needs_the_key_again(self) -> None:
         data = self.dify()
         refused = self.update(data["id"], base_url="https://attacker.example.com/v1")
@@ -304,27 +271,19 @@ class FlowConnectionTests(test_agents.FlowTests):
     # -- lifecycle ----------------------------------------------------------------------
 
     def test_update_checks_the_row_version_and_cannot_change_the_kind(self) -> None:
-        data = self.native()
+        data = self.dify()
         self.assertEqual(self.update(data["id"], description="new").json()["row_version"], data["row_version"] + 1)
         stale = self.client.put(
             f"/api/v1/flow-connections/{data['id']}",
-            json={"name": "x", "source_type": "native", "flow_id": data["flow_id"], "row_version": data["row_version"]}, headers=self.admin,
+            json={**self.dify_body(name="x"), "row_version": data["row_version"]}, headers=self.admin,
         )
         self.assertEqual((stale.status_code, stale.json()["code"]), (409, "conflict.stale"))
         self.assertEqual(self.update(data["id"], kind="workflow").json()["code"], "flow_connection.kind_immutable")
-        self.assertEqual(self.client.put(f"/api/v1/flow-connections/{data['id']}", json={"name": "x", "source_type": "native"}, headers=self.admin).status_code, 422)
+        self.assertEqual(self.client.put(f"/api/v1/flow-connections/{data['id']}", json={"name": "x", "source_type": "dify"}, headers=self.admin).status_code, 422)  # no row_version
         self.assertEqual(len(self.flow_audits("flow_connection.updated")), 1)
 
-    def test_switching_the_source_clears_the_other_sources_fields(self) -> None:
-        data = self.dify()
-        flow_id = self.ready("chatflow", "Now native")
-        switched = self.update(data["id"], source_type="native", flow_id=flow_id).json()
-        self.assertEqual((switched["source_type"], switched["base_url"], switched["credential_mask"], switched["flow_id"]), ("native", "", None, flow_id))
-        back = self.update(data["id"], source_type="dify", base_url=BASE, app_id="a", credential=KEY, flow_id=None).json()
-        self.assertEqual((back["source_type"], back["flow_id"]), ("dify", None))
-
     def test_disable_and_enable_change_the_state_and_what_can_be_mounted(self) -> None:
-        data = self.native()
+        data = self.dify()
         candidates = lambda: self.client.get("/api/v1/capabilities/candidates?kind=chatflow", headers=self.admin).json()["items"]  # noqa: E731
         self.assertEqual([c["id"] for c in candidates()], [data["id"]])
         self.assertEqual(self.act(data["id"], "disable").json()["state"], "disabled")
@@ -350,7 +309,7 @@ class FlowConnectionTests(test_agents.FlowTests):
         self.assertEqual(self.connect(self.dify_body(name="Dify refund")).status_code, 201)  # the name is free again
 
     def test_list_filters_by_kind_and_search(self) -> None:
-        self.native("chatflow", "Alpha")
+        self.dify("chatflow", "Alpha")
         self.dify("workflow", "Beta")
         listed = lambda query: [c["name"] for c in self.client.get(f"/api/v1/flow-connections{query}", headers=self.admin).json()["items"]]  # noqa: E731
         self.assertEqual(listed(""), ["Alpha", "Beta"])
@@ -360,36 +319,35 @@ class FlowConnectionTests(test_agents.FlowTests):
     # -- permissions and isolation --------------------------------------------------------
 
     def test_roles_without_permission_cannot_change_connections(self) -> None:
-        data = self.native()
+        data = self.dify()
         for email in ("viewer@example.com", "operator@example.com"):
             headers = self.login(email)
             self.assertEqual(self.client.get("/api/v1/flow-connections", headers=headers).status_code, 200)
             self.assertEqual(self.client.get(f"/api/v1/flow-connections/{data['id']}", headers=headers).status_code, 200)
-            self.assertEqual(self.connect(self.native_body(name="Nope", flow_id=data["flow_id"]), headers=headers).status_code, 403)
+            self.assertEqual(self.connect(self.dify_body(name="Nope"), headers=headers).status_code, 403)
             self.assertEqual(self.update(data["id"], headers=headers, name="x").status_code, 403)
             for action in ("test", "enable", "disable"):
                 self.assertEqual(self.act(data["id"], action, headers=headers).status_code, 403, action)
             self.assertEqual(self.client.delete(f"/api/v1/flow-connections/{data['id']}", headers=headers).status_code, 403)
-            self.assertEqual(self.client.get("/api/v1/flow-connections/available-flows?kind=chatflow", headers=headers).status_code, 403)
         view = self.conn(data["id"], headers=self.login("viewer@example.com"))
         self.assertEqual((view["can_edit"], view["can_delete"]), (False, False))
 
     def test_other_tenants_cannot_see_or_change_a_connection(self) -> None:
-        data = self.native()
+        data = self.dify()
         stranger = self.login("other@example.com", self.ids["other"])
         self.assertEqual(self.client.get("/api/v1/flow-connections", headers=stranger).json()["items"], [])
         for method, suffix in (("get", ""), ("get", "/references"), ("post", "/test"), ("post", "/enable"), ("post", "/disable"), ("delete", "")):
             response = getattr(self.client, method)(f"/api/v1/flow-connections/{data['id']}{suffix}", headers=stranger)
             self.assertEqual(response.status_code, 404, f"{method} {suffix}")
         put = self.client.put(
-            f"/api/v1/flow-connections/{data['id']}", json={"name": "x", "source_type": "native", "row_version": 1}, headers=stranger,
+            f"/api/v1/flow-connections/{data['id']}", json={**self.dify_body(name="x"), "row_version": 1}, headers=stranger,
         )
         self.assertEqual(put.status_code, 404)
         self.admin = self.login("admin@example.com")  # logging in as the stranger replaced the shared session
-        self.assertEqual(self.conn(data["id"])["name"], "Refund flow")
+        self.assertEqual(self.conn(data["id"])["name"], data["name"])
 
     def test_writes_require_the_csrf_token(self) -> None:
-        response = self.client.post("/api/v1/flow-connections", json=self.native_body(), headers={"X-Tenant-ID": self.ids["tenant"]})
+        response = self.client.post("/api/v1/flow-connections", json=self.dify_body(), headers={"X-Tenant-ID": self.ids["tenant"]})
         self.assertEqual(response.status_code, 403)
 
     def test_a_dify_connection_needs_the_plan_feature(self) -> None:
@@ -400,7 +358,6 @@ class FlowConnectionTests(test_agents.FlowTests):
         self.addCleanup(lambda: setattr(entitlements, "has_entitlement", original))
         refused = self.connect(self.dify_body(name="Locked"))
         self.assertEqual((refused.status_code, refused.json()["code"]), (403, "plan.feature_locked"))
-        self.assertEqual(self.connect(self.native_body(flow_id=self.ready("chatflow", "Native stays"), name="Native ok")).status_code, 201)  # native needs no plan
 
     # -- the capability catalogue ---------------------------------------------------------------
 
@@ -412,7 +369,7 @@ class FlowConnectionTests(test_agents.FlowTests):
         self.assertTrue(types["chatflow"]["mountable"] and types["flow"]["mountable"])
 
     def test_workflows_mount_under_flow_and_chatflows_under_chatflow(self) -> None:
-        chat = self.native("chatflow", "Chat")
+        chat = self.dify("chatflow", "Chat")
         workflow = self.dify("workflow", "Work")
         wrong = self.agent_with("chatflow", chat["id"])
         mounts = self.client.get(f"/api/v1/assistants/{wrong}/mounts", headers=self.admin).json()
@@ -470,13 +427,6 @@ class FlowConnectionTests(test_agents.FlowTests):
             result = invoke_tool(db, self.tool_ctx(name), name, {"query": "x"})
         self.assertEqual((result.status, result.code), ("error", "tool.upstream_error"))
         self.assertNotIn(KEY, result.content)
-
-    def test_a_native_connection_is_not_callable_until_the_flow_runtime_exists(self) -> None:
-        data = self.native()
-        name = svc.tool_name(UUID(data["id"]))
-        with self.session_factory() as db:
-            result = invoke_tool(db, self.tool_ctx(name), name, {"query": "x"})
-        self.assertEqual((result.status, result.code), ("error", "tool.flow_runtime_unavailable"))
 
     def test_the_agent_offers_a_mounted_connection_as_a_tool(self) -> None:
         from beework.runtime.dsl import AssistantDSLv1

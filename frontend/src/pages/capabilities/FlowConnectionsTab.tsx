@@ -105,7 +105,7 @@ export function FlowConnectionsTab({ tenant, kind, onChanged }: { tenant: Tenant
             </button>
             <div className="flows-meta">
               <span className="flows-tag">{t(`flowConn.source.${item.source_type}`)}</span>
-              <span>{item.source_type === 'native' ? t('flowConn.summaryNative', { flow: item.flow_name ?? '—' }) : t('flowConn.summaryDify', { host: item.host })}</span>
+              <span>{item.source_type === 'native' ? t('flowConn.source.native') : t('flowConn.summaryDify', { host: item.host })}</span>
               {item.references > 0 && <span>{t('flowConn.references', { count: item.references })}</span>}
             </div>
             <footer><span>{item.state_reason ?? t(`flowConn.footer.${item.state}`)}</span><button className="text-button" onClick={() => open(item)} type="button">{t('open')}</button></footer>

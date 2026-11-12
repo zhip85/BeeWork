@@ -22,6 +22,7 @@ from beework.models import (
 from beework.rbac import (
     ASSISTANT_SCOPE_MODULES,
     BUILTIN_PERMISSIONS,
+    DEPRECATED_MODULES,
     PERMISSION_CATALOG,
     ROLE_LABELS,
     organization_is_within_scope,
@@ -46,6 +47,7 @@ def get_permission_catalog(
         modules=[
             {"key": key, "label": module["label"], "actions": module["actions"]}
             for key, module in PERMISSION_CATALOG.items()
+            if key not in DEPRECATED_MODULES  # the retired canvas module stays valid in stored roles but is not offered (T-169)
         ],
         action_labels={
             "view": "查看",
