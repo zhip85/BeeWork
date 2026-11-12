@@ -94,16 +94,16 @@
 | [T-056](./T-056-oc-memory.md) | OC · 记忆 | T-054、T-026 | — | 待开发 | | T-056a 先行（闭环切片） |
 | [T-057](./T-057-oc-glossary-rewrite.md) | OC · 助手术语表与问题改写 | T-053、T-054 | — | 已完成（有条件） | Claude Sonnet 5.5 | |
 | [T-058](./T-058-oc-routing.md) | OC · 路由 | T-057、T-066、T-070、T-075 | — | 待开发 | | 2026-11-10 需求变更：目标改为叶子智能体与流程连接，兜底加固定回复 / 转人工 |
-| [T-060](./T-060-agent-domain.md) | 流程画布领域模型、列表、创建页、编辑器框架与发布版本（Chatflow / Workflow） | T-001、T-010、T-025 | — | 待验收 | Claude Sonnet 5.5 | **需求变更返工**：第一版（含 Agent 类型）在分支 `task/T-060-agent-domain`（aa95402，未合入），按规格末节改为只做流程画布并加发布版本 |
-| [T-061](./T-061-agent-editor-runtime.md) | 智能体编辑器补全与工具调用运行时 | T-070、T-071、T-033 | 供应商 Key | 待验收 | Claude Sonnet 5.5 | 2026-11-10 改写：智能体 = 原助理；取消“驱动方式” |
+| [T-060](./T-060-agent-domain.md) | 流程画布领域模型、列表、创建页、编辑器框架与发布版本（Chatflow / Workflow） | T-001、T-010、T-025 | — | 已完成 | Claude Sonnet 5.5 | **需求变更返工**：第一版（含 Agent 类型）在分支 `task/T-060-agent-domain`（aa95402，未合入），按规格末节改为只做流程画布并加发布版本；2026-11-12 验收通过 |
+| [T-061](./T-061-agent-editor-runtime.md) | 智能体编辑器补全与工具调用运行时 | T-070、T-071、T-033 | 供应商 Key | 已完成（有条件） | Claude Sonnet 5.5 | 2026-11-10 改写：智能体 = 原助理；取消“驱动方式”；2026-11-12 验收；同日用真实 Gemini 复验：模型经叶子工具发起调用并据结果回答（T-066 同一工具循环）；**MCP / Skill 工具尚未用真实模型验证** |
 | [T-062](./T-062-flow-canvas-compiler.md) | Chatflow / Workflow 画布与编译器 | T-060、T-061、T-075 | — | 待开发 | | 归“流程画布”；失效连线须标红 |
 | [T-063](./T-063-chatflow-runtime.md) | Chatflow 会话设置、中断追问与调试预览 | T-062、T-026 | — | 待开发 | | |
 | [T-064](./T-064-workflow-io-triggers.md) | Workflow 输入输出、触发方式与试运行 | T-062、T-028、T-002 | — | 待开发 | | |
 | [T-065](./T-065-human-review-node.md) | 人工审核节点 | T-062、T-022、T-023 | — | 待开发 | | |
-| [T-066](./T-066-agent-teams.md) | 多智能体协作（一层叶子智能体） | T-061 | — | 待验收 | Claude Sonnet 5.5 | 2026-11-10 改写：取消协作组与五种模式 |
-| [T-067](./T-067-agent-terminology-navigation.md) | 术语统一与导航改版（助理 → 智能体） | T-003 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-067-agent-terminology`；只改用户可见文案与导航，不改表、接口、权限码 |
-| [T-070](./T-070-capability-catalog.md) | 能力目录、挂载选择器与引用完整性 | T-033、T-060 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-070-capability-catalog`；2026-11-10：类型改为叶子智能体与流程连接，引用方加门户应用 |；现仅知识库注册，其余类型随 T-066 / T-072–T-075 |
-| [T-071](./T-071-tool-executor.md) | 受控工具执行器（出口网关） | T-001、T-054 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-071-tool-executor`；安全关键 |；尚无 provider，运行时调用在 T-061 |
+| [T-066](./T-066-agent-teams.md) | 多智能体协作（一层叶子智能体） | T-061 | — | 已完成 | Claude Sonnet 5.5 | 2026-11-10 改写：取消协作组与五种模式；2026-11-12 验收，并用真实 Gemini 验证：主智能体按委派描述调用叶子并转述、无关问题不调用；已知遗留：叶子 token 未并入主运行 |
+| [T-067](./T-067-agent-terminology-navigation.md) | 术语统一与导航改版（助理 → 智能体） | T-003 | — | 已完成 | Claude Sonnet 5.5 | 分支 `task/T-067-agent-terminology`；只改用户可见文案与导航，不改表、接口、权限码；2026-11-12 验收通过 |
+| [T-070](./T-070-capability-catalog.md) | 能力目录、挂载选择器与引用完整性 | T-033、T-060 | — | 已完成 | Claude Sonnet 5.5 | 分支 `task/T-070-capability-catalog`；2026-11-10：类型改为叶子智能体与流程连接，引用方加门户应用 |；现仅知识库注册，其余类型随 T-066 / T-072–T-075；2026-11-12 验收通过 |
+| [T-071](./T-071-tool-executor.md) | 受控工具执行器（出口网关） | T-001、T-054 | — | 已完成（有条件） | Claude Sonnet 5.5 | 分支 `task/T-071-tool-executor`；安全关键 |；尚无 provider，运行时调用在 T-061；2026-11-12 验收：真实 TLS 固定 IP 握手待 T-072/T-075 实测 |
 | [T-072](./T-072-mcp.md) | MCP 连接 | T-070、T-071、T-022 | — | 已完成（有条件） | Claude Sonnet 5.5 | 分支 `task/T-072-mcp`；连过官方 SDK 示例服务器，OAuth 仅模拟验证；运行时调用在 T-061 |
 | [T-073](./T-073-api-plugins.md) | API 插件 | T-072 | — | 待开发 | | |
 | [T-074](./T-074-skills.md) | Skill：上传、安全检查与运行时加载 | T-072、T-002 | — | 已完成（有条件） | Claude Opus 5.5 | 分支 `task/T-074-skills`；本期不执行脚本；运行时调用在 T-061 | |
@@ -134,16 +134,16 @@
 
 | ID | 任务 | 依赖 | 外部条件 | 状态 | 负责人 | 备注 |
 |---|---|---|---|---|---|---|
-| [T-140](./T-140-portal-apps.md) | AI 门户 · 应用管理（管理员端） | T-024、T-070 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-140-portal-apps`；新权限模块 `portal`；连接来源在 T-075 后启用 |；来源现仅智能体，连接待 T-075 |
-| [T-141](./T-141-portal-settings.md) | AI 门户 · 门户设置 | T-140 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-141-portal-settings`；开关须服务端强制 |；员工端接口需在 T-143–T-148 挂上 `require_portal_feature` |
-| [T-142](./T-142-employee-portal-shell.md) | 员工门户外壳与员工身份 | T-141、T-004 | — | 待验收 | Claude Sonnet 5.5 | 新内置角色 `employee`（不占席位）；`/portal/*` 独立布局、懒加载 |
-| [T-143](./T-143-portal-conversations-projects.md) | 员工端对话与项目 | T-142、T-140、T-025、T-026 | 供应商 Key | 待验收 | Claude Sonnet 5.5 | 走真实运行，不做前端模拟回答 |
-| [T-144](./T-144-portal-app-library.md) | 员工端 AI 应用库与表单模式 | T-143（表单模式另需 T-064、T-075） | — | 待验收 | Claude Sonnet 5.5 | 只做了对话模式的应用库；表单模式等 T-064 / T-075 |
-| [T-145](./T-145-portal-profile.md) | 员工个人中心 | T-142、T-056 | — | 待验收 | Claude Sonnet 5.5 | 通知在 T-088 后接通 |
-| [T-147](./T-147-portal-analytics.md) | AI 门户 · 使用分析 | T-143、T-011 | — | 待验收 | Claude Sonnet 5.5 | 2026-11-11：加门户席位指标 |
-| [T-149](./T-149-portal-seat-entitlement.md) | 平台授予 AI 门户席位权益（创建租户、订阅与权益、配额） | T-010、T-140 | — | 待验收 | Claude Sonnet 5.5 | 2026-11-11 新增；与控制台席位分开计量 |
-| [T-150](./T-150-portal-members.md) | AI 门户 · 门户成员与席位分配（部门规则、手动 / 自动分配、闲置回收、申请审批） | T-149、T-142 | — | 待验收 | Claude Sonnet 5.5 | 2026-11-11 新增；需 PostgreSQL 并发测试 |
-| [T-151](./T-151-portal-seat-check.md) | 员工端门户席位校验与开通申请 | T-150、T-142 | — | 待验收 | Claude Sonnet 5.5 | 2026-11-11 新增；所有员工端接口须挂 `require_portal_seat` |
+| [T-140](./T-140-portal-apps.md) | AI 门户 · 应用管理（管理员端） | T-024、T-070 | — | 已完成 | Claude Sonnet 5.5 | 分支 `task/T-140-portal-apps`；新权限模块 `portal`；连接来源在 T-075 后启用 |；来源现仅智能体，连接待 T-075；2026-11-12 验收通过 |
+| [T-141](./T-141-portal-settings.md) | AI 门户 · 门户设置 | T-140 | — | 已完成 | Claude Sonnet 5.5 | 分支 `task/T-141-portal-settings`；开关须服务端强制 |；员工端接口需在 T-143–T-148 挂上 `require_portal_feature`；2026-11-12 验收通过 |
+| [T-142](./T-142-employee-portal-shell.md) | 员工门户外壳与员工身份 | T-141、T-004 | — | 已完成 | Claude Sonnet 5.5 | 新内置角色 `employee`（不占席位）；`/portal/*` 独立布局、懒加载；2026-11-12 验收通过 |
+| [T-143](./T-143-portal-conversations-projects.md) | 员工端对话与项目 | T-142、T-140、T-025、T-026 | 供应商 Key | 已完成（有条件） | Claude Sonnet 5.5 | 走真实运行，不做前端模拟回答；2026-11-12 验收；同日用真实 Gemini 复验：流式对话、同会话多轮上下文、评价、重命名、历史通过；**未验证：employee 角色账号登录、浏览器界面、项目** |
+| [T-144](./T-144-portal-app-library.md) | 员工端 AI 应用库与表单模式 | T-143（表单模式另需 T-064、T-075） | — | 已完成（有条件） | Claude Sonnet 5.5 | 只做了对话模式的应用库；表单模式等 T-064 / T-075；2026-11-12 验收：仅对话模式，表单模式待 T-064/T-075 |
+| [T-145](./T-145-portal-profile.md) | 员工个人中心 | T-142、T-056 | — | 已完成 | Claude Sonnet 5.5 | 通知在 T-088 后接通；2026-11-12 验收通过 |
+| [T-147](./T-147-portal-analytics.md) | AI 门户 · 使用分析 | T-143、T-011 | — | 已完成 | Claude Sonnet 5.5 | 2026-11-11：加门户席位指标；2026-11-12 验收通过 |
+| [T-149](./T-149-portal-seat-entitlement.md) | 平台授予 AI 门户席位权益（创建租户、订阅与权益、配额） | T-010、T-140 | — | 已完成 | Claude Sonnet 5.5 | 2026-11-11 新增；与控制台席位分开计量；2026-11-12 验收通过 |
+| [T-150](./T-150-portal-members.md) | AI 门户 · 门户成员与席位分配（部门规则、手动 / 自动分配、闲置回收、申请审批） | T-149、T-142 | — | 已完成 | Claude Sonnet 5.5 | 2026-11-11 新增；需 PostgreSQL 并发测试；2026-11-12 验收通过 |
+| [T-151](./T-151-portal-seat-check.md) | 员工端门户席位校验与开通申请 | T-150、T-142 | — | 已完成 | Claude Sonnet 5.5 | 2026-11-11 新增；所有员工端接口须挂 `require_portal_seat`；2026-11-12 验收通过 |
 
 ## V1.0 任务（阶段 8–9：设置与平台运营补全、生产门禁）
 
