@@ -13,6 +13,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 import beework.agent_teams  # noqa: F401  (registers the leaf-agent tool provider and the agent mount resolver)
+import beework.capability_registry  # noqa: F401  (keeps the unified capability entries derived from their sources)
 import beework.capability_service  # noqa: F401  (registers the MCP tool provider and the mcp mount resolver)
 import beework.skill_service  # noqa: F401  (registers the skill load tool and the skill mount resolver)
 from beework.compliance import get_policy

@@ -10,14 +10,16 @@
     "mcp": "MCP",
     "api": "API 插件",
     "chatflow": "Chatflow",
-    "workflow": "Workflow"
+    "workflow": "Workflow",
+    "registry": "注册中心"
   },
   "kindHint": {
     "skill": "可复用的任务指令与专业能力包",
     "mcp": "通过 MCP 服务连接工具与数据",
     "api": "连接 REST 或 GraphQL 业务接口",
     "chatflow": "把对话流程包装成可被智能体调用的连接",
-    "workflow": "把工作流包装成可被智能体调用的连接"
+    "workflow": "把工作流包装成可被智能体调用的连接",
+    "registry": "所有能力的统一视图：意图描述、直达与超时重试策略"
   },
   "create": {
     "skill": "上传 Skill",
@@ -288,5 +290,73 @@
     "created": "已保存为草稿",
     "saved": "已保存",
     "savedPending": "已保存，启用申请待审批"
+  },
+  "registry": {
+    "hint": "智能体能用的一切能力的统一视图，包括子智能体与知识库（它们在各自的页面里管理，这里只补充意图描述与策略）。意图描述与示例帮助 L2 判断“用户想用哪个能力”。",
+    "search": "搜索能力名称、说明或意图…",
+    "filterKind": "类型",
+    "filterStatus": "状态",
+    "all": "全部",
+    "resync": "重新同步",
+    "resyncing": "同步中…",
+    "resynced": "已重新同步，共 {{count}} 项",
+    "empty": "暂无注册项",
+    "emptyFiltered": "没有匹配的注册项",
+    "loadFailed": "加载失败",
+    "kind": {
+      "mcp_tool": "MCP 工具",
+      "api_tool": "API 工具",
+      "skill": "Skill",
+      "dify_workflow": "Dify Workflow",
+      "dify_chatflow": "Dify Chatflow",
+      "agent": "子智能体",
+      "kb": "知识库"
+    },
+    "status": {
+      "available": "可用",
+      "disabled": "不可用",
+      "invalid": "失效"
+    },
+    "owner": "所属：{{name}}",
+    "manageOn": {
+      "capabilities": "在能力里管理",
+      "assistants": "在智能体页管理",
+      "knowledge": "在知识库页管理"
+    },
+    "direct": "可直达",
+    "notDirect": "不直达",
+    "writes": "写操作",
+    "noIntent": "（未填写意图描述）",
+    "edit": "编辑",
+    "view": "查看",
+    "dialog": {
+      "title": "{{name}}",
+      "intent": "意图描述",
+      "intentHint": "用户想做什么时该用它？一两句话，召回与分类都靠它。",
+      "examples": "示例问法",
+      "examplesHint": "每行一条，最多 {{max}} 条",
+      "direct": "允许 L2 直接调用（路径 A）",
+      "directHint": "关闭时只作为推荐交给 L3 智能体规划；写操作仍需用户确认。",
+      "directOutput": "直接返回它的结果",
+      "directOutputHint": "不再经过“结果整合”，原样回复用户。",
+      "timeout": "超时（毫秒）",
+      "timeoutHint": "留空使用默认 {{default}} 毫秒",
+      "attempts": "最多尝试次数",
+      "backoff": "重试间隔（毫秒）",
+      "retryOn": "在这些情况下重试",
+      "retryOnItem": {
+        "network": "网络错误",
+        "timeout": "超时",
+        "5xx": "5xx",
+        "429": "429 限流"
+      },
+      "retryHint": "只有只读的调用会被重试，由执行层生效",
+      "save": "保存",
+      "saving": "保存中…",
+      "cancel": "取消",
+      "saved": "已保存",
+      "source": "名称、说明和输入参数由来源决定，不能在这里修改。",
+      "open": "去管理"
+    }
   }
 }

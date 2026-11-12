@@ -10,14 +10,16 @@
     "mcp": "MCP",
     "api": "API plugin",
     "chatflow": "Chatflow",
-    "workflow": "Workflow"
+    "workflow": "Workflow",
+    "registry": "Registry"
   },
   "kindHint": {
     "skill": "Reusable task instructions and expertise packages",
     "mcp": "Connect tools and data through MCP servers",
     "api": "Connect REST or GraphQL business APIs",
     "chatflow": "Wrap a chat flow as a connection agents can call",
-    "workflow": "Wrap a workflow as a connection agents can call"
+    "workflow": "Wrap a workflow as a connection agents can call",
+    "registry": "One view of every capability: intent, direct-call and timeout / retry policy"
   },
   "create": {
     "skill": "Upload Skill",
@@ -288,5 +290,73 @@
     "created": "Saved as a draft",
     "saved": "Saved",
     "savedPending": "Saved; the enable request awaits approval"
+  },
+  "registry": {
+    "hint": "One view of everything an agent can use, sub-agents and knowledge bases included (they are managed on their own pages; here you only add intent descriptions and policy). The intent description and examples help L2 decide which capability the user wants.",
+    "search": "Search capability name, description or intent…",
+    "filterKind": "Type",
+    "filterStatus": "Status",
+    "all": "All",
+    "resync": "Resync",
+    "resyncing": "Syncing…",
+    "resynced": "Resynced: {{count}} entries",
+    "empty": "No entries yet",
+    "emptyFiltered": "No matching entries",
+    "loadFailed": "Failed to load",
+    "kind": {
+      "mcp_tool": "MCP tool",
+      "api_tool": "API tool",
+      "skill": "Skill",
+      "dify_workflow": "Dify Workflow",
+      "dify_chatflow": "Dify Chatflow",
+      "agent": "Sub-agent",
+      "kb": "Knowledge base"
+    },
+    "status": {
+      "available": "Available",
+      "disabled": "Unavailable",
+      "invalid": "Invalid"
+    },
+    "owner": "Owner: {{name}}",
+    "manageOn": {
+      "capabilities": "Managed in Capabilities",
+      "assistants": "Managed on the Agents page",
+      "knowledge": "Managed on the Knowledge page"
+    },
+    "direct": "Direct",
+    "notDirect": "Not direct",
+    "writes": "Write",
+    "noIntent": "(no intent description)",
+    "edit": "Edit",
+    "view": "View",
+    "dialog": {
+      "title": "{{name}}",
+      "intent": "Intent description",
+      "intentHint": "When does the user want this? One or two sentences; recall and classification work from it.",
+      "examples": "Example phrasings",
+      "examplesHint": "One per line, at most {{max}}",
+      "direct": "Allow L2 to call it directly (path A)",
+      "directHint": "Off: it is only suggested to the L3 agent; writes still need the user's confirmation.",
+      "directOutput": "Return its result as is",
+      "directOutputHint": "Skips the result-composing step and replies with it directly.",
+      "timeout": "Timeout (ms)",
+      "timeoutHint": "Leave empty for the default {{default}} ms",
+      "attempts": "Max attempts",
+      "backoff": "Retry interval (ms)",
+      "retryOn": "Retry on",
+      "retryOnItem": {
+        "network": "Network error",
+        "timeout": "Timeout",
+        "5xx": "5xx",
+        "429": "429 rate limit"
+      },
+      "retryHint": "Only read-only calls are retried, applied by the execution layer",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "saved": "Saved",
+      "source": "Name, description and input parameters come from the source and cannot be changed here.",
+      "open": "Manage"
+    }
   }
 }
