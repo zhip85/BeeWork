@@ -448,6 +448,8 @@
 - `api_plugins`（迁移 0050，叠在 T-075 的 0049 之上）；OpenAPI 3.0 / 3.1 与 GraphQL SDL 解析为工具（外部 `$ref` 拒绝、行号报错）；认证含无 / API Key / Bearer / OAuth 客户端凭证（令牌加密缓存与刷新）；调用经受控执行器且限定插件自己的主机；测试调用写操作需二次确认；满足“规范 + 测试成功 + 勾选工具”后按审批策略启用；可挂载到智能体并作为工具提供给模型。
 - 验证：ruff；PostgreSQL 迁移升降级 + `alembic check`；`test_api_spec` 20 项、`test_api_plugins` 45 项；前端 tsc / lint / i18n / style / build。**未连过真实第三方 API（只用 mock 传输）。**
 
+> **2026-11-12 架构调整**：运行时改为 L2 JEV + L3 Agent + 统一能力注册中心，Dify 为流程引擎，自研画布取消（T-062–T-065 取消、T-058 由 T-161 取代、T-060 待 T-169 下线、WhatsApp 暂缓）。新增任务 T-160–T-169，见 [`architecture-runtime-v2.md`](./architecture-runtime-v2.md) 与任务看板。下面各节中关于画布的“进度”以此为准。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

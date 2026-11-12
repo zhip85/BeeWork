@@ -43,3 +43,7 @@
 - 本任务发现并修复了一个冷启动循环导入：`beework.capabilities` 在模块顶部导入 `schemas.assistants`，而 `schemas/__init__` 会导入 API 包，单独 `import beework.capability_service`（T-072）或 `beework.skill_service` 会失败；应用和 Worker 因为导入顺序碰巧不受影响。
 - Skill 中的脚本不执行（按规格），执行能力需另立任务并批准沙箱方案；“检查进度推送”用前端轮询实现，没有走运行事件推送。
 - 运行时还没有调用 `skill_tool_specs` / `invoke_tool`（T-061）。
+
+## 需求变更（2026-11-12）
+
+增加“步骤型”Skill（声明式步骤与依赖）与执行器，说明型 Skill 行为不变，见 `T-164`。
