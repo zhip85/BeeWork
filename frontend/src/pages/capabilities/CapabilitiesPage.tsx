@@ -6,6 +6,7 @@ import { apiRequest } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
 import { FlowConnectionsTab } from './FlowConnectionsTab'
+import { RegistryTab } from './RegistryTab'
 import { READY_KINDS, TABS, isFlowKind, parseTab } from './types'
 import type { CapCounts, CapKind, Capability, FlowConnectionList, TabKind } from './types'
 
@@ -16,7 +17,8 @@ export function CapabilitiesPage({ tenant }: { tenant: TenantMembership }) {
   const [params, setParams] = useSearchParams()
   const tab = parseTab(params.get('type'))
   const flowKind = isFlowKind(tab) ? tab : null // Chatflow / Workflow connections have their own list (T-075)
-  const kind: CapKind = isFlowKind(tab) ? 'mcp' : tab
+  const registryTab = tab === 'registry'
+  const kind: CapKind = isFlowKind(tab) || registryTab ? 'mcp' : tab
   const writable = tenant.access_mode === 'full'
   const canCreate = writable && tenant.permissions.includes('capabilities:edit') && READY_KINDS.includes(kind)
   const [items, setItems] = useState<Capability[]>([])
@@ -30,7 +32,7 @@ export function CapabilitiesPage({ tenant }: { tenant: TenantMembership }) {
   const [confirm, setConfirm] = useState<{ kind: 'delete' | 'disable'; cap: Capability; references: number } | null>(null)
 
   const load = useCallback(() => {
-    if (flowKind || !READY_KINDS.includes(kind)) { setItems([]); setLoading(false); return }
+    if (flowKind || registryTab || !READY_KINDS.includes(kind)) { setItems([]); setLoading(false); return }
     const query = new URLSearchParams({ kind })
     if (search.trim()) query.set('q', search.trim())
     Promise.all([
@@ -40,7 +42,7 @@ export function CapabilitiesPage({ tenant }: { tenant: TenantMembership }) {
       .then(([list, summary]) => { setItems(list); setCounts(summary); setError('') })
       .catch((requestError: Error) => setError(requestError.message || t('loadFailed')))
       .finally(() => setLoading(false))
-  }, [kind, flowKind, search, tenant.id, t])
+  }, [kind, flowKind, registryTab, search, tenant.id, t])
 
   useEffect(() => {
     const timer = window.setTimeout(load, 200)
@@ -115,18 +117,20 @@ export function CapabilitiesPage({ tenant }: { tenant: TenantMembership }) {
     <section className="capabilities-page">
       <div className="page-heading">
         <div><h1>{t('title')}</h1><p>{t('subtitle')}</p></div>
-        {canCreate && !flowKind && <Link className="primary-button" to={`/capabilities/${kind}/new`}><Plus size={16} /> {t(`create.${kind}`)}</Link>}
+        {canCreate && !flowKind && !registryTab && <Link className="primary-button" to={`/capabilities/${kind}/new`}><Plus size={16} /> {t(`create.${kind}`)}</Link>}
       </div>
       <div className="flows-kind-tabs" role="tablist">
         {TABS.map((value) => (
           <button aria-selected={tab === value} className={tab === value ? 'selected' : ''} key={value} onClick={() => selectKind(value)} role="tab" type="button">
             <strong>{t(`kind.${value}`)}</strong>
-            <b>{isFlowKind(value) ? (flowCounts[value] ?? '–') : counts ? counts[value] : '–'}</b>
+            <b>{value === 'registry' ? '' : isFlowKind(value) ? (flowCounts[value] ?? '–') : counts ? counts[value] : '–'}</b>
             <small>{t(`kindHint.${value}`)}</small>
           </button>
         ))}
       </div>
-      {flowKind ? (
+      {registryTab ? (
+        <RegistryTab tenant={tenant} />
+      ) : flowKind ? (
         <FlowConnectionsTab key={flowKind} kind={flowKind} onChanged={loadFlowCounts} tenant={tenant} />
       ) : !READY_KINDS.includes(kind) ? (
         <p className="assistants-empty-filtered">{t('soon', { kind: kindName })}</p>

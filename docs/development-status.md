@@ -456,6 +456,11 @@
 - 验证：ruff；PostgreSQL 迁移升级 → `alembic check` → 降级 → 升级；迁移测试 4 项（有 / 无活画布、确认后删除与引用清理、降级重建）；前端 tsc / lint / i18n / style / build；全量后端。
 - **开发库里如有画布数据，执行迁移前要先确认丢弃**（见上）。
 
+### T-160 统一能力注册中心（待验收）
+
+- `capability_entries`（迁移 0052）：七种注册项（MCP 工具、API 工具、Skill、Dify Workflow / Chatflow、子智能体、知识库），派生自各来源（flush 监听器在同一事务里重算），ID 稳定，来源拥有的事实被覆盖、注册中心独有的字段（意图描述与示例、可直达、直接返回结果、超时与重试）不受影响；状态读取时按来源计算；按智能体挂载范围可见与召回；子智能体与知识库在各自页面管理、不在能力目录里注册。能力页新增“注册中心”页签。
+- 验证：ruff；PostgreSQL 迁移升降级 + `alembic check`；`test_capability_registry` 23 项；前端 tsc / lint / i18n / style / build。**超时与重试只存储与解析，执行侧在 T-165；召回只有关键词匹配。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

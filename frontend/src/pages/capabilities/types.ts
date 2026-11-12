@@ -81,10 +81,11 @@ export function parseKind(value: string | null): CapKind {
 export type FlowKind = 'chatflow' | 'workflow'
 export type FlowSource = 'native' | 'dify' // ``native`` only on leftover connections of the retired canvas (T-169)
 export const FLOW_KINDS: FlowKind[] = ['chatflow', 'workflow']
-export type TabKind = CapKind | FlowKind
-export const TABS: TabKind[] = ['skill', 'mcp', 'api', 'chatflow', 'workflow']
+export type TabKind = CapKind | FlowKind | 'registry'
+export const TABS: TabKind[] = ['skill', 'mcp', 'api', 'chatflow', 'workflow', 'registry']
 export const isFlowKind = (value: string | null): value is FlowKind => value === 'chatflow' || value === 'workflow'
 export function parseTab(value: string | null): TabKind {
+  if (value === 'registry') return 'registry'
   return isFlowKind(value) ? value : parseKind(value)
 }
 
@@ -116,3 +117,28 @@ export type FlowConnection = {
 }
 export type FlowConnectionList = { items: FlowConnection[]; total: number }
 export type FlowTestResult = { ok: boolean; error: string | null; error_category: string | null; duration_ms: number | null; connection: FlowConnection }
+
+// The unified capability registry (T-160): one list of everything an agent can use — sub-agents and knowledge bases included.
+export type EntryKind = 'mcp_tool' | 'api_tool' | 'skill' | 'dify_workflow' | 'dify_chatflow' | 'agent' | 'kb'
+export type EntryStatus = 'available' | 'disabled' | 'invalid'
+export type RegistryEntry = {
+  id: string
+  kind: EntryKind
+  identifier: string
+  name: string
+  description: string
+  intent_description: string
+  intent_examples: string[]
+  writes: boolean
+  direct_enabled: boolean
+  direct_output: boolean
+  timeout_ms: number | null
+  retry: { max_attempts?: number; backoff_ms?: number; retry_on?: string[] } | null
+  policy: { timeout_ms: number; max_attempts: number; backoff_ms: number; retry_on: string[] }
+  status: EntryStatus
+  owner: { page: 'capabilities' | 'assistants' | 'knowledge'; id: string; name: string }
+  meta: Record<string, unknown>
+  row_version: number
+  updated_at: string
+}
+export type RegistryList = { items: RegistryEntry[]; total: number }

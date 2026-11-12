@@ -93,6 +93,8 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "flow_connection.disabled": "停用流程连接",
     "flow_connection.deleted": "删除流程连接",
     "flow_connection.tested": "测试流程连接",
+    "registry_entry.updated": "修改能力注册项",
+    "registry.resynced": "重新同步能力注册中心",
     "portal_settings.updated": "修改门户设置",
     "portal_app.created": "添加门户应用",
     "portal_app.updated": "修改门户应用",
@@ -614,7 +616,7 @@ class AuditEvent(Base):
     def set_audit_metadata(self, _key: str, action: str) -> str:
         if action.startswith(("membership.", "role.", "organization.")):
             self.category = "members_permissions"
-        elif action.startswith(("assistant.", "channel.", "flow.", "portal_app.", "portal_settings.", "portal_seat", "portal_project", "portal_conversation", "portal_profile", "capability.", "flow_connection.")):
+        elif action.startswith(("assistant.", "channel.", "flow.", "portal_app.", "portal_settings.", "portal_seat", "portal_project", "portal_conversation", "portal_profile", "capability.", "flow_connection.", "registry")):
             self.category = "assistants"
         elif action.startswith("api_key."):
             self.category = "developer"
@@ -764,6 +766,7 @@ from beework.models import (  # noqa: E402,F401
     assistants,
     capabilities,
     capability_refs,
+    capability_registry,
     channels,
     conversations,
     faq,
