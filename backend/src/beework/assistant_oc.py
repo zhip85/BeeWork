@@ -143,5 +143,14 @@ def _rewrite_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
     return f"已启用 · {len(active_steps(config))} 种策略"
 
 
+def _routing_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
+    config = oc.intent
+    if not config.enabled:
+        return "已关闭 · 由智能体自行判断"
+    rules = len([r for r in config.rules if r.enabled]) if config.priority_rules_enabled else 0
+    return f"已启用 · 置信度阈值 {config.threshold:g} · {rules} 条优先规则"
+
+
+register_summary("routing", _routing_summary)
 register_summary("glossary", _glossary_summary)
 register_summary("rewrite", _rewrite_summary)

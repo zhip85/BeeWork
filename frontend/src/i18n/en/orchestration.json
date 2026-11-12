@@ -42,8 +42,8 @@
       "subtitle": "Rewrite strategies"
     },
     "routing": {
-      "name": "Routing",
-      "subtitle": "Dispatch to mounted agents / flows"
+      "name": "Intent judgement",
+      "subtitle": "Direct capability · priority rules · hand-off"
     },
     "components": {
       "name": "Components",
@@ -166,6 +166,62 @@
       "timeout": "Rewrite timed out; the original question was used.",
       "error": "The rewrite call failed; the original question was used.",
       "invalid": "The rewrite result could not be parsed; the original question was used."
+    }
+  },
+  "routing": {
+    "hint": "Intent judgement decides whether a capability answers a message directly (path A) or the agent plans it (path B). A failed judgement, low confidence or a write always goes to the agent.",
+    "enable": "Enable intent judgement",
+    "enableHint": "When off, the agent decides on its own whether to call capabilities. {{count}} capabilities are in scope.",
+    "model": "Intent model",
+    "modelDefault": "Use the agent's model",
+    "modelHint": "Only chat models enabled for this tenant; a fast classification model is recommended.",
+    "threshold": "Confidence threshold: {{value}}",
+    "thresholdHint": "Below this top confidence the agent decides.",
+    "margin": "Minimum gap to the runner-up: {{value}}",
+    "marginHint": "When the top two are too close the agent decides.",
+    "recallK": "Candidates (recall top K)",
+    "faqDirect": "Answer FAQs directly",
+    "faqDirectHint": "Return the answer when a knowledge base has a sufficiently certain FAQ match.",
+    "custom": "Custom judgement prompt",
+    "customHint": "Appended to the classifier prompt to add business wording.",
+    "rules": {
+      "title": "Priority rules",
+      "enable": "Enable priority rules",
+      "enableHint": "A message that hits a rule skips the model and calls the target directly. Smaller numbers match first.",
+      "counts": "{{valid}} valid · {{invalid}} with a broken target",
+      "empty": "No rules yet",
+      "enabled": "Enable rule {{name}}",
+      "noTarget": "(no target)",
+      "invalid": "Target invalid — pick again",
+      "edit": "Edit",
+      "remove": "Delete",
+      "add": "Add rule",
+      "dialog": "Priority rule",
+      "name": "Rule name",
+      "priority": "Priority",
+      "priorityHint": "Smaller matches first; ties go to the older rule.",
+      "matchType": "Match type",
+      "type": {
+        "keyword": "Keywords",
+        "regex": "Regex"
+      },
+      "pattern": "Condition",
+      "keywordHint": "Separate keywords with commas or new lines; any one hits.",
+      "regexHint": "Regular expression, case-insensitive.",
+      "target": "Target capability",
+      "pickTarget": "Pick a target",
+      "reason": {
+        "disabled": "unavailable",
+        "not_direct": "direct calls not allowed",
+        "write": "write",
+        "kb": "knowledge base"
+      },
+      "testQuestion": "Type a sentence to test the rule",
+      "test": "Test rule",
+      "hit": "Hit",
+      "miss": "No hit",
+      "cancel": "Cancel",
+      "save": "Save rule"
     }
   }
 }

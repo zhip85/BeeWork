@@ -165,8 +165,84 @@ class RewriteConfig(_Section):
     custom_prompt: CustomPrompt = Field(default_factory=CustomPrompt)
 
 
-class RoutingConfig(_Section):
+def keywords_of(pattern: str) -> list[str]:
+    """The keywords of a rule: separated by Chinese or English commas (and, leniently, 、 and newlines), trimmed, lower-cased, deduplicated."""
+    import re as _re
+
+    seen: dict[str, None] = {}
+    for part in _re.split(r"[,，、\n]", pattern):
+        part = part.strip()
+        if part:
+            seen.setdefault(part.lower())
+    return list(seen)
+
+
+class IntentRule(_Section):
+    """A priority rule of the L2 intent stage (T-161, OC-061): a keyword list or a regular expression and the one capability it sends
+    the message to. The target is a registry entry (T-160) by id; ``target_name`` is only for display. ``created_at`` breaks ties
+    between equal priorities."""
+
+    id: str = Field(min_length=1, max_length=64)
+    name: str = Field(max_length=200)
+    priority: int = Field(default=10, ge=0, le=100000)  # the smaller, the earlier
+    match_type: Literal["keyword", "regex"] = "keyword"
+    pattern: str = Field(default="", max_length=500)
+    target_entry_id: str | None = Field(default=None, max_length=64)
+    target_name: str = Field(default="", max_length=200)
+    enabled: bool = True
+    created_at: str = Field(default="", max_length=40)
+
+    @model_validator(mode="after")
+    def check(self) -> "IntentRule":
+        import regex
+
+        self.name = self.name.strip()
+        if not self.name or len(self.name) > 80:
+            raise ValueError("规则名称不能为空且不超过 80 个字符")
+        self.pattern = self.pattern.strip()
+        if not self.pattern:
+            raise ValueError("请填写匹配条件")
+        if self.match_type == "regex":
+            try:
+                regex.compile(self.pattern)
+            except regex.error as exc:
+                raise ValueError("正则表达式不合法") from exc
+        elif not keywords_of(self.pattern):
+            raise ValueError("请填写至少一个关键词")
+        return self
+
+
+class IntentCustomPrompt(_Section):
+    enabled: bool = False
+    text: str = Field(default="", max_length=1000)  # appended to the classifier's prompt
+
+
+class IntentConfig(_Section):
+    """L2 intent judgement (T-161, 演进 PRD 23.1): priority rules, then recall from the capability registry, then the classifier (JEV).
+    A confident, single, directly callable candidate goes straight to the capability (path A); everything else goes to L3 (path B).
+
+    Off by default, like the rewrite: it costs a model call per message, and an agent that already plans with tools (L3) behaves
+    the same without it. The classifier model is a setting, not a constant: an ordinary chat model today, a dedicated
+    classification model when one is available (the stage only depends on the ``IntentClassifier`` interface)."""
+
+    enabled: bool = False
+    model_id: str | None = Field(default=None, max_length=64)  # an enabled chat model of the tenant; empty = the assistant's own
+    threshold: float = Field(default=0.7, ge=0.3, le=0.95)  # the top candidate must reach it
+    margin: float = Field(default=0.15, ge=0.0, le=0.5)  # ...and lead the second one by this much
+    recall_k: int = Field(default=8, ge=3, le=20)  # candidates handed to the classifier
+    faq_direct: bool = True  # a confident FAQ hit of a mounted knowledge base is answered directly, without a model call
+    custom_prompt: IntentCustomPrompt = Field(default_factory=IntentCustomPrompt)
     priority_rules_enabled: bool = False
+    rules: list[IntentRule] = Field(default_factory=list, max_length=50)
+
+    @model_validator(mode="after")
+    def check(self) -> "IntentConfig":
+        self.threshold = round(self.threshold, 2)
+        self.margin = round(self.margin, 2)
+        ids = [rule.id for rule in self.rules]
+        if len(ids) != len(set(ids)):
+            raise ValueError("规则编号重复")
+        return self
 
 
 class ComponentsConfig(_Section):
@@ -179,5 +255,14 @@ class OCConfig(_Section):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     glossary: GlossaryConfig = Field(default_factory=GlossaryConfig)
     rewrite: RewriteConfig = Field(default_factory=RewriteConfig)
-    routing: RoutingConfig = Field(default_factory=RoutingConfig)
+    intent: IntentConfig = Field(default_factory=IntentConfig)
     components: ComponentsConfig = Field(default_factory=ComponentsConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_legacy_routing(cls, data: object) -> object:
+        """The ``routing`` section of the first sketch (T-054) is gone — T-058 was replaced by the L2 ``intent`` section; older drafts, versions and
+        runs that still carry the key stay loadable and simply lose it."""
+        if isinstance(data, dict) and "routing" in data:
+            data = {key: value for key, value in data.items() if key != "routing"}
+        return data

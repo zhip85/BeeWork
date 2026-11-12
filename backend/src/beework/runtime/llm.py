@@ -27,6 +27,22 @@ def build_chat_model(dsl: AssistantDSLv1, *, api_key: str, metadata: dict[str, A
     )
 
 
+def build_intent_model(model_alias: str, *, api_key: str, metadata: dict[str, Any]) -> ChatOpenAI:
+    """A short, non-streaming structured call for the L2 classifier and argument extraction (T-161): deterministic, a small JSON answer,
+    8 s limit. The model is whichever the administrator chose — an ordinary chat model now, a dedicated classification model later."""
+    return ChatOpenAI(
+        model=model_alias,
+        base_url=f"{settings.litellm_base_url.rstrip('/')}/v1",
+        api_key=SecretStr(api_key),
+        streaming=False,
+        max_tokens=400,
+        temperature=0,
+        timeout=8,
+        max_retries=0,
+        extra_body={"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}},
+    )
+
+
 def build_rewrite_model(model_alias: str, *, api_key: str, metadata: dict[str, Any]) -> ChatOpenAI:
     """A short, non-streaming call for question rewriting (T-057): low temperature, small output, 1.5 s limit."""
     return ChatOpenAI(

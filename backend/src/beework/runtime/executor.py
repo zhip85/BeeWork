@@ -25,6 +25,15 @@ from beework.governance.pii_engine import scan
 from beework.governance.runtime_policy import build_policy
 from beework.integrations.knowledge_engine import KnowledgeEngineError
 from beework.integrations.litellm import GatewayError, model_alias
+from beework.intent_service import (
+    FAQ_MARGIN,
+    build_candidates,
+    candidate_of,
+    config_from_dsl,
+    faq_for_document,
+    load_pending,
+    load_scope,
+)
 from beework.knowledge_mounts import resolve_knowledge_bases
 from beework.memory import load_memory_context
 from beework.models import Tenant, TenantModelEnvironment
@@ -44,12 +53,22 @@ from beework.runtime import (
 from beework.runtime.compiler import RuntimeDeps, StageClock, compile_assistant
 from beework.runtime.dsl import AssistantDSLv1, KnowledgeBaseRef
 from beework.runtime.errors import RunCancelled, RunTimedOut, RuntimeFailure
-from beework.runtime.llm import build_chat_model, build_rewrite_model
+from beework.runtime.intent import (
+    Candidate,
+    ClassifyResult,
+    LlmJsonClassifier,
+    Slots,
+    extract_arguments,
+    trivial_arguments,
+)
+from beework.runtime.llm import build_chat_model, build_intent_model, build_rewrite_model
 from beework.runtime.pii_stage import holds_output
 from beework.runtime.retrieval import EngineRetriever, Retriever
 from beework.runtime.rewrite import RewriteResult, active_steps, rewrite
+from beework.runtime.route_stage import FaqAnswer, IntentRuntime
 from beework.runtime.tool_runtime import ToolRuntime
 from beework.runtime.tracing import TraceHandle, trace_run
+from beework.tools.executor import ToolContext, invoke_tool
 from beework.worker.events import publish_run_event
 
 logger = logging.getLogger(__name__)
@@ -110,6 +129,106 @@ def gateway_rewrite_llm(db: Session, run: Run, dsl: AssistantDSLv1) -> BaseChatM
         raise RuntimeFailure("runtime.gateway_not_ready", "该环境尚未配置模型")
     alias = model_alias(UUID(dsl.oc.rewrite.model_id)) if dsl.oc.rewrite.model_id else dsl.model_alias
     return build_rewrite_model(alias, api_key=tenant_gateway_key(environment), metadata={**run_metadata(run), "purpose": "rewrite"})
+
+
+def gateway_intent_llm(db: Session, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
+    """The L2 classifier model (T-161): the configured one, or the assistant's own when none is chosen."""
+    environment = db.scalar(
+        select(TenantModelEnvironment).where(
+            TenantModelEnvironment.tenant_id == run.tenant_id, TenantModelEnvironment.environment == run.environment
+        )
+    )
+    if environment is None:
+        raise RuntimeFailure("runtime.gateway_not_ready", "该环境尚未配置模型")
+    alias = model_alias(UUID(dsl.oc.intent.model_id)) if dsl.oc.intent.model_id else dsl.model_alias
+    return build_intent_model(alias, api_key=tenant_gateway_key(environment), metadata={**run_metadata(run), "purpose": "intent"})
+
+
+def _intent_model(bind: Any, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
+    """Build the classifier model from a session of its own (the graph thread must not use the run's session)."""
+    with Session(bind=bind) as side:
+        return gateway_intent_llm(side, run, dsl)
+
+
+def _intent_runtime(
+    bind: Any, run: Run, dsl: AssistantDSLv1, *, trace: Any, check_stop: Callable[[], None], guard: Callable[[str], str],
+    end_user: str | None, llm_factory: LLMFactory | None, retriever: Retriever,
+) -> IntentRuntime | None:
+    """What the route stage works with (T-161): the agent's scope read from the capability registry, the classifier and the argument
+    extractor, the calls of path A and FAQ answers. Every database access uses a session of its own: the stage runs in a graph worker
+    thread. ``None`` when nothing is in scope — then the agent simply answers."""
+    config = config_from_dsl(dsl)
+    with Session(bind=bind) as side:
+        scope = load_scope(side, run.tenant_id, config)
+    if not scope.entries:
+        return None
+    model: list[BaseChatModel] = []
+
+    def llm() -> BaseChatModel:
+        if not model:  # built on first use, so a missing key only costs the judgement
+            model.append(llm_factory(run, dsl) if llm_factory else _intent_model(bind, run, dsl))
+        return model[0]
+
+    def candidates(query: str) -> list[Candidate]:
+        with Session(bind=bind) as side:
+            return build_candidates(side, run.tenant_id, config, scope, query, dsl.oc.intent.recall_k)
+
+    def classify(query: str, history: list[dict[str, str]], found: list[Candidate]) -> ClassifyResult:
+        try:
+            classifier = LlmJsonClassifier(llm(), dsl.oc.intent, callbacks=trace.callbacks)
+        except Exception:
+            logger.warning("Intent classifier model unavailable", exc_info=True)
+            return ClassifyResult(failure="error")
+        return classifier.classify(query, history, found)
+
+    def extract(target: Candidate, query: str, history: list[dict[str, str]]) -> Slots:
+        if trivial_arguments(target.kind, target.input_schema, query) is not None:
+            return extract_arguments(None, target, query, history)  # type: ignore[arg-type]  # needs no model
+        try:
+            return extract_arguments(llm(), target, query, history, callbacks=trace.callbacks)
+        except Exception:
+            logger.warning("Argument extraction unavailable", exc_info=True)
+            return Slots("failed", problems=["error"])
+
+    def invoke(target: Candidate, args: dict[str, Any]):
+        with Session(bind=bind) as side:
+            ctx = ToolContext(
+                tenant_id=run.tenant_id, allowed=frozenset({target.tool}), run_id=run.id, assistant_id=run.assistant_id, end_user=end_user,
+                guard_output=guard, span=trace.span, environment=run.environment, check_stop=check_stop,
+            )
+            return invoke_tool(side, ctx, target.tool, args)
+
+    def faq(target: Candidate, query: str) -> FaqAnswer | None:
+        with Session(bind=bind) as side:
+            refs = resolve_knowledge_bases(side, run.tenant_id, [UUID(target.source_id)])
+        ref = refs[0] if refs else None
+        if ref is None or not ref.faq_dataset_id:
+            return None
+        hits = [c for c in retriever.retrieve(tenant_id=run.tenant_id, query=query, bases=[ref], top_k=3).chunks if c.kind == "faq"]
+        if not hits:
+            return None
+        best, second = hits[0], (hits[1] if len(hits) > 1 else None)
+        if best.score < ref.threshold or (second is not None and best.score - second.score < FAQ_MARGIN):
+            return None  # not a confident, clear FAQ match: the usual retrieval and the model answer instead
+        with Session(bind=bind) as side:
+            row = faq_for_document(side, run.tenant_id, best.document_id)
+            answer = row.answer if row is not None else None
+        if not answer:
+            return None
+        chunk = {
+            "document_name": best.document_name, "chunk_id": best.chunk_id, "text": best.text, "score": best.score, "kind": "faq",
+            "kb_name": best.kb_name, "document_id": best.document_id,
+        }
+        return FaqAnswer(answer, chunk)
+
+    def pending() -> Candidate | None:
+        with Session(bind=bind) as side:
+            current = side.get(Run, run.id)
+            entry_id = load_pending(side, current) if current is not None else None
+        entry = scope.entries.get(entry_id or "")
+        return candidate_of(entry) if entry is not None else None
+
+    return IntentRuntime(callable_by_id=scope.callable_by_id(), candidates=candidates, classify=classify, extract=extract, invoke=invoke, faq=faq, pending=pending)
 
 
 def _rewrite_model(bind: Any, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
@@ -226,11 +345,12 @@ def execute_run(
     llm_factory: LLMFactory | None = None,
     retriever: Retriever | None = None,
     rewrite_llm_factory: LLMFactory | None = None,
+    intent_llm_factory: LLMFactory | None = None,
 ) -> None:
     """Run one queued run to a terminal state. Idempotent: anything not ``queued`` is left alone."""
     traces: list[TraceHandle] = []
     try:
-        _execute_run(db, run_id, llm_factory, retriever, traces, rewrite_llm_factory)
+        _execute_run(db, run_id, llm_factory, retriever, traces, rewrite_llm_factory, intent_llm_factory)
     finally:
         for trace in traces:
             trace.flush()  # after the terminal event, so tracing never delays the user
@@ -243,6 +363,7 @@ def _execute_run(
     retriever: Retriever | None,
     traces: list[TraceHandle],
     rewrite_llm_factory: LLMFactory | None = None,
+    intent_llm_factory: LLMFactory | None = None,
 ) -> None:
     run = db.scalar(select(Run).where(Run.id == run_id).with_for_update())
     if run is None or run.status != "queued":
@@ -346,6 +467,12 @@ def _execute_run(
                     end_user=str(end_user_id) if end_user_id else None, guard_output=guard_tool_output, span=trace.span,
                     environment=run.environment, check_stop=check_stop, clock=clock,
                 )
+            intent_runtime = None
+            if dsl.oc.intent.enabled:  # L2: the agent's scope from the capability registry, the classifier, path A (T-161)
+                intent_runtime = _intent_runtime(
+                    bind, run, dsl, trace=trace, check_stop=check_stop, guard=guard_tool_output,
+                    end_user=str(end_user_id) if end_user_id else None, llm_factory=intent_llm_factory, retriever=retriever or EngineRetriever(),
+                )
             graph = compile_assistant(
                 dsl,
                 RuntimeDeps(
@@ -364,6 +491,7 @@ def _execute_run(
                     rewrite=rewrite_fn,
                     tools=tool_runtime,
                     fallback_llm=fallback_llm,
+                    routing=intent_runtime,
                 ),
             )
             for mode, payload in graph.stream(
@@ -406,6 +534,7 @@ def _execute_run(
     retrieval = {"mode": final.get("retrieval_mode", "none"), "citations": citations}
     pii = {"hits": final.get("pii_hits", []), "failures": final.get("pii_failures", []), "blocked": bool(final.get("blocked"))}
     glossary = final.get("stage_info") or {}
+    route = final.get("route_info") or {}
     faq_documents = [c.get("document_id", "") for c in final.get("context", []) if c.get("kind") == "faq"]
     run.tokens_in, run.tokens_out = usage.get("input"), usage.get("output")
     run.retrieval_mode = retrieval["mode"]
@@ -425,7 +554,7 @@ def _execute_run(
         record_faq_hits(db, run.tenant_id, run.id, faq_documents)
     _finish(
         db, run, "succeeded", "done",
-        {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url, "pii": pii, "query": glossary},
-        started=started, output={"text": text, "usage": usage, "retrieval": retrieval, "pii": pii, "query": glossary}, trace_url=trace_url,
+        {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url, "pii": pii, "query": glossary, "route": route},
+        started=started, output={"text": text, "usage": usage, "retrieval": retrieval, "pii": pii, "query": glossary, "route": route}, trace_url=trace_url,
         timings=clock,
     )

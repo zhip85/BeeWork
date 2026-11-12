@@ -218,11 +218,11 @@ class RewriteRuntimeTests(test_runtime.RuntimeTests):
         _, _, retriever = self.ask("咋退货", rewrite_llm=rewrite_llm)
         self.assertEqual((retriever.calls[0]["query"], rewrite_llm.seen_messages), ("咋退货", []))
 
-    def test_low_confidence_only_rewriting_is_left_to_routing(self) -> None:
-        self.configure(rewrite={"enabled": True})  # only_low_confidence defaults to on: T-058 decides when to rewrite
+    def test_low_confidence_only_rewriting_without_intent_judgement_just_runs(self) -> None:
+        self.configure(rewrite={"enabled": True})  # only_low_confidence is on, but nothing measures the confidence (T-161): the route stage rewrites
         rewrite_llm = judge(normalized="如何退货")
         _, _, retriever = self.ask("咋退货", rewrite_llm=rewrite_llm)
-        self.assertEqual((retriever.calls[0]["query"], rewrite_llm.seen_messages), ("咋退货", []))
+        self.assertEqual(retriever.calls[0]["query"], "如何退货")
 
     def test_an_always_on_rewrite_changes_the_query_not_the_conversation(self) -> None:
         self.configure(rewrite={"enabled": True, "only_low_confidence": False})

@@ -107,6 +107,18 @@ def _check_rewrite_model(db: Session, membership: Membership, oc) -> None:
         raise ApiError(422, "rewrite.model_unavailable", "改写模型未在当前环境启用，请在设置中启用对话模型")
 
 
+def _check_intent_model(db: Session, membership: Membership, oc) -> None:
+    """OC-060: the intent-judgement model must be a chat model the tenant has enabled in the current environment."""
+    model_id = oc.intent.model_id
+    if not model_id:
+        return
+    from beework.api.assistants import _enabled_chat_models
+
+    models, _ = _enabled_chat_models(db, membership.tenant_id)
+    if model_id not in {str(model.id) for model, _ in models}:
+        raise ApiError(422, "intent.model_unavailable", "意图判断模型未在当前环境启用，请在设置中启用对话模型")
+
+
 @router.put("/assistants/{assistant_id}/oc", response_model=OCStateResponse)
 def save_oc(
     assistant_id: UUID,
@@ -119,6 +131,7 @@ def save_oc(
     assistant = _load_for_write(db, membership, assistant_id)
     check_row_version(assistant, payload.row_version, db)
     _check_rewrite_model(db, membership, payload.oc)
+    _check_intent_model(db, membership, payload.oc)
     config = dict(assistant.draft_config or {})
     config["oc"] = payload.oc.model_dump(mode="json")
     assistant.draft_config = config

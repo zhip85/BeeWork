@@ -64,6 +64,15 @@ class RuntimeState(TypedDict, total=False):
     synonyms: list[str]
     glossary_hits: list[dict[str, Any]]
     stage_info: dict[str, Any]
+    # L2 intent judgement (T-161): the decision for the trace; whether the route stage already answered (a direct result or an FAQ),
+    # the capability's result that the model composes the reply from, the hints L3 gets, and the parts of a decomposed question.
+    route_info: dict[str, Any]
+    answered: bool
+    capability_result: dict[str, str]
+    compose: bool
+    l3_hints: dict[str, Any]
+    sub_questions: list[str]
+    sub_results: list[dict[str, str]]
 
 
 class StageClock:
@@ -112,6 +121,9 @@ class RuntimeDeps:
     # The tools the agent mounted and ticked (a ``ToolRuntime``; T-061) and the backup model, built only if needed.
     tools: Any = None
     fallback_llm: Callable[[], BaseChatModel] | None = None
+    # The L2 intent runtime (``route_stage.IntentRuntime``): the agent's scope, the classifier, argument extraction, the calls of path A and
+    # FAQ answers. ``None`` when intent judgement is off.
+    routing: Any = None
 
 
 Node = Callable[[RuntimeState], RuntimeState]
@@ -152,7 +164,7 @@ def _ingress(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
 
 @register_stage("route")
 def _route(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
-    # Until routing exists (T-058) the assistant answers with its own prompt and model.
+    # Replaced by ``route_stage`` (T-161); without it the assistant answers with its own prompt and model.
     return lambda state: {"target": "assistant"}
 
 
@@ -175,6 +187,30 @@ def _system_prompt(dsl: AssistantDSLv1, state: RuntimeState, *, tools: bool = Fa
         from beework.governance.glossary_runtime import DictEntry, prompt_section
 
         parts.append(prompt_section([DictEntry(h["term"], tuple(h.get("aliases", [])), h.get("definition", "")) for h in hits]))
+    result = state.get("capability_result")
+    if result:
+        parts.append(
+            f"# 能力返回结果\n用户的问题已经交给「{result['name']}」处理，结果如下。请据此直接回答用户，不要提及内部的调用与转交；"
+            f"结果里没有的信息不要编造。\n{result['content']}"
+        )
+    sub_results = state.get("sub_results") or []
+    if sub_results:
+        lines = [f"- 子问题：{r['question']}\n  由「{r['target']}」回答：{r['answer']}" for r in sub_results]
+        parts.append(
+            "# 子问题结果\n用户的问题被拆成了几个子问题，下面的几个已经由对应的能力回答。"
+            "请把这些结果与你自己对其余子问题的回答合并成一个完整、连贯的答复，不要提及内部的拆分与转交。\n" + "\n".join(lines)
+        )
+    hints = state.get("l3_hints")
+    if hints:
+        lines = [f"- 「{c['name']}」（{c['kind']}）{('：' + c['intent']) if c.get('intent') else ''}（把握 {c['confidence']:.2f}）" for c in hints.get("candidates", []) if c.get("confidence") is not None]
+        lines += [f"- 「{c['name']}」（{c['kind']}）{('：' + c['intent']) if c.get('intent') else ''}" for c in hints.get("candidates", []) if c.get("confidence") is None]
+        notes = []
+        if hints.get("failed"):
+            notes.append(f"已经试过「{hints['failed']}」但调用失败了，请不要再调用同一个能力的同一操作，换个办法或如实告诉用户。")
+        if hints.get("missing"):
+            notes.append("要直接调用它还缺少这些信息：" + "、".join(hints["missing"]) + "。需要时向用户追问。")
+        if lines or notes:
+            parts.append("# 可能相关的能力（意图判断的结果，仅供参考）\n" + "\n".join([*lines, *notes]))
     context = state.get("context") or []
     if context:
         snippets = "\n\n".join(
@@ -241,8 +277,15 @@ def _execute(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
     """Run the routed target. For ``assistant``: knowledge retrieval, then the model."""
 
     def node(state: RuntimeState) -> RuntimeState:
-        if state.get("blocked"):
-            return {}  # the input rules answered already: no retrieval, no model call
+        if state.get("blocked") or state.get("answered"):
+            return {}  # the input rules or the route stage (a direct result, an FAQ) answered already: no retrieval, no model call
+        if state.get("compose"):
+            # Path A: a capability already did the work; one model call turns its result into the reply — no tools, no retrieval.
+            from dataclasses import replace
+
+            from beework.runtime.dsl import KnowledgeConfig
+
+            return run_agent(dsl.model_copy(update={"knowledge": KnowledgeConfig(bases=[])}), replace(deps, tools=None), state, get_stream_writer())
         return run_agent(dsl, deps, state, get_stream_writer())
 
     return node
@@ -354,6 +397,8 @@ def _instrumented(name: str, node: Node, deps: RuntimeDeps) -> Node:
             data.update({key: value for key, value in result["pii_last"].items() if value})
         if name == "glossary_rewrite" and result.get("stage_info"):
             data.update(result["stage_info"])
+        if name == "route" and result.get("route_info"):
+            data["route"] = result["route_info"]  # the console shows “路由 → 路径 A · {能力} · {耗时}” (AST-054)
         writer(data)
         return result
 

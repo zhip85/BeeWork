@@ -201,7 +201,7 @@ class AssistantTests(unittest.TestCase):
         headers = self.login("admin@example.com")
         bad = self.create(headers, config={"prompt": "ok", "oc": {"memory": {"short_term": {"window_rounds": 99}}}})
         self.assertEqual(bad.status_code, 422)
-        unknown = self.create(headers, config={"prompt": "ok", "oc": {"routing": {"bogus": True}}})
+        unknown = self.create(headers, config={"prompt": "ok", "oc": {"intent": {"bogus": True}}})
         self.assertEqual(unknown.status_code, 422)
         created = self.create(headers, config={"prompt": "ok", "oc": {"memory": {"short_term": {"window_rounds": 5}}}})
         self.assertEqual(created.status_code, 201, created.text)

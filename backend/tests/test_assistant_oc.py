@@ -51,7 +51,7 @@ class OCTests(test_versions.VersionTests):
         self.assertEqual((state["has_changes"], state["diff"]), (False, []))
         self.assertEqual([s["stage"] for s in state["stages"]], ["pii", "memory", "glossary", "rewrite", "routing", "components"])
         self.assertEqual([s["index"] for s in state["stages"]], [1, 2, 3, 4, 5, 6])
-        self.assertEqual({s["stage"] for s in state["stages"] if s["available"]}, {"pii", "glossary", "rewrite"})  # memory, routing and components have not landed on this branch
+        self.assertEqual({s["stage"] for s in state["stages"] if s["available"]}, {"pii", "glossary", "rewrite", "routing"})  # memory and components have not landed on this branch
         self.assertEqual((state["assistant"]["name"], state["assistant"]["live_version"], state["assistant"]["can_edit"]), ("Helper", None, True))
         self.assertEqual(state["approval"]["approver_role"], "security_officer")  # default of “智能体规则变更”
 
@@ -164,9 +164,9 @@ class OCTests(test_versions.VersionTests):
 
     def test_saving_an_oc_draft_leaves_other_draft_config_intact(self) -> None:
         self.edit_draft(prompt="Custom prompt.")
-        self.save_oc({"routing": {"priority_rules_enabled": True}})
+        self.save_oc({"intent": {"priority_rules_enabled": True}})
         config = self.refresh()["config"]
-        self.assertEqual((config["prompt"], config["oc"]["routing"]["priority_rules_enabled"]), ("Custom prompt.", True))
+        self.assertEqual((config["prompt"], config["oc"]["intent"]["priority_rules_enabled"]), ("Custom prompt.", True))
 
     # -- submitting ---------------------------------------------------------------
 
