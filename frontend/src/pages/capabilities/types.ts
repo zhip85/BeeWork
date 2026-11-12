@@ -22,6 +22,29 @@ export type McpDetail = {
   health: 'unknown' | 'ok' | 'error'
 }
 
+export type ApiTool = { name: string; description: string; writes: boolean; selected: boolean; input_schema: Record<string, unknown> }
+export type ApiDetail = {
+  api_type: 'rest' | 'graphql'
+  base_url: string
+  host: string
+  auth_type: 'none' | 'api_key' | 'bearer' | 'oauth_cc'
+  api_key_header: string
+  secret_mask: string | null
+  oauth_token_url: string
+  oauth_client_id: string
+  oauth_client_secret_mask: string | null
+  oauth_scope: string
+  spec_filename: string
+  has_spec: boolean
+  tools: ApiTool[]
+  last_test_at: string | null
+  last_test_ok: boolean
+  last_test_tool: string | null
+  last_test_error: string | null
+}
+export type ApiParseResult = { ok: boolean; tool_count: number; tools: ApiTool[]; error: string | null; line: number | null }
+export type ApiCallResult = { ok: boolean; status: 'ok' | 'error' | 'cancelled' | 'confirmation_required'; content: string; code: string | null; capability: Capability | null }
+
 export type SkillCheck = { key: 'structure' | 'executables' | 'secrets' | 'dependencies'; status: 'pending' | 'running' | 'passed' | 'warning' | 'failed'; issues: Record<string, unknown>[] }
 export type SkillDetail = { builtin: boolean; platform_active: boolean; filename: string; size_bytes: number; files: Record<string, unknown>[]; has_scripts: boolean; security_status: 'pending' | 'running' | 'passed' | 'failed'; checks: SkillCheck[]; checked_at: string | null; enable_warning: string | null }
 
@@ -42,12 +65,13 @@ export type Capability = {
   can_delete: boolean
   mcp: McpDetail | null
   skill: SkillDetail | null
+  api: ApiDetail | null
 }
 
 export type TestResult = { ok: boolean; error: string | null; tool_count: number; capability: Capability | null }
 export type CapCounts = Record<CapKind, number>
 export const KINDS: CapKind[] = ['skill', 'mcp', 'api']
-export const READY_KINDS: CapKind[] = ['skill', 'mcp']
+export const READY_KINDS: CapKind[] = ['skill', 'mcp', 'api']
 
 export function parseKind(value: string | null): CapKind {
   return KINDS.includes(value as CapKind) ? (value as CapKind) : 'mcp'

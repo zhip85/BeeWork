@@ -237,7 +237,7 @@ class MountingTests(_RetrievalHarness):
         candidates = self.client.get("/api/v1/capabilities/candidates?kind=kb", headers=self.admin).json()["items"]
         self.assertEqual([(c["id"], c["name"], c["kb_type"]) for c in candidates], [(indexed, "已索引库", "standard")])
         self.assertEqual(self.client.get("/api/v1/capabilities/candidates?kind=kb&q=没有", headers=self.admin).json()["items"], [])
-        self.assertEqual(self.client.get("/api/v1/capabilities/candidates?kind=api", headers=self.admin).status_code, 422)  # a type nobody can mount yet (agents became mountable in T-066)
+        self.assertEqual(self.client.get("/api/v1/capabilities/candidates?kind=api", headers=self.admin).json()["items"], [])  # every type is mountable now (API plugins: T-073); none exists yet
         ok = self.assistant([indexed])
         self.assertEqual(ok.status_code, 201, ok.text)
         self.assertEqual(ok.json()["config"]["mounts"]["kb"], [indexed])
@@ -269,7 +269,7 @@ class MountingTests(_RetrievalHarness):
         kb_id = self.indexed_kb()
         created = self.assistant([kb_id]).json()
         mounts = self.client.get(f"/api/v1/assistants/{created['id']}/mounts", headers=self.admin).json()
-        self.assertEqual(mounts["mountable_kinds"], ["agent", "chatflow", "flow", "kb", "mcp", "skill"])  # leaf agents (T-066), MCP (T-072), Skill (T-074) and flow connections (T-075) register their resolvers
+        self.assertEqual(mounts["mountable_kinds"], ["agent", "api", "chatflow", "flow", "kb", "mcp", "skill"])  # leaf agents (T-066), MCP (T-072), Skill (T-074) and flow connections (T-075) register their resolvers
         item = mounts["groups"][0]["items"][0]
         self.assertEqual((item["name"], item["state"], item["meta"]["kb_type"], item["meta"]["documents"]), ("产品知识库", "available", "standard", 1))
         # The knowledge base is deleted: the mount is flagged (GLB-083) but the assistant can still be edited.

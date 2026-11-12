@@ -12,6 +12,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from beework import api_plugin_service as api_svc
 from beework import capability_service as svc
 from beework import file_store, skill_package, skill_service
 from beework.api.assistants import _actor_name
@@ -21,6 +22,7 @@ from beework.api.conventions import (
     normalize_name,
     require_platform_admin,
 )
+from beework.api_spec import SpecError
 from beework.approvals import ApplyContext, approval_action, pending_request, submit_change
 from beework.auth import get_current_user, require_csrf
 from beework.capability_catalog import references_to
@@ -28,9 +30,16 @@ from beework.config import settings
 from beework.db import get_db
 from beework.entitlements import ensure_entitlement
 from beework.models import AuditEvent, Membership, TenantRole, User, utc_now
-from beework.models.capabilities import Capability, McpConnection, PlatformSkill, Skill
+from beework.models.capabilities import ApiPlugin, Capability, McpConnection, PlatformSkill, Skill
 from beework.rbac import flatten_permissions, permissions_for_role, require_tenant_permission
 from beework.schemas.capabilities import (
+    ApiDetail,
+    ApiParseRequest,
+    ApiParseResult,
+    ApiPluginWrite,
+    ApiTestCallRequest,
+    ApiTestCallResult,
+    ApiToolEntry,
     CapabilityCounts,
     CapabilityKind,
     CapabilityReferences,
@@ -45,7 +54,7 @@ from beework.schemas.capabilities import (
     SkillUpdateRequest,
     TestResult,
 )
-from beework.tools.executor import ToolError
+from beework.tools.executor import ToolConfirmationRequired, ToolContext, ToolError, invoke_tool
 
 router = APIRouter()
 
@@ -120,6 +129,32 @@ def _mcp_detail(conn: McpConnection) -> McpDetail:
     )
 
 
+def _api_detail(plugin: ApiPlugin, *, schemas: bool = True) -> ApiDetail:
+    ticked = set(plugin.selected_tools or [])
+    return ApiDetail(
+        api_type=plugin.api_type, base_url=plugin.base_url, host=api_svc.host_of(plugin.base_url) if plugin.base_url else "",  # type: ignore[arg-type]
+        auth_type=plugin.auth_type, api_key_header=plugin.api_key_header, secret_mask=svc.mask(plugin.secret_last4),  # type: ignore[arg-type]
+        oauth_token_url=plugin.oauth_token_url, oauth_client_id=plugin.oauth_client_id,
+        oauth_client_secret_mask=svc.mask(plugin.oauth_client_secret_last4), oauth_scope=plugin.oauth_scope,
+        spec_filename=plugin.spec_filename, has_spec=bool(plugin.spec_text),
+        tools=[_api_tool_entry(t, t["name"] in ticked, schemas) for t in plugin.tools or []],
+        last_test_at=plugin.last_test_at, last_test_ok=plugin.last_test_ok, last_test_tool=plugin.last_test_tool,
+        last_test_error=plugin.last_test_error,
+    )
+
+
+def _api_tool_entry(tool: dict, selected: bool, schemas: bool = True) -> ApiToolEntry:
+    return ApiToolEntry(
+        name=tool["name"], description=tool.get("description", ""), writes=bool(tool.get("writes")), selected=selected,
+        input_schema=(tool.get("input_schema") or {}) if schemas else {},  # the list needs names and counts only
+    )
+
+
+def _api_meta(plugin: ApiPlugin) -> str:
+    kind = "GraphQL" if plugin.api_type == "graphql" else "REST"
+    return f"{api_svc.host_of(plugin.base_url)} · {kind}" if plugin.base_url else kind
+
+
 def _skill_detail(db: Session, skill: Skill) -> SkillDetail:
     platform = skill_service.platform_of(db, skill)
     return SkillDetail(
@@ -137,18 +172,19 @@ def _skill_meta(db: Session, skill: Skill) -> str:
     return f"{label} · {skill.filename}"
 
 
-def _response(db: Session, membership: Membership, cap: Capability) -> CapabilityResponse:
+def _response(db: Session, membership: Membership, cap: Capability, *, full: bool = True) -> CapabilityResponse:
     conn = db.get(McpConnection, cap.id) if cap.kind == "mcp" else None
     skill = db.get(Skill, cap.id) if cap.kind == "skill" else None
     pending = pending_request(db, cap.tenant_id, "capability", cap.id)
     base = CapabilityResponse.model_validate(cap)
-    meta = f"{svc.host_of(conn.url)} · MCP" if conn else _skill_meta(db, skill) if skill else ""
+    plugin = db.get(ApiPlugin, cap.id) if cap.kind == "api" else None
+    meta = f"{svc.host_of(conn.url)} · MCP" if conn else _skill_meta(db, skill) if skill else _api_meta(plugin) if plugin else ""
     builtin = skill is not None and skill.platform_skill_id is not None
     return base.model_copy(
         update={
             "meta": meta, "pending_approval": pending is not None,
             "approval_id": pending.id if pending else None, "mcp": _mcp_detail(conn) if conn else None,
-            "skill": _skill_detail(db, skill) if skill else None,
+            "skill": _skill_detail(db, skill) if skill else None, "api": _api_detail(plugin, schemas=full) if plugin else None,
             "can_edit": _can(db, membership, "capabilities:edit") and not builtin,
             "can_publish": _can(db, membership, "capabilities:publish"),
             "can_delete": _can(db, membership, "capabilities:delete") and not builtin,
@@ -162,6 +198,10 @@ def _ready(db: Session, cap: Capability) -> str | None:
         conn = db.get(McpConnection, cap.id)
         if conn is None or not svc.is_ready(conn):
             return "请先测试连接成功并至少勾选一个工具"
+    if cap.kind == "api":
+        plugin = db.get(ApiPlugin, cap.id)
+        if plugin is None or not api_svc.is_ready(plugin):
+            return "请先上传规范、测试调用成功并至少勾选一个工具"
     if cap.kind == "skill":
         skill = db.get(Skill, cap.id)
         if skill is None:
@@ -248,7 +288,7 @@ def list_capabilities(
     statement = select(Capability).where(Capability.tenant_id == membership.tenant_id, Capability.kind == kind, Capability.deleted_at.is_(None))
     if q and q.strip():
         statement = statement.where(func.lower(Capability.name).like(f"%{q.strip().lower()}%"))
-    return [_response(db, membership, cap) for cap in db.scalars(statement.order_by(func.lower(Capability.name), Capability.id))]
+    return [_response(db, membership, cap, full=False) for cap in db.scalars(statement.order_by(func.lower(Capability.name), Capability.id))]
 
 
 @router.get("/capabilities/{capability_id}", response_model=CapabilityResponse)
@@ -367,6 +407,19 @@ def copy_capability(
                 oauth_token_url=conn.oauth_token_url, oauth_client_id=conn.oauth_client_id,
                 oauth_client_secret_encrypted=conn.oauth_client_secret_encrypted, oauth_client_secret_last4=conn.oauth_client_secret_last4,
                 oauth_scopes=conn.oauth_scopes,
+            )
+        )
+    source_api = db.get(ApiPlugin, source.id) if source.kind == "api" else None
+    if source_api is not None:
+        db.add(  # credentials are carried over; the cached token and the test result are not (the copy is tested and approved on its own)
+            ApiPlugin(
+                capability_id=copy.id, tenant_id=copy.tenant_id, api_type=source_api.api_type, base_url=source_api.base_url,
+                auth_type=source_api.auth_type, api_key_header=source_api.api_key_header, secret_encrypted=source_api.secret_encrypted,
+                secret_last4=source_api.secret_last4, oauth_token_url=source_api.oauth_token_url, oauth_client_id=source_api.oauth_client_id,
+                oauth_client_secret_encrypted=source_api.oauth_client_secret_encrypted,
+                oauth_client_secret_last4=source_api.oauth_client_secret_last4, oauth_scope=source_api.oauth_scope,
+                spec_text=source_api.spec_text, spec_filename=source_api.spec_filename, tools=list(source_api.tools or []),
+                selected_tools=list(source_api.selected_tools or []),
             )
         )
     source_skill = db.get(Skill, source.id) if source.kind == "skill" else None
@@ -792,3 +845,195 @@ def update_platform_skill(
     )
     db.commit()
     return PlatformSkillResponse.model_validate(row)
+
+
+# ---------------------------------------------------------------------------
+# API plugins (T-073).
+# ---------------------------------------------------------------------------
+
+
+def _spec_error(exc: SpecError) -> ApiError:
+    return ApiError(422, "capability.spec_invalid", f"规范无法解析：{exc}")
+
+
+def _apply_api_fields(plugin: ApiPlugin, payload: ApiPluginWrite, *, creating: bool) -> bool:
+    """Copy the form onto the plugin; returns whether anything that affects calling changed (the cached token and the
+    old test result no longer describe the new configuration then)."""
+    base_url = _validate_url(payload.base_url, "Base URL") if payload.base_url.strip() else ""
+    if not base_url:
+        raise ApiError(422, "capability.invalid_url", "请填写 Base URL")
+    type_changed = not creating and payload.api_type != plugin.api_type
+    same_auth = not creating and payload.auth_type == plugin.auth_type  # a stored secret belongs to the auth type it was entered for
+    # ...and to the host it was entered for: pointing the plugin at another host must not carry the stored secret along
+    same_host = not creating and svc.host_of(base_url) == svc.host_of(plugin.base_url)
+    same_token_host = not creating and bool(payload.oauth_token_url.strip()) and svc.host_of(payload.oauth_token_url.strip()) == svc.host_of(plugin.oauth_token_url)
+    changed = creating or type_changed or base_url != plugin.base_url or payload.auth_type != plugin.auth_type
+    plugin.api_type, plugin.base_url, plugin.auth_type = payload.api_type, base_url, payload.auth_type
+    secret = (payload.secret or "").strip()
+    if payload.auth_type in ("api_key", "bearer"):
+        if payload.auth_type == "api_key":
+            header = payload.api_key_header.strip()
+            if not header or header.lower() in api_svc.FORBIDDEN_HEADERS - {"authorization"}:
+                raise ApiError(422, "capability.invalid_header", "请填写 API Key 的请求头名称（例如 X-API-Key）")
+            changed = changed or header != plugin.api_key_header
+            plugin.api_key_header = header
+        else:
+            plugin.api_key_header = ""
+        if secret:
+            plugin.secret_encrypted, plugin.secret_last4, changed = svc.encrypt(secret), secret[-4:], True
+        elif not (same_auth and plugin.secret_encrypted):
+            raise ApiError(422, "capability.token_required", "请填写 API Key" if payload.auth_type == "api_key" else "请填写访问令牌")
+        elif not same_host:
+            raise ApiError(422, "capability.credential_reentry", "更换了服务地址的主机，请重新填写凭据（已保存的凭据不会发往新主机）")
+    else:
+        plugin.secret_encrypted = plugin.secret_last4 = None
+        plugin.api_key_header = ""
+    if payload.auth_type == "oauth_cc":
+        token_url = _validate_url(payload.oauth_token_url, "Token URL")
+        client_id = payload.oauth_client_id.strip()
+        if not client_id:
+            raise ApiError(422, "capability.oauth_client_required", "请填写 OAuth 客户端 ID")
+        changed = changed or (token_url, client_id, payload.oauth_scope.strip()) != (plugin.oauth_token_url, plugin.oauth_client_id, plugin.oauth_scope)
+        plugin.oauth_token_url, plugin.oauth_client_id, plugin.oauth_scope = token_url, client_id, payload.oauth_scope.strip()
+        client_secret = (payload.oauth_client_secret or "").strip()
+        if client_secret:
+            plugin.oauth_client_secret_encrypted, plugin.oauth_client_secret_last4, changed = svc.encrypt(client_secret), client_secret[-4:], True
+        elif not (same_auth and plugin.oauth_client_secret_encrypted):
+            raise ApiError(422, "capability.oauth_secret_required", "请填写 OAuth 客户端密钥")
+        elif not same_token_host:
+            raise ApiError(422, "capability.credential_reentry", "更换了 Token URL 的主机，请重新填写客户端密钥")
+    else:
+        plugin.oauth_token_url = plugin.oauth_client_id = plugin.oauth_scope = ""
+        plugin.oauth_client_secret_encrypted = plugin.oauth_client_secret_last4 = None
+    if payload.spec_text is not None:
+        text = payload.spec_text
+        if text.strip():
+            try:
+                api_svc.apply_spec(plugin, text, payload.spec_filename)
+            except SpecError as exc:
+                raise _spec_error(exc) from exc
+            changed = True
+        else:  # clearing the spec leaves a draft
+            plugin.spec_text, plugin.spec_filename, plugin.tools, plugin.selected_tools = "", "", [], []
+            changed = True
+    elif type_changed and plugin.spec_text:
+        raise ApiError(422, "capability.spec_required", "更换接口类型后请重新提供规范")
+    if changed:
+        plugin.oauth_access_encrypted, plugin.oauth_expires_at = None, None
+        plugin.last_test_ok, plugin.last_test_at, plugin.last_test_error, plugin.last_test_tool = False, None, None, None
+    if payload.selected_tools is not None:
+        offered = {t["name"] for t in plugin.tools or []}
+        unknown = set(payload.selected_tools) - offered
+        if unknown:
+            raise ApiError(422, "capability.unknown_tool", "所选工具不在规范解析出的列表中")
+        plugin.selected_tools = [t["name"] for t in plugin.tools if t["name"] in set(payload.selected_tools)]
+    return changed
+
+
+@router.post("/capabilities/api/parse", response_model=ApiParseResult)
+def parse_api_spec(
+    payload: ApiParseRequest,
+    membership: Membership = Depends(require_tenant_permission("capabilities:edit")),
+) -> ApiParseResult:
+    """Preview what a pasted or uploaded description offers, with the line and reason when it cannot be read (CAP-040). Nothing is saved."""
+    from beework.api_spec import parse_spec
+
+    try:
+        tools = parse_spec(payload.spec_text, payload.api_type)
+    except SpecError as exc:
+        return ApiParseResult(ok=False, error=exc.message, line=exc.line)
+    return ApiParseResult(ok=True, tool_count=len(tools), tools=[_api_tool_entry(t.as_dict(), False) for t in tools])
+
+
+@router.post("/capabilities/api", response_model=CapabilityResponse, status_code=status.HTTP_201_CREATED)
+def create_api(
+    payload: ApiPluginWrite,
+    membership: Membership = Depends(require_tenant_permission("capabilities:edit")),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> CapabilityResponse:
+    """Saves a draft (a plugin without a spec is allowed). It becomes available once a spec is parsed, a test call succeeded
+    and a tool is ticked — then the enable request goes through the approval policy like an MCP connection (CAP-053)."""
+    ensure_entitlement(db, membership.tenant_id, FEATURE["api"])
+    name = _validate_name(db, membership.tenant_id, "api", payload.name)
+    if len(payload.description.strip()) > DESCRIPTION_MAX:
+        raise ApiError(400, "validation.invalid_description", f"描述不能超过 {DESCRIPTION_MAX} 字")
+    actor = _actor_name(db, membership)
+    cap = Capability(tenant_id=membership.tenant_id, kind="api", name=name, description=payload.description.strip(), status="draft", created_by=actor, updated_by=actor)
+    db.add(cap)
+    db.flush()
+    plugin = ApiPlugin(capability_id=cap.id, tenant_id=cap.tenant_id)
+    db.add(plugin)
+    _apply_api_fields(plugin, payload, creating=True)
+    _audit(db, membership, "capability.created", cap)
+    db.commit()
+    return _response(db, membership, cap)
+
+
+@router.put("/capabilities/api/{capability_id}", response_model=CapabilityResponse)
+def update_api(
+    capability_id: UUID,
+    payload: ApiPluginWrite,
+    membership: Membership = Depends(require_tenant_permission("capabilities:edit")),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> CapabilityResponse:
+    cap = _load(db, membership, capability_id, "api")
+    plugin = db.get(ApiPlugin, cap.id)
+    assert plugin is not None
+    if payload.row_version is None:
+        raise ApiError(422, "validation.invalid", "缺少 row_version")
+    check_row_version(cap, payload.row_version, db)
+    cap.name = _validate_name(db, cap.tenant_id, "api", payload.name, exclude_id=cap.id)
+    if len(payload.description.strip()) > DESCRIPTION_MAX:
+        raise ApiError(400, "validation.invalid_description", f"描述不能超过 {DESCRIPTION_MAX} 字")
+    cap.description = payload.description.strip()
+    _apply_api_fields(plugin, payload, creating=False)
+    if cap.status == "available" and not api_svc.is_ready(plugin):
+        cap.status = "draft"  # CAP-041: usable only while a test call passed and a tool is ticked
+    warning = None
+    if cap.status == "draft" and api_svc.is_ready(plugin):
+        ensure_entitlement(db, cap.tenant_id, FEATURE["api"])
+        warning = _try_request_enable(db, membership, cap)
+    cap.row_version += 1
+    cap.updated_by = _actor_name(db, membership)
+    _audit(db, membership, "capability.updated", cap)
+    db.commit()
+    return _response(db, membership, cap).model_copy(update={"approval_warning": warning})
+
+
+@router.post("/capabilities/api/{capability_id}/test-call", response_model=ApiTestCallResult)
+def test_api_call(
+    capability_id: UUID,
+    payload: ApiTestCallRequest,
+    membership: Membership = Depends(require_tenant_permission("capabilities:edit")),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> ApiTestCallResult:
+    """CAP-041: call a ticked tool with the given arguments through the controlled executor and show the response. A write is
+    only carried out with ``confirmed: true`` — the same second confirmation an end user gives; a successful call is the
+    connection test that lets the plugin become available."""
+    cap = _load(db, membership, capability_id, "api")
+    ensure_entitlement(db, cap.tenant_id, FEATURE["api"])  # a real outbound call, so the plan applies like everywhere else
+    plugin = db.get(ApiPlugin, cap.id)
+    assert plugin is not None
+    if payload.tool not in (plugin.selected_tools or []):
+        raise ApiError(422, "capability.tool_not_selected", "请先勾选并保存该工具，再测试调用")
+    name = api_svc.tool_name(cap.id, payload.tool)
+    ctx = ToolContext(tenant_id=cap.tenant_id, allowed=frozenset({name}), allow_unavailable=True)
+    try:
+        result = invoke_tool(db, ctx, name, payload.arguments, confirmed=payload.confirmed)
+    except ToolConfirmationRequired:
+        return ApiTestCallResult(ok=False, status="confirmation_required", content="该工具会修改数据，确认后才会真正调用", code="tool.confirmation_required", capability=_response(db, membership, cap))
+    plugin = db.get(ApiPlugin, cap.id)  # the executor commits; read the row again
+    assert plugin is not None
+    warning = None
+    if result.status != "cancelled":
+        plugin.last_test_at, plugin.last_test_ok, plugin.last_test_tool = utc_now(), result.status == "ok", payload.tool
+        plugin.last_test_error = None if result.status == "ok" else result.content[:300]
+    _audit(db, membership, "capability.tested", cap, tool=payload.tool, result=result.status)
+    if result.status == "ok" and cap.status == "draft" and api_svc.is_ready(plugin):
+        warning = _try_request_enable(db, membership, cap)
+    db.commit()
+    response = _response(db, membership, cap).model_copy(update={"approval_warning": warning})
+    return ApiTestCallResult(ok=result.status == "ok", status=result.status, content=result.content, code=result.code, capability=response)  # type: ignore[arg-type]

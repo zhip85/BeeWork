@@ -99,6 +99,8 @@ class ToolContext:
     depth: int = 1
     environment: str = "production"  # which model environment a tool that calls a model (a leaf agent) uses
     check_stop: Callable[[], None] = lambda: None  # raises when the run was cancelled or timed out
+    # A test call from the capability centre may use a plugin that is still a draft (T-073); a disabled one never.
+    allow_unavailable: bool = False
     # The pipeline's pii_output hook (CAP-054): text -> text.
     guard_output: Callable[[str], str] = lambda text: text
     span: Callable[[str], AbstractContextManager] = lambda name: nullcontext()

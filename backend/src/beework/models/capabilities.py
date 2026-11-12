@@ -9,6 +9,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -76,6 +77,44 @@ class McpConnection(Base):
     health: Mapped[str] = mapped_column(String(8), nullable=False, default="unknown")  # unknown | ok | error
     health_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     health_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ApiPlugin(Base):
+    """An API a tenant connects (PRD 3.5.5, T-073): a REST API described by an OpenAPI document or a GraphQL endpoint described by
+    its SDL. The parsed tools carry the binding that turns a call into an HTTP request; credentials are encrypted and only
+    ever shown as masks."""
+
+    __tablename__ = "api_plugins"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["capability_id", "tenant_id"], ["capabilities.id", "capabilities.tenant_id"],
+            ondelete="CASCADE", name="fk_api_plugins_capability_same_tenant",
+        ),
+    )
+
+    capability_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    tenant_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False, index=True)
+    api_type: Mapped[str] = mapped_column(String(8), nullable=False, default="rest")  # rest | graphql
+    base_url: Mapped[str] = mapped_column(String(500), nullable=False, default="")  # for GraphQL: the endpoint
+    auth_type: Mapped[str] = mapped_column(String(10), nullable=False, default="none")  # none | api_key | bearer | oauth_cc
+    api_key_header: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    secret_encrypted: Mapped[str | None] = mapped_column(String(2000))  # the API key value / the bearer token
+    secret_last4: Mapped[str | None] = mapped_column(String(4))
+    oauth_token_url: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    oauth_client_id: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    oauth_client_secret_encrypted: Mapped[str | None] = mapped_column(String(2000))
+    oauth_client_secret_last4: Mapped[str | None] = mapped_column(String(4))
+    oauth_scope: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    oauth_access_encrypted: Mapped[str | None] = mapped_column(String(4000))  # cached client-credentials token
+    oauth_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    spec_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    spec_filename: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    tools: Mapped[list] = mapped_column(JSON, nullable=False, default=list)  # parsed: name, description, writes, input_schema, binding
+    selected_tools: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    last_test_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_test_ok: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_test_tool: Mapped[str | None] = mapped_column(String(64))
+    last_test_error: Mapped[str | None] = mapped_column(String(300))
 
 
 class PlatformSkill(Base):
