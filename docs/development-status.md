@@ -450,13 +450,13 @@
 
 > **2026-11-12 架构调整**：运行时改为 L2 JEV + L3 Agent + 统一能力注册中心，Dify 为流程引擎，自研画布取消（T-062–T-065 取消、T-058 由 T-161 取代、T-060 待 T-169 下线、WhatsApp 暂缓）。新增任务 T-160–T-169，见 [`architecture-runtime-v2.md`](./architecture-runtime-v2.md) 与任务看板。下面各节中关于画布的“进度”以此为准。
 
-### T-169 下线自研画布（待验收）
+### T-169 下线自研画布（已完成）
 
 - 自研画布取消（2026-11-12）：移除“流程画布”导航与页面、`/api/v1/agents*`、`agent_service`、`agents` / `flow_versions` 表（迁移 0051：有未删除的画布时拒绝并报数量，设 `BEEWORK_DROP_FLOW_CANVAS=1` 确认后才删；同时清掉画布的引用记录与 `flow_connections.flow_id`；可降级）；流程连接去掉 `native` 来源（遗留的 native 连接显示为失效，可改成 Dify 连接；这是 T-163 第 1 项的一部分，已在此完成）；`agents:*` 权限码保留为已弃用（角色矩阵不再显示）。
 - 验证：ruff；PostgreSQL 迁移升级 → `alembic check` → 降级 → 升级；迁移测试 4 项（有 / 无活画布、确认后删除与引用清理、降级重建）；前端 tsc / lint / i18n / style / build；全量后端。
 - **开发库里如有画布数据，执行迁移前要先确认丢弃**（见上）。
 
-### T-160 统一能力注册中心（待验收）
+### T-160 统一能力注册中心（已完成）
 
 - `capability_entries`（迁移 0052）：七种注册项（MCP 工具、API 工具、Skill、Dify Workflow / Chatflow、子智能体、知识库），派生自各来源（flush 监听器在同一事务里重算），ID 稳定，来源拥有的事实被覆盖、注册中心独有的字段（意图描述与示例、可直达、直接返回结果、超时与重试）不受影响；状态读取时按来源计算；按智能体挂载范围可见与召回；子智能体与知识库在各自页面管理、不在能力目录里注册。能力页新增“注册中心”页签。
 - 验证：ruff；PostgreSQL 迁移升降级 + `alembic check`；`test_capability_registry` 23 项；前端 tsc / lint / i18n / style / build。**超时与重试只存储与解析，执行侧在 T-165；召回只有关键词匹配。**
