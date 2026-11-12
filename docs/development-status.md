@@ -438,12 +438,12 @@
 - `platform_skills` / `skills`（迁移 0044）；上传 .zip / .skill / .md（≤ 20 MB、安全解压）、四项检查（Worker 逐项，脚本不执行只提示）、未通过不可启用不可挂载、通过后提交审批；平台内置 Skill（转人工、情绪识别、多语言回复）各租户只读可停用 / 复制，平台后台可维护；运行时按需加载工具 `skill:{能力ID}`。
 - 验证：ruff；Skill 31 项 + 能力相关模块重跑；前端各项检查；无头 Chrome 上传与检查。**发现并记录：开发环境 Worker 主循环被一个已删除租户的用量同步错误卡住，所有后台任务停止（T-011 需修）；修复了 `beework.capabilities` 冷启动循环导入。**
 
-### T-075 流程连接：Chatflow / Workflow 连接（待验收）
+### T-075 流程连接：Chatflow / Workflow 连接（已完成，有条件）
 
 - `flow_connections`（迁移 0049）；能力页 Chatflow / Workflow 页签；来源为本平台已发布画布（native）或 Dify 应用（dify）；Dify 调用经受控出口，API Key 加密、只显示掩码；画布停用 / 删除 → 连接“失效”，引用方配置检查提示；挂载、候选列表、`connection:{id}` 工具已注册，智能体可把连接作为工具调用。
 - 验证：ruff；PostgreSQL 迁移升降级 + `alembic check`；`test_flow_connections` 23 项新增 + 继承 40 项；前端 tsc / lint / i18n / style / build。**未连过真实 Dify（缺应用 API Key）；本平台画布的运行时在 T-062–T-064 之前不能被调用（返回 `tool.flow_runtime_unavailable`）。**
 
-### T-073 API 插件（待验收）
+### T-073 API 插件（已完成，有条件）
 
 - `api_plugins`（迁移 0050，叠在 T-075 的 0049 之上）；OpenAPI 3.0 / 3.1 与 GraphQL SDL 解析为工具（外部 `$ref` 拒绝、行号报错）；认证含无 / API Key / Bearer / OAuth 客户端凭证（令牌加密缓存与刷新）；调用经受控执行器且限定插件自己的主机；测试调用写操作需二次确认；满足“规范 + 测试成功 + 勾选工具”后按审批策略启用；可挂载到智能体并作为工具提供给模型。
 - 验证：ruff；PostgreSQL 迁移升降级 + `alembic check`；`test_api_spec` 20 项、`test_api_plugins` 45 项；前端 tsc / lint / i18n / style / build。**未连过真实第三方 API（只用 mock 传输）。**
