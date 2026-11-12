@@ -123,7 +123,11 @@ def _apply(db: Session, membership: Membership, conn: FlowConnection, payload: F
         missing.append("API Key")
     if missing:
         raise ApiError(422, "validation.invalid", f"请填写：{'、'.join(missing)}")
-    conn.base_url = _checked_url(base_url)
+    new_url = _checked_url(base_url)
+    if not secret and conn.source_type == "dify" and svc.host_of(new_url) != svc.host_of(conn.base_url):
+        # a stored key belongs to the host it was entered for: it must not travel to another one
+        raise ApiError(422, "flow_connection.credential_reentry", "更换了 Base URL 的主机，请重新填写 API Key（已保存的凭据不会发往新主机）")
+    conn.base_url = new_url
     conn.app_id = app_id
     if secret:
         conn.credential_encrypted = encrypt_model_api_key(secret)

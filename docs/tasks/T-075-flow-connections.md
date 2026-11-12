@@ -65,3 +65,7 @@
 4. `streaming` 开关只保存配置，调用仍是 blocking。
 5. `app_id` 仅作标识保存（Dify 的 API Key 本身就绑定应用）；不影响调用。
 6. 门户应用（T-140）把连接作为来源、OC 路由（T-058）引用连接，各自任务里接入；删除连接时不阻止（前端确认框列引用数），引用方在配置检查里显示失效。
+
+## 评审修正（2026-11-12）
+
+与 T-073 同类的问题：只改 Dify 连接的 Base URL 主机而把 API Key 留空，会把已保存的 Key 发到新主机。现在更换主机必须重新填写 API Key（422 `flow_connection.credential_reentry`）；同主机改路径不受影响；新增回归测试 `test_pointing_a_dify_connection_at_another_host_needs_the_key_again`。T-072 的 MCP 连接有同样的问题，本次未改。

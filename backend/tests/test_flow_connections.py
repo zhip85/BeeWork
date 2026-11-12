@@ -292,6 +292,15 @@ class FlowConnectionTests(test_agents.FlowTests):
         self.assertEqual((failed["ok"], failed["error_category"], failed["error"]), (False, "invalid", "底层流程已停用"))
         self.assertEqual(self.server.requests, [])
 
+    def test_pointing_a_dify_connection_at_another_host_needs_the_key_again(self) -> None:
+        data = self.dify()
+        refused = self.update(data["id"], base_url="https://attacker.example.com/v1")
+        self.assertEqual((refused.status_code, refused.json()["code"]), (422, "flow_connection.credential_reentry"))
+        self.assertEqual(self.conn(data["id"])["host"], "api.dify.example.com")  # nothing was saved
+        self.assertEqual(self.update(data["id"], base_url="https://api.dify.example.com/v2").status_code, 200)  # same host: fine
+        moved = self.update(data["id"], base_url="https://dify.other.example.com/v1", credential="app-MOVED-0000000000")
+        self.assertEqual((moved.status_code, moved.json()["credential_mask"]), (200, "****0000"))
+
     # -- lifecycle ----------------------------------------------------------------------
 
     def test_update_checks_the_row_version_and_cannot_change_the_kind(self) -> None:
