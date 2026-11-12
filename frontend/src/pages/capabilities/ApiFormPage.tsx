@@ -97,7 +97,10 @@ export function ApiFormPage({ tenant }: { tenant: TenantMembership }) {
   }
 
   const parse = () => void run(async () => {
-    setPreview(await apiRequest<ApiParseResult>('/api/v1/capabilities/api/parse', { method: 'POST', body: JSON.stringify({ api_type: form.apiType, spec_text: form.spec }) }, tenant.id))
+    const result = await apiRequest<ApiParseResult>('/api/v1/capabilities/api/parse', { method: 'POST', body: JSON.stringify({ api_type: form.apiType, spec_text: form.spec }) }, tenant.id)
+    setPreview(result)
+    // The new description decides which tools exist: ticks of tools that are gone are dropped, the rest stay.
+    if (result.ok) setSelected((current) => current.filter((name) => result.tools.some((tool) => tool.name === name)))
   })
 
   const submit = (event: FormEvent) => {
@@ -108,7 +111,9 @@ export function ApiFormPage({ tenant }: { tenant: TenantMembership }) {
         navigate(`/capabilities/api/${created.id}`, { replace: true })
         apply(created); setNotice(t('apiForm.created'))
       } else if (cap) {
-        const saved = await apiRequest<Capability>(`/api/v1/capabilities/api/${cap.id}`, { method: 'PUT', body: JSON.stringify(payload({ selected_tools: selected, row_version: cap.row_version })) }, tenant.id)
+        // With a changed description the server reconciles the ticks itself unless a preview showed the new tool list.
+        const ticks = !specTouched ? { selected_tools: selected } : preview?.ok ? { selected_tools: selected.filter((name) => preview.tools.some((tool) => tool.name === name)) } : {}
+        const saved = await apiRequest<Capability>(`/api/v1/capabilities/api/${cap.id}`, { method: 'PUT', body: JSON.stringify(payload({ ...ticks, row_version: cap.row_version })) }, tenant.id)
         apply(saved); setTestResult(null)
         setNotice(saved.pending_approval ? t('apiForm.savedPending') : t('apiForm.saved'))
         if (saved.approval_warning) setError(saved.approval_warning)
@@ -202,12 +207,12 @@ export function ApiFormPage({ tenant }: { tenant: TenantMembership }) {
               <div className="capability-tools-head">
                 <span>{t('apiForm.tools', { count: selected.length })}</span>
                 {writable && toolList.some((tool) => !tool.writes) && (
-                  <button className="secondary-button" onClick={() => setSelected(Array.from(new Set([...selected, ...api.tools.filter((tool) => !tool.writes).map((tool) => tool.name)])))} type="button">{t('apiForm.selectReadOnly')}</button>
+                  <button className="secondary-button" onClick={() => setSelected(Array.from(new Set([...selected, ...toolList.filter((tool) => !tool.writes).map((tool) => tool.name)])))} type="button">{t('apiForm.selectReadOnly')}</button>
                 )}
               </div>
               <p className="wizard-muted">{api.has_spec || specTouched ? t('apiForm.toolsHint') : t('apiForm.noSpec')}</p>
               <ul>
-                {api.tools.map((tool) => (
+                {toolList.map((tool) => (
                   <li key={tool.name}>
                     <label>
                       <input checked={selected.includes(tool.name)} disabled={locked} onChange={(event) => setSelected(event.target.checked ? [...selected, tool.name] : selected.filter((name) => name !== tool.name))} type="checkbox" />

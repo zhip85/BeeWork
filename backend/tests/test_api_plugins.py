@@ -68,8 +68,11 @@ class FakeShop:
         self.fail: int | str | None = None  # an HTTP status, or "down"
         self.key = SECRET
         self.graphql_errors = False
+        self.reject_all = False  # answer 401 to every API call, whatever credential comes
 
     def authorized(self, request: httpx.Request) -> bool:
+        if self.reject_all:
+            return False
         if self.key is None:  # an open API
             return True
         header = request.headers.get("authorization") or ""
@@ -275,7 +278,7 @@ class ApiPluginTests(test_assistants.AssistantTests):
 
     def test_changing_the_spec_or_base_url_resets_the_test_and_drops_a_plugin_back_to_draft(self) -> None:
         cap_id = self.ready_plugin(tools=("listOrders",))
-        dropped = self.update_plugin(cap_id, base_url="https://api2.shop.example.com/v1").json()
+        dropped = self.update_plugin(cap_id, base_url="https://api2.shop.example.com/v1", secret=SECRET).json()  # a new host: the key is entered again
         self.assertEqual((dropped["status"], dropped["api"]["last_test_ok"]), ("draft", False))
         self.assertTrue(self.call_api(cap_id, "listOrders").json()["ok"])
         again = self.update_plugin(cap_id, spec_text=OPENAPI.replace("listOrders", "listAll")).json()
@@ -502,6 +505,113 @@ class ApiPluginTests(test_assistants.AssistantTests):
         self.addCleanup(lambda: setattr(entitlements, "has_entitlement", original))
         refused = self.make_plugin()
         self.assertEqual((refused.status_code, refused.json()["code"]), (403, "plan.feature_locked"))
+
+    # -- review findings (T-073) ---------------------------------------------------------------------
+
+    def test_switching_the_auth_type_never_reuses_the_stored_credential_of_the_old_one(self) -> None:
+        cap_id = self.make_plugin().json()["id"]  # api_key with a stored key
+        refused = self.update_plugin(cap_id, auth_type="bearer", api_key_header="")
+        self.assertEqual((refused.status_code, refused.json()["code"]), (422, "capability.token_required"))
+        with self.session_factory() as db:
+            self.assertEqual(db.get(ApiPlugin, UUID(cap_id)).auth_type, "api_key")  # nothing was saved
+        switched = self.update_plugin(cap_id, auth_type="bearer", api_key_header="", secret="bearer-NEW-1111")
+        self.assertEqual((switched.status_code, switched.json()["api"]["secret_mask"]), (200, "••••1111"))
+        back = self.update_plugin(cap_id, auth_type="api_key", api_key_header="X-API-Key")  # and back again: also needs a new key
+        self.assertEqual(back.json()["code"], "capability.token_required")
+        same = self.update_plugin(cap_id, auth_type="bearer", api_key_header="", description="same auth keeps the secret")
+        self.assertEqual((same.status_code, same.json()["api"]["secret_mask"]), (200, "••••1111"))
+
+    def test_switching_to_oauth_needs_the_client_secret_again(self) -> None:
+        extra = {"auth_type": "oauth_cc", "secret": None, "api_key_header": "", "oauth_token_url": TOKEN_URL, "oauth_client_id": "c1", "oauth_client_secret": "cs-SENTINEL-9999"}
+        cap_id = self.make_plugin(**extra).json()["id"]
+        self.assertEqual(self.update_plugin(cap_id, auth_type="none").status_code, 200)
+        refused = self.update_plugin(cap_id, auth_type="oauth_cc", oauth_token_url=TOKEN_URL, oauth_client_id="c1")
+        self.assertEqual(refused.json()["code"], "capability.oauth_secret_required")
+
+    def test_a_test_call_needs_the_plan_feature_like_the_other_endpoints(self) -> None:
+        from beework import entitlements
+
+        cap_id = self.ready_plugin()
+        original = entitlements.has_entitlement
+        entitlements.has_entitlement = lambda db, tenant_id, key: False if key == "external_flows" else original(db, tenant_id, key)
+        self.addCleanup(lambda: setattr(entitlements, "has_entitlement", original))
+        before = len(self.shop.requests)
+        refused = self.call_api(cap_id, "createOrder", {"body": {"sku": "A"}}, confirmed=True)
+        self.assertEqual((refused.status_code, refused.json()["code"]), (403, "plan.feature_locked"))
+        self.assertEqual(len(self.shop.requests), before)  # nothing left the platform
+
+    def test_a_revoked_oauth_token_is_dropped_and_the_call_retried_once(self) -> None:
+        extra = {"auth_type": "oauth_cc", "secret": None, "api_key_header": "", "oauth_token_url": TOKEN_URL, "oauth_client_id": "client-1", "oauth_client_secret": "cs-SENTINEL-9999", "oauth_scope": ""}
+        cap_id = self.ready_plugin(**extra)
+        self.assertEqual(self.shop.tokens_issued, 1)
+        self.shop.tokens_issued += 1  # the provider rotated: the cached tok-1 is no longer accepted, long before its expiry
+        result = self.run_tool(cap_id, "listOrders", {})
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(self.shop.tokens_issued, 3)  # exactly one fresh token was fetched
+        self.assertEqual(self.shop.requests[-1].headers["authorization"], "Bearer tok-3")
+        self.shop.reject_all = True  # a fresh token that is rejected too is reported, not retried forever
+        before = len([r for r in self.shop.requests if r.url.path == "/oauth/token"])
+        denied = self.run_tool(cap_id, "listOrders", {})
+        self.assertEqual((denied.status, denied.code), ("error", "tool.auth_failed"))
+        self.assertEqual(len([r for r in self.shop.requests if r.url.path == "/oauth/token"]) - before, 1)  # one refresh, then it stops
+
+    def test_a_header_that_differs_only_in_case_cannot_override_the_credential(self) -> None:
+        spec = OPENAPI.replace("        - {name: X-Region, in: header, schema: {type: string}}", "        - {name: x-api-key, in: header, schema: {type: string}}")
+        cap_id = self.ready_plugin(spec_text=spec)
+        result = self.run_tool(cap_id, "getOrder", {"orderId": "7", "x-api-key": "model-guess"})
+        self.assertEqual(result.status, "ok")
+        sent = self.shop.requests[-1].headers
+        self.assertEqual(sent.get_list("x-api-key"), [SECRET])
+
+    def test_a_parameter_called_body_and_a_request_body_both_reach_the_server(self) -> None:
+        spec = ("openapi: 3.0.0\npaths:\n  /orders:\n    post:\n      operationId: createOrder\n      parameters:\n        - {name: body, in: query, schema: {type: string}}\n"
+                "      requestBody:\n        required: true\n        content:\n          application/json:\n            schema: {type: object, properties: {sku: {type: string}}}\n")
+        cap_id = self.make_plugin(spec_text=spec).json()["id"]
+        self.assertEqual(self.update_plugin(cap_id, selected_tools=["createOrder"]).status_code, 200)
+        called = self.call_api(cap_id, "createOrder", {"body": "q", "request_body": {"sku": "S1"}}, confirmed=True).json()
+        self.assertTrue(called["ok"], called)
+        sent = self.shop.requests[-1]
+        self.assertEqual((sent.url.query, json.loads(sent.content)), (b"body=q", {"sku": "S1"}))
+
+    def test_a_tool_stored_before_the_body_argument_was_named_still_works(self) -> None:
+        cap_id = self.ready_plugin()
+        with self.session_factory.begin() as db:
+            row = db.get(ApiPlugin, UUID(cap_id))
+            tools = json.loads(json.dumps(row.tools))
+            for tool in tools:
+                tool["binding"].pop("body_arg", None)
+            row.tools = tools
+        self.assertEqual(self.run_tool(cap_id, "createOrder", {"body": {"sku": "OLD"}}).status, "ok")
+        self.assertEqual(json.loads(self.shop.requests[-1].content), {"sku": "OLD"})
+
+    def test_the_list_carries_names_and_counts_and_the_detail_carries_the_schemas(self) -> None:
+        cap_id = self.ready_plugin()
+        listed = self.client.get("/api/v1/capabilities?kind=api", headers=self.admin).json()[0]["api"]
+        self.assertEqual(([t["name"] for t in listed["tools"]], [t["input_schema"] for t in listed["tools"]]), (["listOrders", "createOrder", "getOrder"], [{}, {}, {}]))
+        detail = self.get_cap(cap_id)["api"]
+        self.assertIn("properties", detail["tools"][1]["input_schema"])
+
+    def test_the_service_reuses_the_capability_helpers(self) -> None:
+        from beework import capability_service
+
+        self.assertIs(svc.host_of, capability_service.host_of)
+        self.assertFalse(hasattr(svc, "mask_of"))
+
+    def test_pointing_the_plugin_at_another_host_needs_the_credential_again(self) -> None:
+        cap_id = self.make_plugin().json()["id"]
+        refused = self.update_plugin(cap_id, base_url="https://attacker.example.com/v1")
+        self.assertEqual((refused.status_code, refused.json()["code"]), (422, "capability.credential_reentry"))
+        self.assertEqual(self.get_cap(cap_id)["api"]["host"], "api.shop.example.com")  # nothing was saved
+        self.assertEqual(self.update_plugin(cap_id, base_url="https://api.shop.example.com/v2").status_code, 200)  # same host: fine
+        moved = self.update_plugin(cap_id, base_url="https://api2.shop.example.com/v1", secret="key-NEW-HOST-0000")
+        self.assertEqual((moved.status_code, moved.json()["api"]["secret_mask"]), (200, "••••0000"))
+
+    def test_moving_the_oauth_token_url_to_another_host_needs_the_client_secret_again(self) -> None:
+        extra = {"auth_type": "oauth_cc", "secret": None, "api_key_header": "", "oauth_token_url": TOKEN_URL, "oauth_client_id": "c1", "oauth_client_secret": "cs-SENTINEL-9999"}
+        cap_id = self.make_plugin(**extra).json()["id"]
+        refused = self.update_plugin(cap_id, oauth_token_url="https://attacker.example.com/token")
+        self.assertEqual((refused.status_code, refused.json()["code"]), (422, "capability.credential_reentry"))
+        self.assertEqual(self.update_plugin(cap_id, oauth_token_url="https://auth.shop.example.com/v2/token").status_code, 200)
 
 
 if __name__ == "__main__":

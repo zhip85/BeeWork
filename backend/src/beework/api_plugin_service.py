@@ -10,7 +10,7 @@ time, cached encrypted and refreshed shortly before it expires (CAP-040).
 import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from urllib.parse import quote, urlencode, urlsplit
+from urllib.parse import quote, urlencode
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from beework.api_spec import ApiTool, SpecError, parse_spec
 from beework.capabilities import CANDIDATE_LISTERS, MOUNT_RESOLVERS, MountItem
-from beework.capability_service import _live_caps, decrypt, encrypt
+from beework.capability_service import _live_caps, decrypt, encrypt, host_of
 from beework.models.capabilities import ApiPlugin, Capability
 from beework.tools.executor import PROVIDERS, ToolContext, ToolError, ToolOutput, ToolSpec
 from beework.tools.http import ToolHttpError, safe_request
@@ -30,14 +30,6 @@ TOKEN_REFRESH_MARGIN = timedelta(seconds=60)
 # Headers the model may not set through a parameter: they would change who the request is for or how it is framed.
 FORBIDDEN_HEADERS = {"host", "content-length", "transfer-encoding", "connection", "authorization", "cookie", "proxy-authorization", "te", "upgrade"}
 DEFAULT_TOKEN_TTL = 3600
-
-
-def host_of(url: str) -> str:
-    return urlsplit(url).hostname or url
-
-
-def mask_of(last4: str | None) -> str | None:
-    return f"••••{last4}" if last4 else None
 
 
 # ---------------------------------------------------------------------------
@@ -156,8 +148,9 @@ def _rest_request(plugin: ApiPlugin, binding: dict[str, Any], args: dict[str, An
             raise ToolError("tool.invalid_arguments", f"不允许设置请求头 {entry['name']}")
         headers[entry["name"]] = _text(args[entry["arg"]])
     request: dict[str, Any] = {"method": binding["method"], "url": plugin.base_url.rstrip("/") + path, "params": query, "headers": headers}
-    if binding.get("body") and args.get("body") is not None:
-        request["json"] = args["body"]
+    body_arg = binding.get("body_arg") or "body"  # tools parsed before T-073 fixes carry no body_arg
+    if binding.get("body") and args.get(body_arg) is not None:
+        request["json"] = args[body_arg]
     return request
 
 
@@ -187,19 +180,31 @@ def _error_text(body: bytes) -> str:
     return text[:200]
 
 
-def call_tool(plugin: ApiPlugin, tool: dict[str, Any], ctx: ToolContext | None, args: dict[str, Any]) -> tuple[str, int]:
-    """Send one call and return (text for the model, request bytes)."""
-    binding = tool.get("binding") or {}
-    request = _graphql_request(plugin, binding, args) if binding.get("type") == "graphql" else _rest_request(plugin, binding, args)
-    headers = {**request["headers"], **auth_headers(plugin, ctx)}
-    sent = len(json.dumps(request.get("json"), ensure_ascii=False)) if "json" in request else 0
+def _send(plugin: ApiPlugin, request: dict[str, Any], ctx: ToolContext | None):
+    auth = auth_headers(plugin, ctx)
+    credential_names = {name.lower() for name in auth}
+    # HTTP header names are case-insensitive: a model-filled "x-api-key" must not travel next to the configured "X-API-Key".
+    headers = {name: value for name, value in request["headers"].items() if name.lower() not in credential_names}
+    headers.update(auth)
     try:
-        result = safe_request(
+        return safe_request(
             request["method"], request["url"], headers=headers, json=request.get("json"), params=request["params"],
             allowed_host=host_of(plugin.base_url), resolver=RESOLVER, transport=TRANSPORT,
         )
     except ToolHttpError as exc:
         raise ToolError(exc.code, exc.message) from exc
+
+
+def call_tool(plugin: ApiPlugin, tool: dict[str, Any], ctx: ToolContext | None, args: dict[str, Any]) -> tuple[str, int]:
+    """Send one call and return (text for the model, request bytes)."""
+    binding = tool.get("binding") or {}
+    request = _graphql_request(plugin, binding, args) if binding.get("type") == "graphql" else _rest_request(plugin, binding, args)
+    sent = len(json.dumps(request.get("json"), ensure_ascii=False)) if "json" in request else 0
+    result = _send(plugin, request, ctx)
+    if result.status == 401 and plugin.auth_type == "oauth_cc" and plugin.oauth_access_encrypted:
+        # The provider may have revoked the token before its recorded expiry: drop the cache and try once with a new one.
+        plugin.oauth_access_encrypted, plugin.oauth_expires_at = None, None
+        result = _send(plugin, request, ctx)
     if result.status in (401, 403):
         raise ToolError("tool.auth_failed", "接口拒绝了凭据，请检查认证配置")
     if not 200 <= result.status < 300:

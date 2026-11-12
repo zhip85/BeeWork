@@ -129,24 +129,24 @@ def _mcp_detail(conn: McpConnection) -> McpDetail:
     )
 
 
-def _api_detail(plugin: ApiPlugin) -> ApiDetail:
+def _api_detail(plugin: ApiPlugin, *, schemas: bool = True) -> ApiDetail:
     ticked = set(plugin.selected_tools or [])
     return ApiDetail(
         api_type=plugin.api_type, base_url=plugin.base_url, host=api_svc.host_of(plugin.base_url) if plugin.base_url else "",  # type: ignore[arg-type]
-        auth_type=plugin.auth_type, api_key_header=plugin.api_key_header, secret_mask=api_svc.mask_of(plugin.secret_last4),  # type: ignore[arg-type]
+        auth_type=plugin.auth_type, api_key_header=plugin.api_key_header, secret_mask=svc.mask(plugin.secret_last4),  # type: ignore[arg-type]
         oauth_token_url=plugin.oauth_token_url, oauth_client_id=plugin.oauth_client_id,
-        oauth_client_secret_mask=api_svc.mask_of(plugin.oauth_client_secret_last4), oauth_scope=plugin.oauth_scope,
+        oauth_client_secret_mask=svc.mask(plugin.oauth_client_secret_last4), oauth_scope=plugin.oauth_scope,
         spec_filename=plugin.spec_filename, has_spec=bool(plugin.spec_text),
-        tools=[_api_tool_entry(t, t["name"] in ticked) for t in plugin.tools or []],
+        tools=[_api_tool_entry(t, t["name"] in ticked, schemas) for t in plugin.tools or []],
         last_test_at=plugin.last_test_at, last_test_ok=plugin.last_test_ok, last_test_tool=plugin.last_test_tool,
         last_test_error=plugin.last_test_error,
     )
 
 
-def _api_tool_entry(tool: dict, selected: bool) -> ApiToolEntry:
+def _api_tool_entry(tool: dict, selected: bool, schemas: bool = True) -> ApiToolEntry:
     return ApiToolEntry(
         name=tool["name"], description=tool.get("description", ""), writes=bool(tool.get("writes")), selected=selected,
-        input_schema=tool.get("input_schema") or {},
+        input_schema=(tool.get("input_schema") or {}) if schemas else {},  # the list needs names and counts only
     )
 
 
@@ -172,7 +172,7 @@ def _skill_meta(db: Session, skill: Skill) -> str:
     return f"{label} · {skill.filename}"
 
 
-def _response(db: Session, membership: Membership, cap: Capability) -> CapabilityResponse:
+def _response(db: Session, membership: Membership, cap: Capability, *, full: bool = True) -> CapabilityResponse:
     conn = db.get(McpConnection, cap.id) if cap.kind == "mcp" else None
     skill = db.get(Skill, cap.id) if cap.kind == "skill" else None
     pending = pending_request(db, cap.tenant_id, "capability", cap.id)
@@ -184,7 +184,7 @@ def _response(db: Session, membership: Membership, cap: Capability) -> Capabilit
         update={
             "meta": meta, "pending_approval": pending is not None,
             "approval_id": pending.id if pending else None, "mcp": _mcp_detail(conn) if conn else None,
-            "skill": _skill_detail(db, skill) if skill else None, "api": _api_detail(plugin) if plugin else None,
+            "skill": _skill_detail(db, skill) if skill else None, "api": _api_detail(plugin, schemas=full) if plugin else None,
             "can_edit": _can(db, membership, "capabilities:edit") and not builtin,
             "can_publish": _can(db, membership, "capabilities:publish"),
             "can_delete": _can(db, membership, "capabilities:delete") and not builtin,
@@ -288,7 +288,7 @@ def list_capabilities(
     statement = select(Capability).where(Capability.tenant_id == membership.tenant_id, Capability.kind == kind, Capability.deleted_at.is_(None))
     if q and q.strip():
         statement = statement.where(func.lower(Capability.name).like(f"%{q.strip().lower()}%"))
-    return [_response(db, membership, cap) for cap in db.scalars(statement.order_by(func.lower(Capability.name), Capability.id))]
+    return [_response(db, membership, cap, full=False) for cap in db.scalars(statement.order_by(func.lower(Capability.name), Capability.id))]
 
 
 @router.get("/capabilities/{capability_id}", response_model=CapabilityResponse)
@@ -855,6 +855,10 @@ def _apply_api_fields(plugin: ApiPlugin, payload: ApiPluginWrite, *, creating: b
     if not base_url:
         raise ApiError(422, "capability.invalid_url", "请填写 Base URL")
     type_changed = not creating and payload.api_type != plugin.api_type
+    same_auth = not creating and payload.auth_type == plugin.auth_type  # a stored secret belongs to the auth type it was entered for
+    # ...and to the host it was entered for: pointing the plugin at another host must not carry the stored secret along
+    same_host = not creating and svc.host_of(base_url) == svc.host_of(plugin.base_url)
+    same_token_host = not creating and bool(payload.oauth_token_url.strip()) and svc.host_of(payload.oauth_token_url.strip()) == svc.host_of(plugin.oauth_token_url)
     changed = creating or type_changed or base_url != plugin.base_url or payload.auth_type != plugin.auth_type
     plugin.api_type, plugin.base_url, plugin.auth_type = payload.api_type, base_url, payload.auth_type
     secret = (payload.secret or "").strip()
@@ -869,8 +873,10 @@ def _apply_api_fields(plugin: ApiPlugin, payload: ApiPluginWrite, *, creating: b
             plugin.api_key_header = ""
         if secret:
             plugin.secret_encrypted, plugin.secret_last4, changed = svc.encrypt(secret), secret[-4:], True
-        elif not plugin.secret_encrypted:
+        elif not (same_auth and plugin.secret_encrypted):
             raise ApiError(422, "capability.token_required", "请填写 API Key" if payload.auth_type == "api_key" else "请填写访问令牌")
+        elif not same_host:
+            raise ApiError(422, "capability.credential_reentry", "更换了服务地址的主机，请重新填写凭据（已保存的凭据不会发往新主机）")
     else:
         plugin.secret_encrypted = plugin.secret_last4 = None
         plugin.api_key_header = ""
@@ -884,8 +890,10 @@ def _apply_api_fields(plugin: ApiPlugin, payload: ApiPluginWrite, *, creating: b
         client_secret = (payload.oauth_client_secret or "").strip()
         if client_secret:
             plugin.oauth_client_secret_encrypted, plugin.oauth_client_secret_last4, changed = svc.encrypt(client_secret), client_secret[-4:], True
-        elif not plugin.oauth_client_secret_encrypted:
+        elif not (same_auth and plugin.oauth_client_secret_encrypted):
             raise ApiError(422, "capability.oauth_secret_required", "请填写 OAuth 客户端密钥")
+        elif not same_token_host:
+            raise ApiError(422, "capability.credential_reentry", "更换了 Token URL 的主机，请重新填写客户端密钥")
     else:
         plugin.oauth_token_url = plugin.oauth_client_id = plugin.oauth_scope = ""
         plugin.oauth_client_secret_encrypted = plugin.oauth_client_secret_last4 = None
@@ -998,6 +1006,7 @@ def test_api_call(
     only carried out with ``confirmed: true`` — the same second confirmation an end user gives; a successful call is the
     connection test that lets the plugin become available."""
     cap = _load(db, membership, capability_id, "api")
+    ensure_entitlement(db, cap.tenant_id, FEATURE["api"])  # a real outbound call, so the plan applies like everywhere else
     plugin = db.get(ApiPlugin, cap.id)
     assert plugin is not None
     if payload.tool not in (plugin.selected_tools or []):

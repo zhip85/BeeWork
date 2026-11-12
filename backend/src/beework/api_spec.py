@@ -19,6 +19,8 @@ import yaml
 MAX_SPEC_BYTES = 1_000_000
 MAX_TOOLS = 200
 MAX_REF_DEPTH = 6
+MAX_INLINE_NODES = 200_000  # per document: a small spec of schemas that reference each other must not expand without bound
+MAX_TOOLS_JSON_BYTES = 4_000_000
 HTTP_METHODS = ("get", "put", "post", "delete", "patch")
 SAFE_METHODS = {"get"}
 NAME_OK = re.compile(r"[^A-Za-z0-9_-]+")
@@ -109,6 +111,7 @@ class _Resolver:
 
     def __init__(self, document: dict[str, Any], text: str) -> None:
         self.document, self.text = document, text
+        self.nodes = 0
 
     def lookup(self, ref: str) -> Any:
         if not ref.startswith("#/"):
@@ -122,6 +125,9 @@ class _Resolver:
         return node
 
     def inline(self, node: Any, seen: tuple[str, ...] = (), depth: int = 0) -> Any:
+        self.nodes += 1
+        if self.nodes > MAX_INLINE_NODES:
+            raise SpecError("规范展开后过大（引用嵌套过深或过多），请精简或拆分规范")
         if isinstance(node, dict):
             ref = node.get("$ref")
             if isinstance(ref, str):
@@ -154,7 +160,8 @@ def parse_openapi(text: str) -> list[ApiTool]:
     tools: list[ApiTool] = []
     taken: set[str] = set()
     for path, item in paths.items():
-        item = resolver.inline(item) if isinstance(item, dict) else None
+        if isinstance(item, dict) and isinstance(item.get("$ref"), str):
+            item = resolver.lookup(item["$ref"])  # a path item reference; only the parts a tool needs are inlined below
         if not isinstance(item, dict):
             raise SpecError(f"路径 {path} 的定义必须是对象", _line_of(text, str(path)))
         shared = item.get("parameters") if isinstance(item.get("parameters"), list) else []
@@ -167,16 +174,18 @@ def parse_openapi(text: str) -> list[ApiTool]:
                 raise SpecError(f"接口数量超过上限 {MAX_TOOLS}，请精简规范")
     if not tools:
         raise SpecError("没有可用的接口（path 下需要 get / post / put / patch / delete）", _line_of(text, "paths"))
+    if len(json.dumps([t.as_dict() for t in tools], ensure_ascii=False)) > MAX_TOOLS_JSON_BYTES:
+        raise SpecError("解析出的工具定义过大，请精简规范")
     return tools
 
 
 def _openapi_tool(resolver: _Resolver, text: str, taken: set[str], path: str, method: str, operation: dict[str, Any], shared: list) -> ApiTool:
-    operation = resolver.inline(operation)
+    # Only what a tool needs is read and inlined — never responses, callbacks or examples.
     raw_name = str(operation.get("operationId") or f"{method}_{path}")
     name = _unique(_clean_name(raw_name), taken)
     description = str(operation.get("summary") or operation.get("description") or f"{method.upper()} {path}")[:300]
     merged: dict[tuple[str, str], dict[str, Any]] = {}
-    for parameter in [*shared, *(operation.get("parameters") or [])]:
+    for parameter in [*shared, *(operation.get("parameters") if isinstance(operation.get("parameters"), list) else [])]:
         parameter = resolver.inline(parameter)
         if not isinstance(parameter, dict) or not parameter.get("name") or parameter.get("in") not in ("path", "query", "header"):
             continue  # cookies and malformed entries are not offered to the model
@@ -196,16 +205,17 @@ def _openapi_tool(resolver: _Resolver, text: str, taken: set[str], path: str, me
         binding[f"{location}_params"].append({"name": pname, "arg": pname_key})
         if parameter.get("required") or location == "path":
             required.append(pname_key)
-    body = operation.get("requestBody")
+    body = resolver.inline(operation.get("requestBody")) if isinstance(operation.get("requestBody"), dict) else None
     if isinstance(body, dict):
         content = body.get("content") if isinstance(body.get("content"), dict) else {}
         media = content.get("application/json") or next(iter(content.values()), None)
         if isinstance(media, dict):
             schema = _schema_of(resolver, media.get("schema")) or {"type": "object"}
-            properties["body"] = {**schema, "description": schema.get("description") or "请求体（JSON）"}
-            binding["body"] = True
+            body_arg = "request_body" if "body" in properties else "body"  # a parameter may already be called "body"
+            properties[body_arg] = {**schema, "description": schema.get("description") or "请求体（JSON）"}
+            binding["body"], binding["body_arg"] = True, body_arg
             if body.get("required"):
-                required.append("body")
+                required.append(body_arg)
     parameters = {"type": "object", "properties": properties, "required": required}
     return ApiTool(name=name, description=description, writes=method not in SAFE_METHODS, parameters=parameters, binding=binding)
 
@@ -377,7 +387,21 @@ class _Sdl:
                     self.skip_directives()
                 self.take("}")
                 self.enums[name] = values
-            elif keyword in ("scalar", "union", "directive", "fragment"):
+            elif keyword == "directive":  # directive @name(args) [repeatable] on LOCATION | LOCATION: accepted and ignored
+                self.take("@")
+                self.take()
+                if self.peek() == "(":
+                    self.skip_group("(", ")")
+                if self.peek() == "repeatable":
+                    self.take()
+                self.take("on")
+                if self.peek() == "|":
+                    self.take("|")
+                self.take()
+                while self.peek() == "|":
+                    self.take("|")
+                    self.take()
+            elif keyword in ("scalar", "union", "fragment"):
                 if keyword == "union":
                     self.unions.add(self.take())
                     self.skip_directives()

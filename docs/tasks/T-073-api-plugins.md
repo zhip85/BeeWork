@@ -38,3 +38,21 @@
 4. 首次解析后**默认不勾选任何工具**（写操作不默认开放），管理员逐个勾选；与 MCP“首次全选”不同。
 5. 令牌缓存按插件存一份；多个 Worker 同时过期时可能各取一次令牌，不影响正确性。
 6. 健康检查（CAP-032 对 MCP 的定时探测）没有做；API 插件的失败只在调用和测试时体现。
+
+## 评审修正（2026-11-12）
+
+代码评审（`/code-review high`）发现 10 条问题，已全部修复并补回归测试；评审之外还修了 1 条同类问题：
+
+1. 换认证方式（API Key ↔ Bearer、OAuth ↔ 其他）且密钥框留空时，不再沿用旧认证方式下保存的凭据（422 `capability.token_required` / `oauth_secret_required`），留空保持不变只在认证方式没变时生效。
+2. `test-call` 补上 `ensure_entitlement`（与其他接口一致），无权益时 403 且不发任何请求。
+3. OpenAPI 解析加了展开节点预算（20 万）与工具定义总大小上限（4 MB），并且只展开工具需要的部分（参数、请求体），不再展开 responses / callbacks；循环互引的小规范会在 5 秒内报“展开后过大”。
+4. GraphQL `directive` 定义（含 `repeatable`、多个位置）被接受并忽略；不完整的定义仍报错。
+5. 前端换规范后工具清单显示新解析出的工具，勾选自动去掉已不存在的工具；保存时未预览则不提交 `selected_tools`，由服务端对账，不会再因旧勾选名 422。
+6. OAuth 客户端凭证的令牌在 401 时清掉缓存并重试一次；再次被拒则报 `tool.auth_failed`，不循环。
+7. 与参数同名的 `body` 不再被请求体覆盖：请求体参数改名 `request_body`（`binding.body_arg`；旧数据没有 `body_arg` 时按 `body`）。
+8. 认证头与模型填写的同名请求头按大小写不敏感比较，模型填的那份被丢弃。
+9. `GET /capabilities?kind=api` 只返回工具名与勾选状态，不带 `input_schema`（单个详情才带）。
+10. `host_of` / `mask` 复用 `capability_service` 里的实现。
+11. **同类问题（评审未报）**：只改 Base URL / Token URL 的主机而不重填凭据，会把已保存的凭据发到新主机（有 `capabilities:edit` 的人可借此套取密钥）。现在换主机必须重新填写凭据（422 `capability.credential_reentry`）；同主机改路径不受影响。T-072 的 MCP 连接有同样的问题，**本次未改**，建议单独处理。
+
+测试：`test_api_spec` 24 项、`test_api_plugins` 56 项（含继承）、`test_flow_connections` 64 项（含继承）。

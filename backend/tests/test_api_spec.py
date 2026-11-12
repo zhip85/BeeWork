@@ -147,6 +147,31 @@ class OpenApiTests(unittest.TestCase):
         with self.assertRaises(SpecError):
             parse_openapi("openapi: 3.0.0\n# " + "x" * (api_spec.MAX_SPEC_BYTES + 1))
 
+    def test_a_spec_whose_references_expand_without_bound_is_refused_quickly(self) -> None:
+        import time
+
+        props = lambda nxt: "\n".join(f"        p{i}: {{$ref: '#/components/schemas/{nxt}'}}" for i in range(20))  # noqa: E731
+        schemas = "\n".join(f"    S{n}:\n      type: object\n      properties:\n{props(f'S{n + 1}')}" for n in range(8)) + "\n    S8: {type: string}"
+        spec = f"openapi: 3.0.0\npaths:\n  /a:\n    post:\n      requestBody:\n        content:\n          application/json:\n            schema: {{$ref: '#/components/schemas/S0'}}\ncomponents:\n  schemas:\n{schemas}\n"
+        started = time.monotonic()
+        with self.assertRaises(SpecError) as caught:
+            parse_openapi(spec)
+        self.assertIn("过大", caught.exception.message)
+        self.assertLess(time.monotonic() - started, 5)
+
+    def test_responses_are_never_expanded_or_followed(self) -> None:
+        spec = ("openapi: 3.0.0\npaths:\n  /a:\n    get:\n      operationId: a\n      responses:\n"
+                "        '200':\n          content:\n            application/json:\n              schema: {$ref: 'https://evil.example.com/x.json'}\n")
+        self.assertEqual(list(self.tools(spec)), ["a"])  # nothing a tool needs refers to it, so it is neither fetched nor inlined
+
+    def test_a_parameter_called_body_does_not_collide_with_the_request_body(self) -> None:
+        spec = ("openapi: 3.0.0\npaths:\n  /a:\n    post:\n      operationId: a\n      parameters:\n        - {name: body, in: query, schema: {type: string}}\n"
+                "      requestBody:\n        required: true\n        content:\n          application/json:\n            schema: {type: object, properties: {x: {type: integer}}}\n")
+        tool = self.tools(spec)["a"]
+        self.assertEqual(set(tool.parameters["properties"]), {"body", "request_body"})
+        self.assertEqual((tool.parameters["properties"]["body"], tool.parameters["required"]), ({"type": "string"}, ["request_body"]))
+        self.assertEqual((tool.binding["body_arg"], tool.binding["query_params"]), ("request_body", [{"name": "body", "arg": "body"}]))
+
     def test_the_kind_is_guessed(self) -> None:
         self.assertEqual((api_spec.kind_of(PETSTORE), api_spec.kind_of('{"openapi":"3.0.0"}'), api_spec.kind_of(SDL)), ("openapi", "openapi", "graphql"))
 
@@ -192,6 +217,13 @@ class GraphqlTests(unittest.TestCase):
         self.assertEqual(caught.exception.line, 3)
         with self.assertRaises(SpecError):
             parse_graphql("type Other { a: String }")  # no Query / Mutation
+
+    def test_directive_definitions_are_accepted_and_ignored(self) -> None:
+        sdl = ("directive @key(fields: String!) repeatable on OBJECT | INTERFACE\ndirective @deprecated(reason: String = \"x\") on FIELD_DEFINITION | ENUM_VALUE\n"
+               "directive @tag on |FIELD_DEFINITION\ntype Query @key(fields: \"id\") { a: String @tag }\n")
+        self.assertEqual(list(self.tools(sdl)), ["a"])
+        with self.assertRaises(SpecError):
+            parse_graphql("directive @x on\ntype Query { a: String }")  # an incomplete definition is still an error
 
     def test_parse_spec_dispatches_on_the_type(self) -> None:
         self.assertEqual(len(parse_spec(SDL, "graphql")), 4)
