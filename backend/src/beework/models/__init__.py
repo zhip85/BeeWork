@@ -87,6 +87,12 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "capability.deleted": "删除能力",
     "capability.tested": "测试能力连接",
     "capability.authorized": "授权 MCP（OAuth）",
+    "flow_connection.created": "添加流程连接",
+    "flow_connection.updated": "修改流程连接",
+    "flow_connection.enabled": "启用流程连接",
+    "flow_connection.disabled": "停用流程连接",
+    "flow_connection.deleted": "删除流程连接",
+    "flow_connection.tested": "测试流程连接",
     "portal_settings.updated": "修改门户设置",
     "portal_app.created": "添加门户应用",
     "portal_app.updated": "修改门户应用",
@@ -608,7 +614,7 @@ class AuditEvent(Base):
     def set_audit_metadata(self, _key: str, action: str) -> str:
         if action.startswith(("membership.", "role.", "organization.")):
             self.category = "members_permissions"
-        elif action.startswith(("assistant.", "channel.", "flow.", "portal_app.", "portal_settings.", "portal_seat", "portal_project", "portal_conversation", "portal_profile", "capability.")):
+        elif action.startswith(("assistant.", "channel.", "flow.", "portal_app.", "portal_settings.", "portal_seat", "portal_project", "portal_conversation", "portal_profile", "capability.", "flow_connection.")):
             self.category = "assistants"
         elif action.startswith("api_key."):
             self.category = "developer"
@@ -762,6 +768,7 @@ from beework.models import (  # noqa: E402,F401
     channels,
     conversations,
     faq,
+    flow_connections,
     glossary,
     governance,
     jobs,

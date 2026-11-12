@@ -8,17 +8,23 @@
   "kind": {
     "skill": "Skill",
     "mcp": "MCP",
-    "api": "API plugin"
+    "api": "API plugin",
+    "chatflow": "Chatflow",
+    "workflow": "Workflow"
   },
   "kindHint": {
     "skill": "Reusable task instructions and expertise packages",
     "mcp": "Connect tools and data through MCP servers",
-    "api": "Connect REST or GraphQL business APIs"
+    "api": "Connect REST or GraphQL business APIs",
+    "chatflow": "Wrap a chat flow as a connection agents can call",
+    "workflow": "Wrap a workflow as a connection agents can call"
   },
   "create": {
     "skill": "Upload Skill",
     "mcp": "Connect MCP",
-    "api": "Add API plugin"
+    "api": "Add API plugin",
+    "chatflow": "Add Chatflow connection",
+    "workflow": "Add Workflow connection"
   },
   "soon": "Managing {{kind}} arrives in a later release.",
   "search": "Search {{kind}}…",
@@ -150,5 +156,88 @@
     },
     "activeLabel": "Available to tenants",
     "note": "Once disabled, no tenant can use this Skill and agents that mount it see it as unavailable. Keep the name and description frontmatter in SKILL.md."
+  },
+  "flowConn": {
+    "source": {
+      "native": "Published canvas on this platform",
+      "dify": "Dify application",
+      "recommended": "Recommended"
+    },
+    "sourceLabel": "Source",
+    "stateLabel": {
+      "available": "Available",
+      "disabled": "Disabled",
+      "invalid": "Invalid"
+    },
+    "summaryNative": "Platform canvas · {{flow}}",
+    "summaryDify": "Dify · {{host}}",
+    "footer": {
+      "available": "Can be mounted by agents and portal apps",
+      "disabled": "Agents and apps cannot use it for now",
+      "invalid": "The underlying flow is unavailable; whoever references it is warned"
+    },
+    "references": "{{count}} references",
+    "empty": "No {{kind}} connections yet",
+    "emptyFiltered": "No matching connections",
+    "menuTest": "Test connection",
+    "deleteTitle": "Delete connection “{{name}}”?",
+    "deleteBody": "This cannot be undone.",
+    "deleteBodyReferenced": "This connection is referenced in {{count}} places; after deleting, they are flagged as invalid in their configuration checks.",
+    "disableTitle": "Disable connection “{{name}}”?",
+    "disableBody": "Agents and apps will no longer be able to call it.",
+    "disableBodyReferenced": "This connection is referenced in {{count}} places; they will no longer be able to call it.",
+    "form": {
+      "name": "Name",
+      "description": "Description",
+      "descriptionHint": "Tell the agent what this flow does; it decides when to call it",
+      "flow": "Flow",
+      "flowPlaceholder": "Choose a published flow",
+      "noFlows": "There is no published {{kind}} canvas yet. Design and publish one in Flow canvas first, or use a Dify application.",
+      "goFlows": "Go to Flow canvas",
+      "baseUrl": "Base URL",
+      "baseUrlHint": "A public https address, e.g. https://api.dify.ai/v1",
+      "appId": "App ID",
+      "apiKey": "API Key",
+      "apiKeyHint": "The application's API key, stored encrypted on the server only",
+      "keepHint": "Saved; leave blank to keep it",
+      "inputMapping": "Input mapping",
+      "inputMappingHint": "Left: the Dify application's input variable; right: the argument name the agent fills in (letters, digits and underscores only)",
+      "variable": "Dify variable",
+      "argument": "Agent argument",
+      "addRow": "Add a row",
+      "removeRow": "Remove this row",
+      "outputField": "Output field",
+      "outputFieldHint": "Workflow: return only this output field to the agent; leave blank to return all outputs",
+      "streaming": "Streaming",
+      "streamingHint": "Calls currently return in blocking mode; the switch is saved as configuration"
+    },
+    "test": "Test connection",
+    "testing": "Testing…",
+    "testOk": "Test passed in {{ms}} ms",
+    "testNativeOk": "The underlying flow is published and available",
+    "testFailed": "Test failed ({{category}}): {{reason}}",
+    "retry": "Retry",
+    "lastTestOk": "Last test passed: {{when}}, {{ms}} ms",
+    "lastTestFailed": "Last test failed: {{when}} — {{reason}}",
+    "category": {
+      "auth_failed": "Credentials rejected",
+      "not_found": "Application not found",
+      "rate_limited": "Rate limited",
+      "invalid_arguments": "Input mismatch",
+      "upstream_error": "Dify error",
+      "network": "Network",
+      "timeout": "Timeout",
+      "config": "Configuration",
+      "forbidden": "Address refused",
+      "response": "Response too large",
+      "bad_response": "Bad response",
+      "workflow_failed": "Workflow failed",
+      "invalid": "Flow invalid"
+    },
+    "created": "Connection added",
+    "saved": "Saved",
+    "backTo": "Back to {{kind}}",
+    "editTitle": "Edit {{kind}} connection",
+    "readonly": "You do not have permission to edit; view only."
   }
 }

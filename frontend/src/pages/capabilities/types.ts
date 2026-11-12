@@ -52,3 +52,46 @@ export const READY_KINDS: CapKind[] = ['skill', 'mcp']
 export function parseKind(value: string | null): CapKind {
   return KINDS.includes(value as CapKind) ? (value as CapKind) : 'mcp'
 }
+
+// Chatflow / Workflow connections (T-075) — listed under their own tabs, served by /api/v1/flow-connections.
+export type FlowKind = 'chatflow' | 'workflow'
+export type FlowSource = 'native' | 'dify'
+export const FLOW_KINDS: FlowKind[] = ['chatflow', 'workflow']
+export type TabKind = CapKind | FlowKind
+export const TABS: TabKind[] = ['skill', 'mcp', 'api', 'chatflow', 'workflow']
+export const isFlowKind = (value: string | null): value is FlowKind => value === 'chatflow' || value === 'workflow'
+export function parseTab(value: string | null): TabKind {
+  return isFlowKind(value) ? value : parseKind(value)
+}
+
+export type FlowConnection = {
+  id: string
+  kind: FlowKind
+  name: string
+  description: string
+  source_type: FlowSource
+  flow_id: string | null
+  flow_name: string | null
+  base_url: string
+  host: string
+  app_id: string
+  credential_mask: string | null
+  input_mapping: Record<string, string>
+  output_mapping: Record<string, string>
+  streaming: boolean
+  status: 'enabled' | 'disabled'
+  state: 'available' | 'disabled' | 'invalid'
+  state_reason: string | null
+  last_test_at: string | null
+  last_test_ok: boolean | null
+  last_test_error: string | null
+  last_test_ms: number | null
+  references: number
+  row_version: number
+  can_edit: boolean
+  can_delete: boolean
+  updated_at: string
+}
+export type FlowConnectionList = { items: FlowConnection[]; total: number }
+export type FlowTestResult = { ok: boolean; error: string | null; error_category: string | null; duration_ms: number | null; connection: FlowConnection }
+export type AvailableFlow = { id: string; name: string; kind: FlowKind; version: number | null }

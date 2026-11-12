@@ -269,7 +269,7 @@ class MountingTests(_RetrievalHarness):
         kb_id = self.indexed_kb()
         created = self.assistant([kb_id]).json()
         mounts = self.client.get(f"/api/v1/assistants/{created['id']}/mounts", headers=self.admin).json()
-        self.assertEqual(mounts["mountable_kinds"], ["agent", "kb", "mcp", "skill"])  # leaf agents (T-066), MCP (T-072) and Skill (T-074) register their resolvers
+        self.assertEqual(mounts["mountable_kinds"], ["agent", "chatflow", "flow", "kb", "mcp", "skill"])  # leaf agents (T-066), MCP (T-072), Skill (T-074) and flow connections (T-075) register their resolvers
         item = mounts["groups"][0]["items"][0]
         self.assertEqual((item["name"], item["state"], item["meta"]["kb_type"], item["meta"]["documents"]), ("产品知识库", "available", "standard", 1))
         # The knowledge base is deleted: the mount is flagged (GLB-083) but the assistant can still be edited.

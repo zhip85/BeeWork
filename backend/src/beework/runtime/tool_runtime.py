@@ -71,6 +71,10 @@ class ToolRuntime:
         if mount.kind == "mcp":
             specs = mcp_tool_specs(side, self.tenant_id, [mount.capability_id])
             return [s for s in specs if not mount.tools or s.name.split(":", 2)[2] in mount.tools]  # ticked for this agent
+        if mount.kind in ("chatflow", "flow"):
+            from beework.flow_connection_service import connection_tool_specs
+
+            return connection_tool_specs(side, self.tenant_id, "chatflow" if mount.kind == "chatflow" else "workflow", [mount.capability_id])
         return skill_tool_specs(side, self.tenant_id, [mount.capability_id])
 
     def _resolve(self) -> list[OfferedTool]:

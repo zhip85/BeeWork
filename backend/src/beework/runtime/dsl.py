@@ -41,7 +41,7 @@ class ToolMount(BaseModel):
     agent (empty: every tool the capability exposes); ``delegate`` says when to use it. At run time the tenant's
     current rows decide what is available — a capability deleted since is simply not offered."""
 
-    kind: Literal["mcp", "skill", "agent"]
+    kind: Literal["mcp", "skill", "agent", "chatflow", "flow"]
     capability_id: UUID
     name: str = ""
     tools: list[str] = Field(default_factory=list, max_length=100)
@@ -117,10 +117,10 @@ def _tool_mounts(db: Session | None, tenant_id: UUID, config: dict) -> list[Tool
     if db is not None:
         from beework.capabilities import resolve_mounts
 
-        names = {item.id: item.name for item in resolve_mounts(db, tenant_id, {k: mounts.get(k) or [] for k in ("mcp", "skill", "agent")})}
+        names = {item.id: item.name for item in resolve_mounts(db, tenant_id, {k: mounts.get(k) or [] for k in ("mcp", "skill", "agent", "chatflow", "flow")})}
     result: list[ToolMount] = []
     team = bool((config.get("multi_agent") or {}).get("enabled"))
-    for kind in ("mcp", "skill", "agent"):
+    for kind in ("mcp", "skill", "agent", "chatflow", "flow"):
         if kind == "agent" and not team:
             continue  # single-agent mode: nothing is delegated (T-066)
         for raw in mounts.get(kind) or []:
