@@ -145,6 +145,13 @@ services:
       LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:-sk-beework-local-only-salt}
       DATABASE_URL: postgresql://${POSTGRES_USER:-beework}:${POSTGRES_PASSWORD:-beework_local_only}@postgres:5432/litellm
       STORE_MODEL_IN_DB: "True"
+      # Outbound proxy for provider calls (e.g. Gemini is not reachable directly from mainland China). Empty = direct.
+      # From inside the container, 127.0.0.1 is the container itself: use host.docker.internal for a proxy on the host.
+      HTTP_PROXY: ${LITELLM_OUTBOUND_PROXY:-}
+      HTTPS_PROXY: ${LITELLM_OUTBOUND_PROXY:-}
+      NO_PROXY: localhost,127.0.0.1,postgres,api,valkey
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:4000:4000"
     volumes:

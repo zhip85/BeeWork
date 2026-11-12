@@ -11,7 +11,9 @@ general_settings:
 litellm_settings:
   drop_params: true
   num_retries: 1
-  request_timeout: 55
+  # Keep (request_timeout x (num_retries + 1)) under BeeWork's model_call_timeout_seconds (60) so a slow provider
+  # surfaces its real error instead of a client-side ReadTimeout.
+  request_timeout: 25
   # To send gateway traces to Langfuse, pass LANGFUSE_HOST / LANGFUSE_PUBLIC_KEY /
   # LANGFUSE_SECRET_KEY to this service and uncomment. Use the OpenTelemetry
   # callback: the legacy "langfuse" callback uses an ingestion API that Langfuse
