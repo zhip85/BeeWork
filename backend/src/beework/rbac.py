@@ -21,7 +21,9 @@ ROLE_LABELS = {
 }
 
 # Naming since 2026-11-10 (T-067): the user-facing name of the product is “智能体”. The ``assistants`` module is the
-# agent (formerly “助理”); the ``agents`` module governs Chatflow / Workflow, shown as “流程画布”. Codes stay unchanged.
+# agent (formerly “助理”). The ``agents`` module governed the self-built flow canvas, which was retired on 2026-11-12 (T-169):
+# nothing checks it any more, it is no longer listed in the role matrix, and the code stays valid so roles that already hold it
+# (and the built-in roles) need no data migration.
 PERMISSION_CATALOG: dict[str, PermissionModule] = {
     "dashboard": {"label": "工作台", "actions": ["view"]},
     "assistants": {"label": "智能体", "actions": ["view", "edit", "publish", "delete", "test"]},
@@ -44,6 +46,8 @@ PERMISSION_CATALOG: dict[str, PermissionModule] = {
     "organizations": {"label": "组织架构", "actions": ["view"]},
     "audit": {"label": "审计日志", "actions": ["view", "export"]},
 }
+
+DEPRECATED_MODULES = frozenset({"agents"})  # valid in stored roles, hidden from the role matrix
 
 ALL_PERMISSIONS = frozenset(
     f"{module}:{action}"

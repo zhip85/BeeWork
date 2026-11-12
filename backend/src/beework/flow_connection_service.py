@@ -1,9 +1,9 @@
 """Flow connections (T-075, 演进 PRD 8): Chatflow / Workflow connections that agents mount and portal apps use.
 
-A connection is either *native* (it points at a published flow of this platform) or *dify* (an external Dify
-application). This module holds the rules both the API and the runtime share: the derived state (a native connection
-whose flow is disabled, deleted or unpublished is *invalid* — it is never silently ignored), the Dify client (every call
-goes through the controlled HTTP client of T-071 and the connection's API key never leaves the server), the executor's
+A connection wraps an external Dify application. (Until T-169 it could also point at a published flow of the platform's
+own canvas; the canvas was retired on 2026-11-12, and a ``native`` connection that still exists is *invalid* — it is never
+silently ignored.) This module holds the rules both the API and the runtime share: the derived state, the Dify client (every
+call goes through the controlled HTTP client of T-071 and the connection's API key never leaves the server), the executor's
 provider and the mount resolver / candidate lister registered with the capability catalogue (T-070).
 """
 
@@ -16,10 +16,8 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from beework import agent_service
 from beework.capabilities import CANDIDATE_LISTERS, MOUNT_RESOLVERS, MountItem
 from beework.model_secrets import decrypt_model_api_key
-from beework.models.agents import Agent
 from beework.models.flow_connections import FlowConnection
 from beework.tools.executor import PROVIDERS, ToolContext, ToolError, ToolOutput, ToolSpec
 from beework.tools.http import ToolHttpError, safe_request
@@ -31,13 +29,7 @@ KINDS = ("chatflow", "workflow")
 MOUNT_KIND = {"chatflow": "chatflow", "workflow": "flow"}  # the assistant's ``mounts`` key of each connection kind
 REFERENCE_TARGET = {"chatflow": "chatflow_connection", "workflow": "workflow_connection"}  # resource_references targets
 DIFY_USER = "beework"
-STATE_TEXT = {
-    "flow_missing": "底层流程已被删除",
-    "flow_disabled": "底层流程已停用",
-    "flow_unpublished": "底层流程尚未发布",
-    "flow_kind": "底层流程类型与连接不符",
-    "no_flow": "未选择流程",
-}
+STATE_TEXT = {"native_retired": "本平台画布已取消，请改用 Dify 应用"}
 # Why a call failed, as a stable category (演进 PRD 8.4): shown next to the last test and recorded with it.
 ERROR_CATEGORY = {
     "tool.timeout": "timeout", "tool.unreachable": "network", "tool.unresolvable": "network",
@@ -59,44 +51,14 @@ def mask_of(conn: FlowConnection) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def flow_problem(db: Session, conn: FlowConnection) -> str | None:
-    """Why a *native* connection cannot be called right now, as a key of ``STATE_TEXT``; ``None`` when it can."""
-    if conn.flow_id is None:
-        return "no_flow"
-    flow = db.get(Agent, conn.flow_id)
-    if flow is None or flow.deleted_at is not None or flow.tenant_id != conn.tenant_id:
-        return "flow_missing"
-    if flow.kind != conn.kind:
-        return "flow_kind"
-    if flow.status == "disabled":
-        return "flow_disabled"
-    if flow.status != "published" or flow.published_config is None:
-        return "flow_unpublished"
-    return None
-
-
 def state_of(db: Session, conn: FlowConnection) -> tuple[str, str | None]:
-    """(``available`` | ``disabled`` | ``invalid``, reason). A disabled connection stays *disabled* whatever its flow does;
-    an enabled native one whose flow is unusable is *invalid* — the configuration checks of whoever references it flag it."""
+    """(``available`` | ``disabled`` | ``invalid``, reason). A disabled connection stays *disabled*; a leftover ``native`` one
+    (its canvas is gone) is *invalid*."""
     if conn.status == "disabled":
         return "disabled", None
-    if conn.source_type == "native":
-        problem = flow_problem(db, conn)
-        if problem is not None:
-            return "invalid", STATE_TEXT[problem]
+    if conn.source_type != "dify":
+        return "invalid", STATE_TEXT["native_retired"]
     return "available", None
-
-
-def available_flows(db: Session, tenant_id: UUID, kind: str) -> list[Agent]:
-    """Published flows of the right type — what a native connection may be pointed at (原型“仅展示类型匹配且已发布的画布”)."""
-    return list(
-        db.scalars(
-            select(Agent).where(
-                Agent.tenant_id == tenant_id, Agent.kind == kind, Agent.status == "published",
-                Agent.published_config.is_not(None), Agent.deleted_at.is_(None),
-            ).order_by(func.lower(Agent.name), Agent.id)
-        )
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -195,18 +157,16 @@ def call_dify(conn: FlowConnection, ctx: ToolContext | None, args: dict[str, Any
 
 
 def run_test(db: Session, conn: FlowConnection) -> tuple[bool, str | None, str | None, int | None]:
-    """(ok, error message, error category, duration ms). A native connection is checked, not called — the platform's own
-    flow runtime arrives with the canvas tasks (T-062–T-064); it passes while its flow is published and enabled."""
+    """(ok, error message, error category, duration ms): one real call to the Dify application. A leftover ``native``
+    connection (the canvas was retired, T-169) fails with its reason."""
     import time
 
     started = time.monotonic()
     conn.last_test_at = datetime.now(UTC)
     error: str | None = None
     category: str | None = None
-    if conn.source_type == "native":
-        problem = flow_problem(db, conn)
-        if problem is not None:
-            error, category = STATE_TEXT[problem], "invalid"
+    if conn.source_type != "dify":
+        error, category = STATE_TEXT["native_retired"], "invalid"
     else:
         try:
             call_dify(conn, None, {"query": "连接测试", "inputs": {}})
@@ -262,8 +222,7 @@ def _lister(kind: str):
         for conn in db.scalars(statement.order_by(func.lower(FlowConnection.name), FlowConnection.id)):
             if state_of(db, conn)[0] != "available":
                 continue  # RUL-010: only what can be called now
-            source = "本平台画布" if conn.source_type == "native" else f"Dify · {host_of(conn.base_url)}"
-            items.append({"id": conn.id, "kind": MOUNT_KIND[kind], "name": conn.name, "meta": {"summary": source, "source": conn.source_type}})
+            items.append({"id": conn.id, "kind": MOUNT_KIND[kind], "name": conn.name, "meta": {"summary": f"Dify · {host_of(conn.base_url)}", "source": conn.source_type}})
             if len(items) >= limit:
                 break
         return items
@@ -319,21 +278,10 @@ class FlowConnectionProvider:
         conn = db.get(FlowConnection, spec.capability_id)
         if conn is None:
             raise ToolError("tool.unavailable", "该流程连接当前不可用")
-        if conn.source_type == "native":
-            raise ToolError("tool.flow_runtime_unavailable", "本平台流程画布的运行时尚未开放，暂不能调用")
+        if conn.source_type != "dify":
+            raise ToolError("tool.unavailable", STATE_TEXT["native_retired"])
         text = call_dify(conn, ctx, args)
         return ToolOutput(content=text, response_bytes=len(text.encode("utf-8")), request_bytes=len(json.dumps(args, ensure_ascii=False)))
-
-
-# Who points at a flow (agent_service.find_references): a native connection keeps its flow from being deleted silently.
-def _flow_references(db: Session, flow: Agent) -> list[tuple[str, UUID, str]]:
-    rows = db.scalars(
-        select(FlowConnection).where(
-            FlowConnection.tenant_id == flow.tenant_id, FlowConnection.flow_id == flow.id,
-            FlowConnection.source_type == "native", FlowConnection.deleted_at.is_(None),
-        )
-    )
-    return [("connection", c.id, c.name) for c in rows]
 
 
 MOUNT_RESOLVERS["chatflow"] = _resolver("chatflow")
@@ -341,4 +289,3 @@ MOUNT_RESOLVERS["flow"] = _resolver("workflow")
 CANDIDATE_LISTERS["chatflow"] = _lister("chatflow")
 CANDIDATE_LISTERS["flow"] = _lister("workflow")
 PROVIDERS["connection"] = FlowConnectionProvider()
-agent_service.REFERENCE_PROVIDERS.append(_flow_references)

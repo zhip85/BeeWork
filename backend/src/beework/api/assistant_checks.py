@@ -160,7 +160,7 @@ def assistant_dependencies(
         items.append(
             DependencyEntry(
                 kind="assistant" if ref.type == "assistant" else "flow", id=ref.id, name=ref.name, status=ref.status,
-                detail=ref.kind or ",".join(sorted(ref.relations)),
+                detail=",".join(sorted(ref.relations)),
             )
         )
     for provider in DEPENDENCY_PROVIDERS:

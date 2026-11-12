@@ -25,7 +25,6 @@ export function DependenciesTab({ assistantId, tenantId }: { assistantId: string
   function target(item: Dependency): string | null {
     if (item.kind === 'channel') return `/assistants/${assistantId}?tab=channels`
     if (item.kind === 'assistant') return `/assistants/${item.id}`
-    if (item.kind === 'flow') return `/flow-studio/${item.id}`
     return null
   }
 

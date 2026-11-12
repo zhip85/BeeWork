@@ -24,7 +24,6 @@
   "approvals": "Approvals",
   "pendingApprovals": "{{count}} awaiting your approval",
   "channels": "Channels",
-  "flowStudio": "Flow Studio",
   "group": {
     "build": "Build",
     "run": "Run & operate"

@@ -79,7 +79,7 @@ export function parseKind(value: string | null): CapKind {
 
 // Chatflow / Workflow connections (T-075) — listed under their own tabs, served by /api/v1/flow-connections.
 export type FlowKind = 'chatflow' | 'workflow'
-export type FlowSource = 'native' | 'dify'
+export type FlowSource = 'native' | 'dify' // ``native`` only on leftover connections of the retired canvas (T-169)
 export const FLOW_KINDS: FlowKind[] = ['chatflow', 'workflow']
 export type TabKind = CapKind | FlowKind
 export const TABS: TabKind[] = ['skill', 'mcp', 'api', 'chatflow', 'workflow']
@@ -94,8 +94,6 @@ export type FlowConnection = {
   name: string
   description: string
   source_type: FlowSource
-  flow_id: string | null
-  flow_name: string | null
   base_url: string
   host: string
   app_id: string
@@ -118,4 +116,3 @@ export type FlowConnection = {
 }
 export type FlowConnectionList = { items: FlowConnection[]; total: number }
 export type FlowTestResult = { ok: boolean; error: string | null; error_category: string | null; duration_ms: number | null; connection: FlowConnection }
-export type AvailableFlow = { id: string; name: string; kind: FlowKind; version: number | null }

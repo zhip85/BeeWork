@@ -158,7 +158,7 @@ def update_note(note_id: UUID, payload: NoteWriteRequest,
 
 #### 术语与内部标识对应（2026-11-10 起）
 
-用户看到的只有“智能体 / Agent”（原“助理”）。内部标识不改：表 `assistants`、路径 `/assistants`、权限模块 `assistants:*`、审计动作 `assistant.*`、i18n key `assistants.*` 都指**智能体**；表 `agents`、权限模块 `agents:*` 指 **Chatflow / Workflow（界面称“流程画布”）**。新增文案一律写“智能体”，不要在用户可见文本里出现“助理 / 助手 / Assistant”；LLM 提示词与历史迁移文件不在此列。已写入审计表的旧记录描述保持原文。
+用户看到的只有“智能体 / Agent”（原“助理”）。内部标识不改：表 `assistants`、路径 `/assistants`、权限模块 `assistants:*`、审计动作 `assistant.*`、i18n key `assistants.*` 都指**智能体**。（自研的 Chatflow / Workflow 画布已于 2026-11-12 取消并下线（T-169）：表 `agents` / `flow_versions` 已删除；权限模块 `agents:*` 保留为**已弃用**——没有任何接口再检查它，角色矩阵不再显示，但已有角色里的授权数据仍合法，无需迁移。工作流统一使用 Dify，见 `architecture-runtime-v2.md`。）新增文案一律写“智能体”，不要在用户可见文本里出现“助理 / 助手 / Assistant”；LLM 提示词与历史迁移文件不在此列。已写入审计表的旧记录描述保持原文。
 
 #### 能力目录与引用（T-070）
 

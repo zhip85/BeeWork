@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 FlowKind = Literal["chatflow", "workflow"]
-SourceType = Literal["native", "dify"]
+SourceType = Literal["native", "dify"]  # ``native`` only on leftover rows of the retired canvas (T-169)
 ConnectionState = Literal["available", "disabled", "invalid"]
 
 
@@ -15,8 +15,7 @@ class FlowConnectionWrite(BaseModel):
     kind: FlowKind | None = None  # required on create; the kind of an existing connection cannot change
     name: str = Field(max_length=200)
     description: str = Field(default="", max_length=1000)
-    source_type: SourceType = "native"
-    flow_id: UUID | None = None
+    source_type: SourceType = "dify"
     base_url: str = Field(default="", max_length=500)
     app_id: str = Field(default="", max_length=200)
     credential: str | None = Field(default=None, max_length=2000)
@@ -34,8 +33,6 @@ class FlowConnectionResponse(BaseModel):
     name: str
     description: str
     source_type: SourceType
-    flow_id: UUID | None = None
-    flow_name: str | None = None
     base_url: str = ""
     host: str = ""
     app_id: str = ""
@@ -44,7 +41,7 @@ class FlowConnectionResponse(BaseModel):
     output_mapping: dict[str, str] = Field(default_factory=dict)
     streaming: bool = False
     status: Literal["enabled", "disabled"]
-    state: ConnectionState  # derived: a native connection whose flow is gone / disabled / unpublished is ``invalid``
+    state: ConnectionState  # derived: a leftover ``native`` connection is ``invalid``
     state_reason: str | None = None
     last_test_at: datetime | None = None
     last_test_ok: bool | None = None
@@ -84,10 +81,3 @@ class FlowConnectionReference(BaseModel):
 class FlowConnectionReferences(BaseModel):
     total: int
     items: list[FlowConnectionReference]
-
-
-class AvailableFlow(BaseModel):
-    id: UUID
-    name: str
-    kind: FlowKind
-    version: int | None = None

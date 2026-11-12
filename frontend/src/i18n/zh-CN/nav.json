@@ -24,7 +24,6 @@
   "approvals": "审批中心",
   "pendingApprovals": "{{count}} 条待审批",
   "channels": "渠道",
-  "flowStudio": "流程画布",
   "group": {
     "build": "构建",
     "run": "发布与运营"

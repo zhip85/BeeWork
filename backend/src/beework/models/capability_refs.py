@@ -13,8 +13,8 @@ class ResourceReference(Base, TenantOwnedMixin):
     """Who points at what (T-070, GLB-083, RUL-011/012). The rows of one referrer and layer are replaced as a whole
     whenever that referrer's configuration is saved or published — never edited one by one.
 
-    ``referrer_type``: ``assistant`` | ``flow``. ``layer``: ``draft`` | ``live``. ``relation``: ``mount`` |
-    ``node`` | ``route_target`` | ``fallback``. ``target_type``: ``kb`` | ``assistant`` | ``flow`` | ``skill`` |
+    ``referrer_type``: ``assistant`` (``flow`` rows of the retired canvas were removed in T-169). ``layer``: ``draft`` | ``live``. ``relation``: ``mount`` |
+    ``node`` | ``route_target`` | ``fallback``. ``target_type``: ``kb`` | ``assistant`` | ``skill`` |
     ``mcp`` | ``api`` | ``chatflow_connection`` | ``workflow_connection``.
     """
 

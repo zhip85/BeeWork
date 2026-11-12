@@ -159,17 +159,14 @@
   },
   "flowConn": {
     "source": {
-      "native": "Published canvas on this platform",
-      "dify": "Dify application",
-      "recommended": "Recommended"
+      "native": "Platform canvas (retired)",
+      "dify": "Dify application"
     },
-    "sourceLabel": "Source",
     "stateLabel": {
       "available": "Available",
       "disabled": "Disabled",
       "invalid": "Invalid"
     },
-    "summaryNative": "Platform canvas · {{flow}}",
     "summaryDify": "Dify · {{host}}",
     "footer": {
       "available": "Can be mounted by agents and portal apps",
@@ -190,10 +187,6 @@
       "name": "Name",
       "description": "Description",
       "descriptionHint": "Tell the agent what this flow does; it decides when to call it",
-      "flow": "Flow",
-      "flowPlaceholder": "Choose a published flow",
-      "noFlows": "There is no published {{kind}} canvas yet. Design and publish one in Flow canvas first, or use a Dify application.",
-      "goFlows": "Go to Flow canvas",
       "baseUrl": "Base URL",
       "baseUrlHint": "A public https address, e.g. https://api.dify.ai/v1",
       "appId": "App ID",
@@ -214,7 +207,6 @@
     "test": "Test connection",
     "testing": "Testing…",
     "testOk": "Test passed in {{ms}} ms",
-    "testNativeOk": "The underlying flow is published and available",
     "testFailed": "Test failed ({{category}}): {{reason}}",
     "retry": "Retry",
     "lastTestOk": "Last test passed: {{when}}, {{ms}} ms",

@@ -22,11 +22,9 @@ from beework.db import get_db
 from beework.entitlements import ensure_entitlement
 from beework.model_secrets import encrypt_model_api_key
 from beework.models import AuditEvent, Membership
-from beework.models.agents import Agent
 from beework.models.flow_connections import FlowConnection
 from beework.rbac import require_tenant_permission
 from beework.schemas.flow_connections import (
-    AvailableFlow,
     FlowConnectionList,
     FlowConnectionReference,
     FlowConnectionReferences,
@@ -65,10 +63,8 @@ def _references(db: Session, conn: FlowConnection):
 
 def _response(db: Session, membership: Membership, conn: FlowConnection) -> FlowConnectionResponse:
     state, reason = svc.state_of(db, conn)
-    flow = db.get(Agent, conn.flow_id) if conn.flow_id else None
     return FlowConnectionResponse(
         id=conn.id, kind=conn.kind, name=conn.name, description=conn.description, source_type=conn.source_type,
-        flow_id=conn.flow_id, flow_name=flow.name if flow is not None and flow.deleted_at is None else None,
         base_url=conn.base_url, host=svc.host_of(conn.base_url), app_id=conn.app_id, credential_mask=svc.mask_of(conn),
         input_mapping=conn.input_mapping or {}, output_mapping=conn.output_mapping or {}, streaming=conn.streaming,
         status=conn.status, state=state, state_reason=reason, last_test_at=conn.last_test_at, last_test_ok=conn.last_test_ok,
@@ -103,18 +99,9 @@ def _mapping(raw: dict[str, str], label: str, keys_are_identifiers: bool) -> dic
 
 
 def _apply(db: Session, membership: Membership, conn: FlowConnection, payload: FlowConnectionWrite, creating: bool) -> None:
-    """Validate the source-specific fields and copy them onto ``conn``; the other source's fields are cleared."""
-    if payload.source_type == "native":
-        flows = {f.id for f in svc.available_flows(db, membership.tenant_id, conn.kind)}
-        if payload.flow_id is None:
-            raise ApiError(422, "validation.invalid", "请选择一个已发布的流程")
-        if payload.flow_id not in flows:
-            raise ApiError(422, "flow_connection.flow_unavailable", "只能选择类型匹配且已发布的流程")
-        conn.flow_id = payload.flow_id
-        conn.base_url, conn.app_id, conn.credential_encrypted, conn.credential_last4 = "", "", None, None
-        conn.input_mapping, conn.output_mapping, conn.streaming = {}, {}, False
-        conn.source_type = "native"
-        return
+    """Validate the Dify fields and copy them onto ``conn``. The self-built canvas (``native`` source) was retired in T-169."""
+    if payload.source_type != "dify":
+        raise ApiError(422, "flow_connection.source_retired", "本平台画布已取消，流程连接只支持 Dify 应用")
     ensure_entitlement(db, membership.tenant_id, "external_flows")
     base_url, app_id = payload.base_url.strip(), payload.app_id.strip()
     secret = (payload.credential or "").strip()
@@ -135,7 +122,7 @@ def _apply(db: Session, membership: Membership, conn: FlowConnection, payload: F
     conn.input_mapping = _mapping(payload.input_mapping, "输入映射", keys_are_identifiers=True)
     conn.output_mapping = _mapping(payload.output_mapping, "输出映射", keys_are_identifiers=False)
     conn.streaming = payload.streaming
-    conn.source_type, conn.flow_id = "dify", None
+    conn.source_type = "dify"
 
 
 def _checked_url(value: str) -> str:
@@ -162,19 +149,6 @@ def list_connections(
         statement = statement.where(func.lower(FlowConnection.name).like(f"%{q.strip().lower()}%"))
     rows = list(db.scalars(statement.order_by(func.lower(FlowConnection.name), FlowConnection.id)))
     return FlowConnectionList(items=[_response(db, membership, c) for c in rows], total=len(rows))
-
-
-@router.get("/flow-connections/available-flows", response_model=list[AvailableFlow])
-def available_flows(
-    kind: FlowKind,
-    membership: Membership = Depends(require_tenant_permission("capabilities:edit")),
-    db: Session = Depends(get_db),
-) -> list[AvailableFlow]:
-    """What a native connection can point at: published flows of the matching type. Empty list = the empty state."""
-    return [
-        AvailableFlow(id=f.id, name=f.name, kind=f.kind, version=(f.published_config or {}).get("version"))
-        for f in svc.available_flows(db, membership.tenant_id, kind)
-    ]
 
 
 @router.post("/flow-connections", response_model=FlowConnectionResponse, status_code=status.HTTP_201_CREATED)
