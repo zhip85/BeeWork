@@ -13,6 +13,7 @@ from test_runtime import ScriptedChat
 ORDER = Candidate("e-order", "api_tool", "get_order", "查询订单", "用户查订单状态", direct=True, tool="api:get_order", input_schema={"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]})
 SHOUT = Candidate("e-shout", "mcp_tool", "shout", "原样返回", "用户要求播报", direct=True, direct_output=True, tool="mcp:shout")
 FAQ_KB = Candidate("e-kb", "kb", "售后知识库", "售后制度", direct=True, source_id="kb-1", input_schema={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]})
+FLOW = Candidate("e-flow", "dify_chatflow", "售后流程", "多轮售后", "用户要办售后", direct=True, tool="connection:flow-1", input_schema={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]})
 SECRET = "13800138000"
 
 
@@ -33,7 +34,7 @@ class Fake:
             self.classified.append(query)
             return ClassifyResult(scored=[Scored(c.id, v) for c, v in self.scored], failure=self.failure, ms=5)
 
-        def invoke(target, args):
+        def invoke(target, args, stream=None):
             self.invoked.append((target.name, args))
             return self.result
 
@@ -109,6 +110,13 @@ class IntentRuntimeTests(test_rewrite.RewriteRuntimeTests):
         self.assertEqual(self.final_text(run_id), "七天无理由退货。")
         _, llm, _, output = self.route(Fake([(FAQ_KB, 0.95)], faq=None), "能退货吗")
         self.assertEqual((output["route"]["path"], len(llm.seen_messages)), ("B", 1))
+
+    def test_a_chatflow_answer_is_the_reply_and_leaves_the_conversation_waiting_for_it(self) -> None:
+        fake = Fake([(FLOW, 0.95)], slots=Slots("ok", args={"query": "我要退货"}), result=ToolResult("ok", "请提供订单号"), candidates=(FLOW,))
+        run_id, llm, _, output = self.route(fake, "我要退货")
+        self.assertEqual((output["route"]["path"], llm.seen_messages), ("A", []))  # the Dify answer is the reply, no composing call
+        self.assertEqual(output["route"]["pending"], {"entry_id": "e-flow"})  # the next message is for the flow, if the connection says so
+        self.assertEqual(self.final_text(run_id), "请提供订单号")
 
     def test_the_trace_carries_no_user_text_or_argument_values(self) -> None:
         fake = Fake([(ORDER, 0.95)], slots=Slots("ok", args={"id": SECRET}))

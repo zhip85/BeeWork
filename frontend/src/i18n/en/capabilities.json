@@ -204,7 +204,12 @@
       "outputField": "Output field",
       "outputFieldHint": "Workflow: return only this output field to the agent; leave blank to return all outputs",
       "streaming": "Streaming",
-      "streamingHint": "Calls currently return in blocking mode; the switch is saved as configuration"
+      "streamingHint": "When on, Dify answers are read as a stream; a Chatflow answer that is the reply is pushed to the user token by token",
+      "sticky": "Multi-turn stickiness",
+      "stickyHint": "While the flow waits for the user's next message, that message goes straight back to it.",
+      "idleTtl": "Idle time (minutes)",
+      "exitWords": "Exit words",
+      "exitWordsHint": "A message that is only one of these ends the multi-turn flow; separate with commas."
     },
     "test": "Test connection",
     "testing": "Testing…",
@@ -232,7 +237,17 @@
     "saved": "Saved",
     "backTo": "Back to {{kind}}",
     "editTitle": "Edit {{kind}} connection",
-    "readonly": "You do not have permission to edit; view only."
+    "readonly": "You do not have permission to edit; view only.",
+    "params": {
+      "title": "Application inputs",
+      "none": "The application has no input variables",
+      "error": "Could not read: {{reason}}",
+      "required": "required",
+      "syncedAt": "Last read: {{when}}",
+      "never": "Not read yet",
+      "sync": "Read parameters again",
+      "synced": "Application parameters re-read"
+    }
   },
   "apiForm": {
     "type": "API type",

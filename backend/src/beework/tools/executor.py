@@ -104,6 +104,8 @@ class ToolContext:
     # The pipeline's pii_output hook (CAP-054): text -> text.
     guard_output: Callable[[str], str] = lambda text: text
     span: Callable[[str], AbstractContextManager] = lambda name: nullcontext()
+    # Where a streaming capability (a Dify Chatflow whose answer is the reply) pushes tokens as they arrive; None when the caller wants the whole result.
+    stream: Callable[[str], None] | None = None
     secrets: set[str] = field(default_factory=set)
     _calls: int = 0
 

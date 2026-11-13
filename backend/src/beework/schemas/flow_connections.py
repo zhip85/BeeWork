@@ -24,6 +24,10 @@ class FlowConnectionWrite(BaseModel):
     # output_mapping: {"field": "<output key to hand back to the model>"}; empty returns every output as JSON.
     output_mapping: dict[str, str] = Field(default_factory=dict, max_length=10)
     streaming: bool = False
+    # A multi-turn Chatflow: the next message of the conversation goes straight back to it while it waits (T-163).
+    sticky: bool = True
+    idle_ttl_minutes: int = Field(default=10, ge=1, le=1440)
+    exit_words: list[str] = Field(default_factory=lambda: ["退出", "取消", "结束"], max_length=20)
     row_version: int | None = None  # required on update
 
 
@@ -40,6 +44,13 @@ class FlowConnectionResponse(BaseModel):
     input_mapping: dict[str, str] = Field(default_factory=dict)
     output_mapping: dict[str, str] = Field(default_factory=dict)
     streaming: bool = False
+    app_mode: str | None = None
+    parameters: list[dict] = Field(default_factory=list)  # the application's input variables, as read from Dify
+    parameters_synced_at: datetime | None = None
+    parameters_error: str | None = None
+    sticky: bool = True
+    idle_ttl_minutes: int = 10
+    exit_words: list[str] = Field(default_factory=list)
     status: Literal["enabled", "disabled"]
     state: ConnectionState  # derived: a leftover ``native`` connection is ``invalid``
     state_reason: str | None = None

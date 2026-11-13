@@ -190,13 +190,15 @@ def _intent_runtime(
             logger.warning("Argument extraction unavailable", exc_info=True)
             return Slots("failed", problems=["error"])
 
-    def invoke(target: Candidate, args: dict[str, Any]):
+    def invoke(target: Candidate, args: dict[str, Any], stream: Callable[[str], None] | None = None):
         with Session(bind=bind) as side:
             ctx = ToolContext(
                 tenant_id=run.tenant_id, allowed=frozenset({target.tool}), run_id=run.id, assistant_id=run.assistant_id, end_user=end_user,
-                guard_output=guard, span=trace.span, environment=run.environment, check_stop=check_stop,
+                guard_output=guard, span=trace.span, environment=run.environment, check_stop=check_stop, stream=stream,
             )
-            return invoke_tool(side, ctx, target.tool, args)
+            result = invoke_tool(side, ctx, target.tool, args)
+            side.commit()  # a Chatflow call binds its Dify conversation
+            return result
 
     def faq(target: Candidate, query: str) -> FaqAnswer | None:
         with Session(bind=bind) as side:

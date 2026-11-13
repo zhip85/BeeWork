@@ -83,6 +83,7 @@ def safe_request(
     allowed_host: str | None = None,
     resolver: Resolver | None = None,
     transport: httpx.BaseTransport | None = None,
+    on_chunk: Callable[[bytes], None] | None = None,
 ) -> HttpResult:
     insecure = settings.allow_insecure_tool_urls
     parsed = urlsplit(url)
@@ -122,6 +123,8 @@ def safe_request(
                         raise ToolHttpError("tool.response_too_large", "工具响应超过大小上限")
                     body = bytearray()
                     for chunk in response.iter_bytes():
+                        if on_chunk is not None and 200 <= response.status_code < 300:
+                            on_chunk(chunk)  # a streaming response is consumed as it arrives (T-163); may raise to stop reading
                         body += chunk
                         if len(body) > max_bytes:
                             raise ToolHttpError("tool.response_too_large", "工具响应超过大小上限")
