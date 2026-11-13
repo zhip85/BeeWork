@@ -9,6 +9,7 @@ are never followed, the request times out, and a response larger than the limit 
 import ipaddress
 import socket
 from collections.abc import Callable
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from urllib.parse import urlencode, urlsplit
 
@@ -17,6 +18,8 @@ import httpx
 from beework.config import settings
 
 DEFAULT_TIMEOUT = 30.0
+# The timeout the controlled executor set for the call in progress (T-165): providers keep calling ``safe_request`` without a timeout.
+CALL_TIMEOUT: ContextVar[float | None] = ContextVar("call_timeout", default=None)
 MAX_RESPONSE_BYTES = 1024 * 1024
 Resolver = Callable[[str], list[str]]
 
@@ -28,6 +31,8 @@ class ToolHttpError(Exception):
         super().__init__(message)
         self.code = code
         self.message = message
+        self.status: int | None = None
+        self.retry_after: float | None = None
 
 
 @dataclass
@@ -38,6 +43,16 @@ class HttpResult:
     address: str = ""
     request_bytes: int = 0
     extra: dict = field(default_factory=dict)
+
+
+def retry_after_of(headers: dict[str, str]) -> float | None:
+    """The ``Retry-After`` of a response in seconds (the seconds form only; capped, so an upstream cannot park a run)."""
+    raw = {k.lower(): v for k, v in headers.items()}.get("retry-after", "").strip()
+    try:
+        seconds = float(raw)
+    except ValueError:
+        return None
+    return min(seconds, 60.0) if seconds > 0 and seconds == seconds else None  # not NaN, not zero or negative
 
 
 def system_resolver(hostname: str) -> list[str]:
@@ -78,13 +93,14 @@ def safe_request(
     json: object | None = None,
     content: bytes | None = None,
     params: dict[str, str] | None = None,
-    timeout: float = DEFAULT_TIMEOUT,
+    timeout: float | None = None,
     max_bytes: int = MAX_RESPONSE_BYTES,
     allowed_host: str | None = None,
     resolver: Resolver | None = None,
     transport: httpx.BaseTransport | None = None,
     on_chunk: Callable[[bytes], None] | None = None,
 ) -> HttpResult:
+    timeout = timeout if timeout is not None else (CALL_TIMEOUT.get() or DEFAULT_TIMEOUT)
     insecure = settings.allow_insecure_tool_urls
     parsed = urlsplit(url)
     hostname = parsed.hostname or ""
