@@ -102,6 +102,13 @@ export type FlowConnection = {
   input_mapping: Record<string, string>
   output_mapping: Record<string, string>
   streaming: boolean
+  app_mode: string | null
+  parameters: { variable: string; label: string; type: 'string' | 'number'; required: boolean; options: string[]; max_length: number | null }[]
+  parameters_synced_at: string | null
+  parameters_error: string | null
+  sticky: boolean
+  idle_ttl_minutes: number
+  exit_words: string[]
   status: 'enabled' | 'disabled'
   state: 'available' | 'disabled' | 'invalid'
   state_reason: string | null

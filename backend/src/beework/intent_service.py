@@ -85,8 +85,12 @@ def build_candidates(db: Session, tenant_id: UUID, config: dict[str, Any], scope
 
 
 def load_pending(db: Session, run: Run) -> str | None:
-    """The registry entry id of a Chatflow that is waiting for this conversation's next message — recorded in the previous run's
-    ``route.pending`` (the Dify adapter writes it, T-163). Only the immediately preceding run counts."""
+    """The registry entry id of a Chatflow that is waiting for this conversation's next message (T-163): recorded in the previous run's
+    ``route.pending`` and kept alive by the connection — sticky, still usable, its Dify conversation bound and not idle for too long,
+    and the new message not an exit word (an exit word closes the binding). Only the immediately preceding run counts."""
+    from beework.flow_connection_service import sticky_connection
+    from beework.models.capability_registry import CapabilityEntry
+
     if run.conversation_id is None:
         return None
     previous = db.scalar(
@@ -95,7 +99,15 @@ def load_pending(db: Session, run: Run) -> str | None:
         ).order_by(Run.created_at.desc(), Run.id.desc()).limit(1)
     )
     pending = ((previous.output or {}).get("route") or {}).get("pending") if previous is not None else None
-    return str(pending["entry_id"]) if isinstance(pending, dict) and pending.get("entry_id") else None
+    if not (isinstance(pending, dict) and pending.get("entry_id")):
+        return None
+    entry = db.get(CapabilityEntry, pending["entry_id"])
+    if entry is None or entry.kind != "dify_chatflow":
+        return None
+    text = str((run.input or {}).get("message") or "")
+    conn = sticky_connection(db, run.tenant_id, entry.source_id, run.conversation_id, text)
+    db.commit()  # an exit word closed the binding
+    return str(entry.id) if conn is not None else None
 
 
 def faq_for_document(db: Session, tenant_id: UUID, document_id: str) -> Faq | None:

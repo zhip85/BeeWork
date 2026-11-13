@@ -32,6 +32,12 @@ class FakeDify:
         self.workflow_status = "succeeded"
         self.outputs: dict = {"text": "refund approved", "score": 3}
         self.echo_key_in_error = False
+        self.mode: str | None = None  # Dify's /info ``mode``
+        self.mode_forced: str | None = None  # a test that wants a mismatch sets this (and ``mode``)
+        self.form: list = []  # /parameters ``user_input_form``
+
+    def posts(self) -> list[httpx.Request]:
+        return [r for r in self.requests if r.method == "POST"]
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -39,6 +45,14 @@ class FakeDify:
             raise httpx.ConnectError("refused", request=request)
         if request.headers.get("authorization") != f"Bearer {self.key}":
             return httpx.Response(401, json={"code": "unauthorized", "message": "Access token is invalid"})
+        if request.method == "GET":
+            if isinstance(self.fail, int):
+                return httpx.Response(self.fail, json={"message": "upstream problem"})
+            if request.url.path.endswith("/info"):
+                return httpx.Response(200, json={"name": "app", "mode": self.mode or "advanced-chat"})
+            if request.url.path.endswith("/parameters"):
+                return httpx.Response(200, json={"user_input_form": self.form})
+            return httpx.Response(404, json={"message": "not found"})
         body = json.loads(request.content)
         self.bodies.append(body)
         if isinstance(self.fail, int):
@@ -76,6 +90,8 @@ class FlowConnectionTests(test_assistants.AssistantTests):
         }
 
     def connect(self, body: dict, headers=None):
+        if self.server.mode_forced is None:  # the fake Dify application is whatever kind the connection says (unless a test forces one)
+            self.server.mode = "workflow" if body.get("kind") == "workflow" else "advanced-chat"
         return self.client.post("/api/v1/flow-connections", json=body, headers=headers or self.admin)
 
     def dify(self, kind: str = "chatflow", name: str = "Dify refund", **extra) -> dict:
@@ -143,7 +159,7 @@ class FlowConnectionTests(test_assistants.AssistantTests):
         self.assertEqual(self.client.get("/api/v1/capabilities/candidates?kind=chatflow", headers=self.admin).json()["items"], [])
         result = self.act(legacy, "test").json()
         self.assertEqual((result["ok"], result["error_category"]), (False, "invalid"))
-        self.assertEqual(self.server.requests, [])
+        self.assertEqual(self.server.posts(), [])
         name = svc.tool_name(UUID(legacy))
         with self.session_factory() as db:
             self.assertEqual(invoke_tool(db, self.tool_ctx(name), name, {"query": "x"}).code, "tool.not_found")
@@ -212,8 +228,8 @@ class FlowConnectionTests(test_assistants.AssistantTests):
         data = self.dify("chatflow")
         result = self.act(data["id"], "test").json()
         self.assertEqual((result["ok"], result["error"], result["error_category"]), (True, None, None))
-        self.assertEqual([r.url.path for r in self.server.requests], ["/v1/chat-messages"])
-        sent = self.server.requests[0]
+        self.assertEqual([r.url.path for r in self.server.posts()], ["/v1/chat-messages"])
+        sent = self.server.posts()[0]
         self.assertEqual((sent.method, sent.headers["authorization"], sent.headers["host"]), ("POST", f"Bearer {KEY}", "api.dify.example.com"))
         self.assertEqual((self.server.bodies[0]["response_mode"], bool(self.server.bodies[0]["query"])), ("blocking", True))
         recorded = self.conn(data["id"])
@@ -225,7 +241,7 @@ class FlowConnectionTests(test_assistants.AssistantTests):
     def test_testing_a_workflow_calls_workflows_run(self) -> None:
         data = self.dify("workflow", "WF")
         self.assertTrue(self.act(data["id"], "test").json()["ok"])
-        self.assertEqual([r.url.path for r in self.server.requests], ["/v1/workflows/run"])
+        self.assertEqual([r.url.path for r in self.server.posts()], ["/v1/workflows/run"])
 
     def test_dify_failures_are_mapped_to_a_reason_and_a_category(self) -> None:
         data = self.dify()
@@ -254,7 +270,7 @@ class FlowConnectionTests(test_assistants.AssistantTests):
     def test_the_key_goes_only_to_the_configured_host_and_a_redirect_is_not_followed(self) -> None:
         data = self.dify()
         self.assertTrue(self.act(data["id"], "test").json()["ok"])
-        self.assertEqual({r.url.host for r in self.server.requests}, {PUBLIC})  # pinned to the validated address
+        self.assertEqual({r.url.host for r in self.server.posts()}, {PUBLIC})  # pinned to the validated address
         self.server.fail = 302
         refused = self.act(data["id"], "test").json()
         self.assertEqual((refused["ok"], refused["error_category"]), (False, "config"))
@@ -417,7 +433,7 @@ class FlowConnectionTests(test_assistants.AssistantTests):
         self.act(data["id"], "disable")
         with self.session_factory() as db:
             self.assertEqual(invoke_tool(db, self.tool_ctx(name), name, {"query": "x"}).code, "tool.not_found")
-        self.assertEqual(self.server.requests, [])  # nothing reached Dify
+        self.assertEqual(self.server.posts(), [])  # nothing reached Dify
 
     def test_a_failing_dify_call_is_an_error_result_and_never_shows_the_key(self) -> None:
         data = self.dify("chatflow", "Chat")

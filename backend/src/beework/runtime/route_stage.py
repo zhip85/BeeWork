@@ -39,7 +39,7 @@ class IntentRuntime:
     candidates: Callable[[str], list[Candidate]]  # the registry recall for a query, inside the agent's scope
     classify: Callable[[str, list[dict[str, str]], list[Candidate]], ClassifyResult]
     extract: Callable[[Candidate, str, list[dict[str, str]]], Slots]
-    invoke: Callable[[Candidate, dict[str, Any]], Any]  # -> tools.executor.ToolResult
+    invoke: Callable[..., Any]  # (candidate, args, stream=None) -> tools.executor.ToolResult; ``stream`` receives tokens as they arrive
     faq: Callable[[Candidate, str], FaqAnswer | None]
     pending: Callable[[], Candidate | None]
 
@@ -98,10 +98,16 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
             return {"stage_info": {"rewrite_failure": result.failure}} if result.failure else {}
         return expansion_update(deps, original, result.query, {"rewrite_steps": result.steps, "rewrite_failure": None}, result.sub_questions)
 
-    def call(runtime: IntentRuntime, target: Candidate, args: dict[str, Any]):
+    def call(runtime: IntentRuntime, target: Candidate, args: dict[str, Any], *, stream: bool = False):
         deps.check_stop()
+        sink = None
+        if stream and not deps.hold_output:  # the reply is this capability's own answer: its tokens go to the user as they arrive
+            from langgraph.config import get_stream_writer
+
+            writer = get_stream_writer()
+            sink = lambda text: writer({"type": "token", "text": text})  # noqa: E731
         with deps.clock.external(), deps.span(f"route.{target.kind}"):
-            return runtime.invoke(target, args)
+            return runtime.invoke(target, args, sink)
 
     def run_path_a(runtime: IntentRuntime, decision: IntentDecision, candidates: list[Candidate], query: str, history: list[dict[str, str]]) -> RuntimeState:
         """Carry out path A. Anything that does not work out turns the decision into path B (in place) and returns the L3 hints."""
@@ -122,12 +128,15 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
             update: RuntimeState = {"l3_hints": _hints(decision, candidates, missing=slots.missing)}
             update["route_info"] = {"slots": {"status": slots.status, "missing": slots.missing}}
             return update
-        result = call(runtime, target, slots.args)
+        direct = target.kind.startswith("dify") or target.direct_output
+        result = call(runtime, target, slots.args, stream=direct)
         if result.status != "ok":
             decision.to_b("capability_failed")
             return {"l3_hints": _hints(decision, candidates, failed=target.name), "route_info": {"slots": {"status": "ok"}, "capability_error": result.code or "tool.failed"}}
-        info = {"slots": {"status": "ok"}, "executed": True}
-        if target.kind.startswith("dify") or target.direct_output:
+        info: dict[str, Any] = {"slots": {"status": "ok"}, "executed": True}
+        if target.kind == "dify_chatflow":
+            info["pending"] = {"entry_id": target.id}  # the Chatflow may be waiting for the next message; the connection decides (sticky, idle time, exit words)
+        if direct:
             return {"text": result.content.strip(), "answered": True, "usage": {"input": None, "output": None}, "route_info": info}
         return {"capability_result": {"name": target.name, "content": result.content}, "compose": True, "route_info": info}
 

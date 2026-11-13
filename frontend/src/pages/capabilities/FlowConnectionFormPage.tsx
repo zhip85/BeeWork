@@ -17,14 +17,18 @@ type Form = {
   rows: Row[]
   outputField: string
   streaming: boolean
+  sticky: boolean
+  idleTtl: string
+  exitWords: string
 }
-const EMPTY: Form = { name: '', description: '', baseUrl: '', appId: '', apiKey: '', rows: [], outputField: '', streaming: false }
+const EMPTY: Form = { name: '', description: '', baseUrl: '', appId: '', apiKey: '', rows: [], outputField: '', streaming: false, sticky: true, idleTtl: '10', exitWords: '退出，取消，结束' }
 
 function toForm(conn: FlowConnection): Form {
   return {
     name: conn.name, description: conn.description, baseUrl: conn.base_url, appId: conn.app_id,
     apiKey: '', rows: Object.entries(conn.input_mapping).map(([variable, argument]) => ({ variable, argument })),
     outputField: conn.output_mapping.field ?? '', streaming: conn.streaming,
+    sticky: conn.sticky, idleTtl: String(conn.idle_ttl_minutes), exitWords: conn.exit_words.join('，'),
   }
 }
 
@@ -71,6 +75,8 @@ export function FlowConnectionFormPage({ tenant }: { tenant: TenantMembership })
     return {
       ...base, base_url: form.baseUrl.trim(), app_id: form.appId.trim(), credential: form.apiKey || null, input_mapping,
       output_mapping: form.outputField.trim() ? { field: form.outputField.trim() } : {}, streaming: form.streaming,
+      sticky: form.sticky, idle_ttl_minutes: Math.min(1440, Math.max(1, Number(form.idleTtl) || 10)),
+      exit_words: form.exitWords.split(/[,，、\s]+/).map((word) => word.trim()).filter(Boolean),
     }
   }
 
@@ -90,6 +96,14 @@ export function FlowConnectionFormPage({ tenant }: { tenant: TenantMembership })
         const saved = await apiRequest<FlowConnection>(`/api/v1/flow-connections/${conn.id}`, { method: 'PUT', body: JSON.stringify({ ...payload(), row_version: conn.row_version }) }, tenant.id)
         apply(saved); setNotice(t('flowConn.saved')); setTest(null)
       }
+    })
+  }
+
+  const sync = () => {
+    if (!conn) return
+    void run(async () => {
+      apply(await apiRequest<FlowConnection>(`/api/v1/flow-connections/${conn.id}/sync`, { method: 'POST' }, tenant.id))
+      setNotice(t('flowConn.params.synced'))
     })
   }
 
@@ -133,6 +147,18 @@ export function FlowConnectionFormPage({ tenant }: { tenant: TenantMembership })
                   <input autoComplete="off" onChange={(event) => set('apiKey', event.target.value)} placeholder={savedKey ? conn?.credential_mask ?? '' : ''} type="password" value={form.apiKey} />
                   <small>{savedKey ? t('flowConn.form.keepHint') : t('flowConn.form.apiKeyHint')}</small>
                 </label>
+                {!creating && conn && (
+                  <div className="kb-field">
+                    <span>{t('flowConn.params.title')}{conn.app_mode ? ` · ${conn.app_mode}` : ''}</span>
+                    {conn.parameters_error && <small className="form-error">{t('flowConn.params.error', { reason: conn.parameters_error })}</small>}
+                    {conn.parameters.length === 0 && !conn.parameters_error && <small>{t('flowConn.params.none')}</small>}
+                    {conn.parameters.map((param) => (
+                      <small key={param.variable}>{param.label}（{param.variable}，{param.type}{param.required ? `，${t('flowConn.params.required')}` : ''}{param.options.length ? `：${param.options.join(' / ')}` : ''}）</small>
+                    ))}
+                    <small>{conn.parameters_synced_at ? t('flowConn.params.syncedAt', { when: when(conn.parameters_synced_at) }) : t('flowConn.params.never')}</small>
+                    <button className="secondary-button" disabled={busy || locked} onClick={sync} style={{ justifySelf: 'start' }} type="button">{t('flowConn.params.sync')}</button>
+                  </div>
+                )}
                 <div className="kb-field">
                   <span>{t('flowConn.form.inputMapping')}</span>
                   <small>{t('flowConn.form.inputMappingHint')}</small>
@@ -152,6 +178,16 @@ export function FlowConnectionFormPage({ tenant }: { tenant: TenantMembership })
                   <input checked={form.streaming} onChange={(event) => set('streaming', event.target.checked)} type="checkbox" />
                   <span>{t('flowConn.form.streaming')}</span><small>{t('flowConn.form.streamingHint')}</small>
                 </label>
+                {kind === 'chatflow' && (
+                  <>
+                    <label className="kb-field" style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                      <input checked={form.sticky} onChange={(event) => set('sticky', event.target.checked)} type="checkbox" />
+                      <span>{t('flowConn.form.sticky')}</span><small>{t('flowConn.form.stickyHint')}</small>
+                    </label>
+                    <label className="kb-field"><span>{t('flowConn.form.idleTtl')}</span><input disabled={!form.sticky} inputMode="numeric" onChange={(event) => set('idleTtl', event.target.value.replace(/\D/g, ''))} value={form.idleTtl} /></label>
+                    <label className="kb-field"><span>{t('flowConn.form.exitWords')}</span><input disabled={!form.sticky} onChange={(event) => set('exitWords', event.target.value)} value={form.exitWords} /><small>{t('flowConn.form.exitWordsHint')}</small></label>
+                  </>
+                )}
             </>
           </fieldset>
           {!creating && conn && (
