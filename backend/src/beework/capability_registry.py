@@ -41,7 +41,9 @@ DIRECT_DEFAULT = {"mcp_tool": True, "api_tool": True, "skill": True, "dify_workf
 # Where the owner of an entry is managed — the registry only shows and links to it (sub-agents and knowledge bases have their own pages).
 OWNER_PAGE = {"mcp_tool": "capabilities", "api_tool": "capabilities", "skill": "capabilities", "dify_workflow": "capabilities", "dify_chatflow": "capabilities", "agent": "assistants", "kb": "knowledge"}
 RETRY_ON = ("network", "timeout", "5xx", "429")
-DEFAULT_POLICY: dict[str, Any] = {"timeout_ms": settings.tool_timeout_ms, "max_attempts": settings.tool_max_attempts, "backoff_ms": settings.tool_backoff_ms, "retry_on": []}  # the platform default (T-165: platform settings)
+def default_policy() -> dict[str, Any]:
+    """The platform default of a call's policy (``settings.tool_*``, read when asked so a changed setting applies to every path)."""
+    return {"timeout_ms": settings.tool_timeout_ms, "max_attempts": settings.tool_max_attempts, "backoff_ms": settings.tool_backoff_ms, "retry_on": []}
 MAX_EXAMPLES = 10
 
 
@@ -368,7 +370,7 @@ def recall(db: Session, tenant_id: UUID, config: dict[str, Any] | None, query: s
 
 def resolve_policy(entry: CapabilityEntry) -> dict[str, Any]:
     """Timeout and retry of an entry: its own settings over the platform default (``tools.policy`` applies it, T-165)."""
-    policy = dict(DEFAULT_POLICY)
+    policy = default_policy()
     if entry.timeout_ms:
         policy["timeout_ms"] = entry.timeout_ms
     if entry.retry:

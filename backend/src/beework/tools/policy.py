@@ -75,7 +75,8 @@ def resolve(entry: CapabilityEntry | None) -> Policy:
         return Policy(settings.tool_timeout_ms, max(1, settings.tool_max_attempts), max(0, settings.tool_backoff_ms), _platform_retry_on(), "platform")
     raw = registry.resolve_policy(entry)
     own = bool(entry.timeout_ms or entry.retry)
-    retry_on = frozenset(c for c in raw.get("retry_on") or [] if c in CATEGORIES) or _platform_retry_on()
+    # An entry that sets its retry rules decides the categories itself — an empty list means "retry nothing", not "use the default".
+    retry_on = frozenset(c for c in raw.get("retry_on") or [] if c in CATEGORIES) if entry.retry and "retry_on" in entry.retry else _platform_retry_on()
     return Policy(
         int(raw["timeout_ms"]), min(MAX_ATTEMPTS, max(1, int(raw["max_attempts"]))), max(0, int(raw["backoff_ms"])), retry_on,
         "entry" if own else "platform", entry.id,
@@ -137,10 +138,15 @@ class BreakerStore(Protocol):
 
     def success(self, key: str) -> None: ...
 
+    def release(self, key: str) -> None:
+        """Give the probe slot back without judging the tool."""
+
     def failure(self, key: str, cfg: BreakerConfig) -> bool:
         """Count a transient failure; ``True`` when this one opened the circuit."""
 
     def is_open(self, key: str) -> bool: ...
+
+    def are_open(self, keys: list[str]) -> list[bool]: ...
 
 
 class MemoryBreaker:
@@ -168,6 +174,10 @@ class MemoryBreaker:
             self._probing[key] = now + cfg.open_seconds
             return True, "half_open", 0
 
+    def release(self, key: str) -> None:
+        with self._lock:
+            self._probing.pop(key, None)
+
     def success(self, key: str) -> None:
         with self._lock:
             for table in (self._failures, self._open_until, self._probing):
@@ -192,6 +202,10 @@ class MemoryBreaker:
         with self._lock:
             return key in self._tripped
 
+    def are_open(self, keys: list[str]) -> list[bool]:
+        with self._lock:
+            return [k in self._tripped for k in keys]
+
 
 class ValkeyBreaker:
     def __init__(self, client: redis.Redis | None = None) -> None:
@@ -199,25 +213,27 @@ class ValkeyBreaker:
 
     def admit(self, key: str, cfg: BreakerConfig) -> tuple[bool, str, int]:
         c = self._client
-        ttl = c.pttl(f"{key}:open")
+        ttl, tripped = c.pipeline(transaction=False).pttl(f"{key}:open").exists(f"{key}:tripped").execute()  # one round trip
         if ttl and ttl > 0:
             return False, "open", max(1, int(ttl / 1000 + 0.999))
-        if not c.exists(f"{key}:tripped"):
+        if not tripped:
             return True, "closed", 0
         if c.set(f"{key}:probe", "1", nx=True, ex=cfg.open_seconds):
             return True, "half_open", 0
         probe_ttl = c.pttl(f"{key}:probe")
         return False, "open", max(1, int((probe_ttl if probe_ttl and probe_ttl > 0 else cfg.open_seconds * 1000) / 1000 + 0.999))
 
+    def release(self, key: str) -> None:
+        self._client.delete(f"{key}:probe")
+
     def success(self, key: str) -> None:
         self._client.delete(f"{key}:count", f"{key}:open", f"{key}:tripped", f"{key}:probe")
 
     def failure(self, key: str, cfg: BreakerConfig) -> bool:
         c = self._client
-        tripped = bool(c.exists(f"{key}:tripped"))
-        count = int(c.incr(f"{key}:count"))
-        c.expire(f"{key}:count", cfg.window_seconds)
-        if tripped or count >= cfg.failures:
+        was_tripped, count, _ = c.pipeline(transaction=True).exists(f"{key}:tripped").incr(f"{key}:count").expire(f"{key}:count", cfg.window_seconds).execute()
+        tripped = bool(was_tripped)
+        if tripped or int(count) >= cfg.failures:
             c.set(f"{key}:tripped", "1", ex=86400)
             c.set(f"{key}:open", "1", ex=cfg.open_seconds)
             c.delete(f"{key}:probe")
@@ -226,6 +242,14 @@ class ValkeyBreaker:
 
     def is_open(self, key: str) -> bool:
         return bool(self._client.exists(f"{key}:tripped"))
+
+    def are_open(self, keys: list[str]) -> list[bool]:
+        if not keys:
+            return []
+        pipe = self._client.pipeline(transaction=False)
+        for key in keys:
+            pipe.exists(f"{key}:tripped")
+        return [bool(v) for v in pipe.execute()]
 
 
 class Breaker:
@@ -258,6 +282,9 @@ class Breaker:
     def admit(self, key: str, cfg: BreakerConfig) -> tuple[bool, str, int]:
         return self._call("admit", key, cfg)
 
+    def release(self, key: str) -> None:
+        self._call("release", key)
+
     def success(self, key: str) -> None:
         self._call("success", key)
 
@@ -266,6 +293,9 @@ class Breaker:
 
     def is_open(self, key: str) -> bool:
         return self._call("is_open", key)
+
+    def are_open(self, keys: list[str]) -> list[bool]:
+        return self._call("are_open", keys)
 
 
 BREAKER = Breaker()

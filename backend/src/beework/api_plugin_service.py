@@ -242,7 +242,7 @@ def _spec(cap: Capability, tool: dict[str, Any]) -> ToolSpec:
     return ToolSpec(
         name=tool_name(cap.id, tool["name"]), source="api", capability_id=cap.id, parameters=tool.get("input_schema") or {},
         writes=bool(tool.get("writes")), description=(tool.get("description") or tool["name"])[:300],
-        idempotent=bool(tool.get("idempotent")) or str((tool.get("binding") or {}).get("method") or "").upper() in ("PUT", "DELETE"),
+        idempotent=bool(tool.get("idempotent")),  # only what the tool definition declares: the HTTP method alone does not make a write safe to repeat
     )
 
 

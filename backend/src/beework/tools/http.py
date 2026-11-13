@@ -47,8 +47,12 @@ class HttpResult:
 
 def retry_after_of(headers: dict[str, str]) -> float | None:
     """The ``Retry-After`` of a response in seconds (the seconds form only; capped, so an upstream cannot park a run)."""
-    raw = {k.lower(): v for k, v in headers.items()}.get("retry-after", "")
-    return min(float(raw), 60.0) if raw.strip().replace(".", "", 1).isdigit() else None
+    raw = {k.lower(): v for k, v in headers.items()}.get("retry-after", "").strip()
+    try:
+        seconds = float(raw)
+    except ValueError:
+        return None
+    return min(seconds, 60.0) if seconds > 0 and seconds == seconds else None  # not NaN, not zero or negative
 
 
 def system_resolver(hostname: str) -> list[str]:

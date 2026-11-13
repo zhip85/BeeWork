@@ -37,9 +37,20 @@ def _unstable(entry: CapabilityEntry) -> bool:
     return bool(name) and policy.BREAKER.is_open(policy.breaker_key(entry.tenant_id, name))
 
 
-def _response(entry: CapabilityEntry, status: str, *, with_schema: bool = False) -> EntryResponse:
+def _unstable_many(entries: list[CapabilityEntry]) -> dict[UUID, bool]:
+    """The ``unstable`` flag of many entries with one round trip to the circuit store."""
+    from beework.intent_service import tool_name_for
+    from beework.tools import policy
+
+    named = [(e, tool_name_for(e)) for e in entries]
+    named = [(e, n) for e, n in named if n]
+    flags = policy.BREAKER.are_open([policy.breaker_key(e.tenant_id, n) for e, n in named])
+    return {e.id: flag for (e, _n), flag in zip(named, flags, strict=True)}
+
+
+def _response(entry: CapabilityEntry, status: str, *, with_schema: bool = False, unstable: bool | None = None) -> EntryResponse:
     return EntryResponse(
-        unstable=_unstable(entry),
+        unstable=_unstable(entry) if unstable is None else unstable,
         id=entry.id, kind=entry.kind, identifier=entry.identifier, name=entry.name, description=entry.description,  # type: ignore[arg-type]
         intent_description=entry.intent_description, intent_examples=list(entry.intent_examples or []), writes=entry.writes,
         direct_enabled=entry.direct_enabled, direct_output=entry.direct_output, timeout_ms=entry.timeout_ms, retry=entry.retry,
@@ -80,7 +91,9 @@ def list_entries(
         statement = statement.where(func.lower(CapabilityEntry.name).like(pattern) | func.lower(CapabilityEntry.description).like(pattern) | func.lower(CapabilityEntry.intent_description).like(pattern))
     entries = list(db.scalars(statement.order_by(CapabilityEntry.kind, func.lower(CapabilityEntry.name), CapabilityEntry.id)))
     statuses = registry.effective_status(db, membership.tenant_id, entries)
-    items = [_response(e, statuses[e.id]) for e in entries if status is None or statuses[e.id] == status]
+    shown = [e for e in entries if status is None or statuses[e.id] == status]
+    flags = _unstable_many(shown[:limit])
+    items = [_response(e, statuses[e.id], unstable=flags.get(e.id, False)) for e in shown]
     db.commit()  # a first read may have backfilled
     return EntryList(items=items[:limit], total=len(items))
 
@@ -106,7 +119,7 @@ def tool_stats(
             ToolInvocation.tool_name,
             func.count().label("calls"),
             func.sum(case((ToolInvocation.status == "ok", 1), else_=0)).label("ok"),
-            func.sum(case((ran & (ToolInvocation.status != "denied"), 1), else_=0)).label("ran"),
+            func.sum(case((ran & ToolInvocation.status.in_(("ok", "error")), 1), else_=0)).label("ran"),  # not refused, not declined by the user
             func.avg(case((ToolInvocation.status == "ok", ToolInvocation.duration_ms))).label("avg_ms"),
             func.sum(ToolInvocation.attempts - 1).label("retries"),
             func.sum(case((ToolInvocation.breaker_state == "opened", 1), else_=0)).label("opened"),

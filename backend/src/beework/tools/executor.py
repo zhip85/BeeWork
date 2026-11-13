@@ -239,45 +239,52 @@ def _execute(
     attempt_ms: list[int] = []
     attempts = 0
     error: ToolError | ToolHttpError | None = None
-    while True:
-        ctx.check_stop()  # a cancelled or timed-out run stops here, not after the next attempt
-        remaining = ctx.remaining()
-        if attempts and remaining is not None and remaining <= 0:
-            break
-        timeout = policy.timeout_ms / 1000 if remaining is None else max(0.1, min(policy.timeout_ms / 1000, remaining))
-        attempts += 1
-        attempt_started = time.monotonic()
-        token = CALL_TIMEOUT.set(timeout)
-        try:
-            with ctx.span(f"tool.{name}"):
-                output = provider.execute(db, ctx, spec, args)
-        except (ToolError, ToolHttpError) as exc:
-            error = exc
-        except Exception:  # noqa: BLE001 — a provider bug must not take the run down or leak into the model's context
-            log.warning("tool %s failed", name)  # no exception text: it may carry request data
+    try:
+        while True:
+            ctx.check_stop()  # a cancelled or timed-out run stops here, not after the next attempt
+            remaining = ctx.remaining()
+            if attempts and remaining is not None and remaining <= 0:
+                break  # the budget ran out while waiting: the last failure is the outcome
+            timeout = policy.timeout_ms / 1000 if remaining is None else max(0.1, min(policy.timeout_ms / 1000, remaining))
+            error = None  # only now: until an attempt really starts, the failure of the previous one stays the outcome
+            attempts += 1
+            attempt_started = time.monotonic()
+            token = CALL_TIMEOUT.set(timeout)
+            try:
+                with ctx.span(f"tool.{name}"):
+                    output = provider.execute(db, ctx, spec, args)
+            except (ToolError, ToolHttpError) as exc:
+                error = exc
+            except Exception:  # noqa: BLE001 — a provider bug must not take the run down or leak into the model's context
+                log.warning("tool %s failed", name)  # no exception text: it may carry request data
+                attempt_ms.append(int((time.monotonic() - attempt_started) * 1000))
+                if state == "half_open":
+                    policy_mod.BREAKER.release(breaker_name)  # the probe was not judged; the next call may probe
+                _record(db, ctx, name, source, spec, "error", call_index=index, started=started, code="tool.failed", key=None, attempts=attempts, policy=policy.source, breaker_state=state, attempt_ms=attempt_ms)
+                return ToolResult(status="error", content="工具执行失败", code="tool.failed", call_index=index)
+            finally:
+                CALL_TIMEOUT.reset(token)
             attempt_ms.append(int((time.monotonic() - attempt_started) * 1000))
-            _record(db, ctx, name, source, spec, "error", call_index=index, started=started, code="tool.failed", key=None, attempts=attempts, policy=policy.source, breaker_state=state, attempt_ms=attempt_ms)
-            return ToolResult(status="error", content="工具执行失败", code="tool.failed", call_index=index)
-        finally:
-            CALL_TIMEOUT.reset(token)
-        attempt_ms.append(int((time.monotonic() - attempt_started) * 1000))
-        if error is None:
-            policy_mod.BREAKER.success(breaker_name)
-            content = ctx.guard_output(ctx.scrub(output.content))[:MAX_RESULT_CHARS]
-            _record(db, ctx, name, source, spec, "ok", call_index=index, started=started, request_bytes=output.request_bytes,
-                    response_bytes=output.response_bytes, key=key, attempts=attempts, policy=policy.source, breaker_state=state, attempt_ms=attempt_ms)
-            return ToolResult(status="ok", content=content, call_index=index)
-        category = policy_mod.category_of(error)
-        if category is None or state == "half_open":
-            break
-        if attempts >= policy.max_attempts or category not in policy.retry_on or not policy_mod.retry_allowed(spec, key, error):
-            break
-        wait_for = policy_mod.delay_seconds(policy, attempts, error)
-        remaining = ctx.remaining()
-        if remaining is not None and wait_for >= remaining:
-            break  # the wait alone would use up the run's budget
-        _wait(ctx, wait_for)
-        error = None
+            if error is None:
+                policy_mod.BREAKER.success(breaker_name)
+                content = ctx.guard_output(ctx.scrub(output.content))[:MAX_RESULT_CHARS]
+                _record(db, ctx, name, source, spec, "ok", call_index=index, started=started, request_bytes=output.request_bytes,
+                        response_bytes=output.response_bytes, key=key, attempts=attempts, policy=policy.source, breaker_state=state, attempt_ms=attempt_ms)
+                return ToolResult(status="ok", content=content, call_index=index)
+            category = policy_mod.category_of(error)
+            if category is None or state == "half_open":
+                break
+            if attempts >= policy.max_attempts or category not in policy.retry_on or not policy_mod.retry_allowed(spec, key, error):
+                break
+            wait_for = policy_mod.delay_seconds(policy, attempts, error)
+            remaining = ctx.remaining()
+            if remaining is not None and wait_for >= remaining:
+                break  # the wait alone would use up the run's budget
+            _wait(ctx, wait_for)
+    except BaseException:  # the run was cancelled or timed out: a probe in flight is released, not judged
+        if state == "half_open":
+            policy_mod.BREAKER.release(breaker_name)
+        raise
     assert error is not None or attempts > 0
     category = policy_mod.category_of(error) if error is not None else None
     breaker_state = state

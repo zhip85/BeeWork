@@ -196,6 +196,49 @@ class PolicyTests(unittest.TestCase):
         result = self.call(ctx=self.ctx(deadline=started + 5))
         self.assertEqual((result.code, self.provider.calls, self.slept), ("tool.timeout", 1, []))  # a 30 s wait does not fit in 5 s
 
+    def test_when_the_budget_runs_out_during_the_wait_the_real_failure_is_the_outcome_and_counts_for_the_circuit(self) -> None:
+        self.entry_with(retry={"max_attempts": 3, "backoff_ms": 1000, "retry_on": ["timeout"]})
+        self.provider.script = [transient()] * 3
+        budget_end = __import__("time").monotonic() + 100
+
+        def sleeping(seconds: float) -> None:
+            ctx.deadline = __import__("time").monotonic() - 1  # the wait used up what was left
+
+        ctx = self.ctx(deadline=budget_end)
+        ctx.sleep = sleeping
+        with mock.patch.object(policy_mod, "delay_seconds", lambda *_: 0.1):
+            result = self.call(ctx=ctx)
+        self.assertEqual((result.code, self.provider.calls), ("tool.timeout", 1))  # not "tool.failed"
+        cfg = policy_mod.breaker_config()
+        self.assertTrue(any(self.breaker.failure(policy_mod.breaker_key(self.tenant_id, "mcp:read"), cfg) for _ in range(cfg.failures)))  # the failure was counted: one more tips it
+
+    def test_an_entry_that_ticks_no_retry_category_retries_nothing(self) -> None:
+        self.entry_with(retry={"max_attempts": 3, "backoff_ms": 0, "retry_on": []})
+        self.provider.script = [transient()] * 3
+        self.call()
+        self.assertEqual(self.provider.calls, 1)  # "retry nothing" is not "use the default categories"
+
+    def test_a_probe_that_hits_a_provider_bug_or_a_cancel_gives_the_slot_back(self) -> None:
+        with mock.patch("beework.notifications.notify"):
+            self.trip()
+        self.clock.now += 31
+        self.provider.script = [RuntimeError("bug")]
+        self.assertEqual(self.call().code, "tool.failed")  # the probe died without a verdict
+        self.provider.script = ["ok"]
+        self.assertEqual(self.call().status, "ok")  # the next call may probe at once, not 30 s later
+        self.provider.script = [transient()]
+        with mock.patch("beework.notifications.notify"):
+            self.trip()
+        self.clock.now += 31
+
+        def cancelled():
+            raise RuntimeError("cancelled")
+
+        with self.assertRaises(RuntimeError):
+            self.call(ctx=self.ctx(check_stop=cancelled))
+        self.provider.script = ["ok"]
+        self.assertEqual(self.call().status, "ok")
+
     def test_cancelling_the_run_stops_the_retries(self) -> None:
         self.entry_with(retry={"max_attempts": 4, "backoff_ms": 1000, "retry_on": ["timeout"]})
         self.provider.script = [transient()] * 4
@@ -297,20 +340,29 @@ class CategoryTests(unittest.TestCase):
         self.assertIsNone(category(ToolError("tool.auth_failed", "x")))
         self.assertIsNone(category(ToolError("tool.invalid_arguments", "x")))
 
+    def test_retry_after_reads_seconds_and_ignores_anything_else(self) -> None:
+        from beework.tools.http import retry_after_of
+
+        self.assertEqual(retry_after_of({"Retry-After": "7"}), 7.0)
+        self.assertEqual(retry_after_of({"retry-after": "500"}), 60.0)
+        for odd in ("²", "", "-3", "0", "nan", "Wed, 21 Oct 2026 07:28:00 GMT"):
+            self.assertIsNone(retry_after_of({"Retry-After": odd}), odd)
+        self.assertIsNone(retry_after_of({}))
+
 
 class StatsApiTests(test_capability_registry.RegistryTests):
     def test_stats_aggregate_the_call_records_per_tool_and_an_open_circuit_marks_the_entry_unstable(self) -> None:
         mcp = self.make_mcp()
         entry = self.live(mcp)["search_policy"]
         name = f"mcp:{mcp}:search_policy"
-        rows = [("ok", None, 100, 1, None), ("ok", None, 300, 2, None), ("error", "tool.timeout", 30000, 3, "opened"), ("denied", "tool.circuit_open", 0, 1, "open")]
+        rows = [("ok", None, 100, 1, None), ("ok", None, 300, 2, None), ("error", "tool.timeout", 30000, 3, "opened"), ("denied", "tool.circuit_open", 0, 1, "open"), ("cancelled", "tool.cancelled", 0, 1, None)]
         with self.session_factory.begin() as db:
             for status, code, ms, attempts, breaker in rows:
                 db.add(ToolInvocation(tenant_id=self.tenant, tool_name=name, source="mcp", status=status, error_code=code, duration_ms=ms, attempts=attempts, breaker_state=breaker, attempt_ms=[]))
         stats = self.client.get("/api/v1/registry/stats", headers=self.admin).json()
         item = next(i for i in stats["items"] if i["tool"] == name)
-        self.assertEqual((item["entry_id"], item["name"], item["calls"], item["ok"], item["avg_ms"]), (str(entry.id), "search_policy", 4, 2, 200))
-        self.assertEqual((item["success_rate"], item["retries"], item["circuit_opened"], item["refused"]), (round(2 / 3, 4), 3, 1, 1))  # refused calls never ran
+        self.assertEqual((item["entry_id"], item["name"], item["calls"], item["ok"], item["avg_ms"]), (str(entry.id), "search_policy", 5, 2, 200))
+        self.assertEqual((item["success_rate"], item["retries"], item["circuit_opened"], item["refused"]), (round(2 / 3, 4), 3, 1, 1))  # refused calls never ran, and a call the user declined is neither a success nor a failure
         self.assertFalse(self.get_entry(entry.id)["unstable"])
         with mock.patch.object(policy_mod, "BREAKER", Breaker(valkey=MemoryBreaker(), memory=MemoryBreaker())) as breaker:
             breaker.failure(policy_mod.breaker_key(self.tenant, name), BreakerConfig(1, 60, 30))
