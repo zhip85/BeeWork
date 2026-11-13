@@ -101,7 +101,10 @@ def load_pending(db: Session, run: Run) -> str | None:
     pending = ((previous.output or {}).get("route") or {}).get("pending") if previous is not None else None
     if not (isinstance(pending, dict) and pending.get("entry_id")):
         return None
-    entry = db.get(CapabilityEntry, pending["entry_id"])
+    try:
+        entry = db.get(CapabilityEntry, UUID(str(pending["entry_id"])))
+    except ValueError:
+        return None
     if entry is None or entry.kind != "dify_chatflow":
         return None
     text = str((run.input or {}).get("message") or "")

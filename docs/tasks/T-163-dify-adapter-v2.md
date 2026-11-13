@@ -50,3 +50,18 @@ Dify 应用 API Key（Chatflow 与 Workflow 各一个）。
 3. 经 L3（路径 B）调用 Chatflow 时不会写 `route.pending`，只有路径 A 直答才会让下一条消息自动回到该流程；会话绑定（Dify 会话复用）两条路径都有。
 4. 发消息类调用的重试策略留给 T-165；本任务只对读取类调用重试。
 5. 页面未目视验收。
+
+## 代码审查与修复（2026-11-13）
+
+审查（`/code-review high`，范围 `0809e84..46a10b4`）发现并已修复：
+1. **注册项的输入 Schema 不随“重新读取参数”更新**：派生监听器没有监听 `FlowConnection.parameters`，只在新建时才对。已加入监听；测试覆盖“重新读取 → Schema 更新”。
+2. **流被截断仍当作成功**：Chatflow 收到部分文字后断流不报错，半截回答被当作回复。现在没有 `message_end` 一律是 `tool.stream_interrupted`。
+3. **流式已推给用户后失败又回退到智能体**：用户会先看到半截回答，再看到另一个回答。现在已经推过 token 的失败不再回退，已发出的内容就是回复，路由记录标 `partial`。
+4. **换了应用 / Key 后旧变量仍在**：读取失败时旧的 `parameters` 与 `app_mode` 继续生效。现在更换 Base URL、App ID 或 Key 会先清空，再读取。
+5. **名为 `query` 的 Dify 变量遮蔽了提问**：Schema 里 `required` 重复且问题被当作变量转发。现在 Chatflow 里这个名字不作为变量。
+6. SSE 的 `error` 事件 `status` 不是数字时抛 `ValueError`：改为按 500 分类。
+7. SSE 解析不处理 CRLF 与最后一帧没有空行：已处理。
+8. 流式读取因超时 / 超大小上限失败时没有通知 Dify 停止：已补。
+9. `load_pending` 里用字符串查主键：改为 `UUID(...)` 并容错。
+
+**未改**：`load_pending` 在读取辅助函数里提交（退出词会关闭绑定）——这是有意为之（退出词在路由决定之前生效），但命名上容易误解；以后重构时再改名。

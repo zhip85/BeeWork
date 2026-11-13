@@ -133,6 +133,7 @@ def user_hash(tenant_id: UUID, end_user: str | None) -> str:
 
 MODES = {"chatflow": ("advanced-chat", "chat"), "workflow": ("workflow",)}
 FORM_TYPES = {"text-input": "string", "paragraph": "string", "select": "string", "number": "number"}
+RESERVED = ("query",)  # tool arguments that are not Dify input variables
 RETRY_CODES = {"tool.timeout", "tool.unreachable", "tool.rate_limited", "tool.upstream_error"}  # safe to repeat a read (T-165 owns the policy)
 
 
@@ -212,7 +213,7 @@ def _inputs_for(conn: FlowConnection, args: dict[str, Any]) -> dict[str, Any]:
     if mapping:
         return {variable: args[argument] for variable, argument in mapping.items() if argument in args}
     if conn.parameters:
-        return {p["variable"]: args[p["variable"]] for p in conn.parameters if p["variable"] in args}
+        return {p["variable"]: args[p["variable"]] for p in conn.parameters if p["variable"] in args and not (conn.kind == "chatflow" and p["variable"] in RESERVED)}
     raw = args.get("inputs")
     return raw if isinstance(raw, dict) else {}
 
@@ -249,12 +250,19 @@ class _Sse:
         self.ended = False
 
     def feed(self, chunk: bytes) -> None:
-        self.buffer += chunk
+        self.buffer += chunk.replace(b"\r\n", b"\n")  # a proxy may normalise line endings
         while b"\n\n" in self.buffer:
             raw, self.buffer = self.buffer.split(b"\n\n", 1)
             for line in raw.split(b"\n"):
                 if line.startswith(b"data:"):
                     self.event(line[5:].strip())
+
+    def finish(self) -> None:
+        """The last frame may arrive without its closing blank line."""
+        rest, self.buffer = self.buffer, b""
+        for line in rest.split(b"\n"):
+            if line.startswith(b"data:"):
+                self.event(line[5:].strip())
 
     def event(self, payload: bytes) -> None:
         self.check_stop()  # between events: a cancelled or timed-out run stops reading
@@ -277,7 +285,8 @@ class _Sse:
             self.outputs, self.workflow_status, self.workflow_error = data["data"].get("outputs"), data["data"].get("status"), data["data"].get("error")
             self.ended = True
         elif kind == "error":
-            self.error = _dify_error(int(data.get("status") or 500), json.dumps({"message": data.get("message")}).encode())
+            status = data.get("status")
+            self.error = _dify_error(status if isinstance(status, int) else 500, json.dumps({"message": data.get("message")}).encode())
 
 
 def _stop(conn: FlowConnection, task_id: str | None, user: str) -> None:
@@ -325,16 +334,18 @@ def call_dify(
             allowed_host=host_of(conn.base_url), transport=TRANSPORT, resolver=RESOLVER, on_chunk=reader.feed,
         )
     except ToolHttpError as exc:
+        _stop(conn, reader.task_id, user)  # a timeout or a response over the size limit: the Dify run must not carry on
         raise ToolError(exc.code, exc.message) from exc
     except Exception:  # the run was cancelled or timed out while reading
         _stop(conn, reader.task_id, user)
         raise
     if not 200 <= result.status < 300:
         raise _dify_error(result.status, result.body)
+    reader.finish()
     if reader.error is not None:
         raise reader.error
     if conn.kind == "chatflow":
-        if not reader.answer and not reader.ended:
+        if not reader.ended:  # also when part of the answer arrived: a cut-off reply is not a reply
             raise ToolError("tool.stream_interrupted", "Dify 的流式回答中断了")
         return DifyReply("".join(reader.answer), reader.conversation_id)
     if not reader.ended:
@@ -439,6 +450,8 @@ def _spec(conn: FlowConnection) -> ToolSpec:
             properties[argument] = {"type": "string"}
     else:
         for field_ in conn.parameters or []:
+            if conn.kind == "chatflow" and field_["variable"] in RESERVED:
+                continue  # the question itself: a variable of that name cannot be told apart from it
             prop: dict[str, Any] = {"type": field_["type"], "description": field_["label"]}
             if field_.get("options"):
                 prop["enum"] = field_["options"]

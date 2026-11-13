@@ -116,6 +116,8 @@ def _apply(db: Session, membership: Membership, conn: FlowConnection, payload: F
     if not secret and conn.source_type == "dify" and svc.host_of(new_url) != svc.host_of(conn.base_url):
         # a stored key belongs to the host it was entered for: it must not travel to another one
         raise ApiError(422, "flow_connection.credential_reentry", "更换了 Base URL 的主机，请重新填写 API Key（已保存的凭据不会发往新主机）")
+    if (conn.base_url, conn.app_id) != (new_url, app_id) or secret:  # another application or key: what was read before no longer describes it
+        conn.app_mode, conn.parameters, conn.parameters_synced_at = None, [], None
     conn.base_url = new_url
     conn.app_id = app_id
     if secret:

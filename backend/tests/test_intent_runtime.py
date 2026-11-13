@@ -118,6 +118,24 @@ class IntentRuntimeTests(test_rewrite.RewriteRuntimeTests):
         self.assertEqual(output["route"]["pending"], {"entry_id": "e-flow"})  # the next message is for the flow, if the connection says so
         self.assertEqual(self.final_text(run_id), "请提供订单号")
 
+    def test_a_failure_after_part_of_a_streamed_answer_is_not_followed_by_a_second_answer(self) -> None:
+        fake = Fake([(FLOW, 0.95)], slots=Slots("ok", args={"query": "我要退货"}), result=ToolResult("error", "cut", code="tool.stream_interrupted"), candidates=(FLOW,))
+        real = fake.runtime()
+
+        def invoke(target, args, stream=None):
+            if stream is not None:
+                stream("请提供")  # half an answer reached the user
+            return fake.result
+
+        real.invoke = invoke
+        self.configure(intent={"enabled": True})
+        llm = ScriptedChat(chunks=["不该出现"], seen_messages=[])
+        with patch("beework.runtime.executor._intent_runtime", return_value=real):
+            run_id, llm, _ = self.ask("我要退货", llm=llm)
+        output = self.run_row(run_id).output
+        self.assertEqual((llm.seen_messages, self.final_text(run_id)), ([], "请提供"))
+        self.assertEqual((output["route"]["path"], output["route"]["partial"], output["route"]["capability_error"]), ("A", True, "tool.stream_interrupted"))
+
     def test_the_trace_carries_no_user_text_or_argument_values(self) -> None:
         fake = Fake([(ORDER, 0.95)], slots=Slots("ok", args={"id": SECRET}))
         run_id, _, _, output = self.route(fake, f"我的手机号 {SECRET}，查订单")

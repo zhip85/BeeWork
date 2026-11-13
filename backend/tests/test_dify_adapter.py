@@ -55,6 +55,30 @@ class DifyAdapterTests(base.FlowConnectionTests):
         self.call(data["id"], {"query": "查", "order_no": "A1", "qty": 2, "stray": "x"})
         self.assertEqual(self.server.bodies[-1]["inputs"], {"order_no": "A1", "qty": 2})  # the application's own variables only
 
+    def test_syncing_again_updates_the_registrys_schema_and_a_changed_target_drops_the_old_variables(self) -> None:
+        data = self.dify("chatflow", "Changes")
+        self.assertEqual(data["parameters"], [])
+        self.server.form = FORM
+        self.assertEqual(len(self.client.post(f"/api/v1/flow-connections/{data['id']}/sync", headers=self.admin).json()["parameters"]), 3)
+        with self.session_factory() as db:
+            schema = db.scalar(select(CapabilityEntry).where(CapabilityEntry.source_id == UUID(data["id"]))).input_schema
+        self.assertIn("order_no", schema["properties"])  # the entry follows the application, not only the name
+        self.server.fail = 503  # Dify is down while the connection is pointed at another application
+        with mock.patch.object(svc.time, "sleep", lambda _s: None):
+            moved = self.update(data["id"], **{**self.dify_body("chatflow", "Changes"), "app_id": "another-app", "row_version": self.conn(data["id"])["row_version"]})
+        self.assertEqual(moved.status_code, 200)
+        self.assertEqual((moved.json()["parameters"], moved.json()["app_mode"]), ([], None))  # the old application's variables are gone
+        self.assertTrue(moved.json()["parameters_error"])
+
+    def test_a_variable_named_query_cannot_shadow_the_question(self) -> None:
+        self.server.form = [{"text-input": {"label": "q", "variable": "query", "required": True}}, {"text-input": {"label": "n", "variable": "name", "required": True}}]
+        data = self.dify("chatflow", "Shadow")
+        with self.session_factory() as db:
+            schema = db.scalar(select(CapabilityEntry).where(CapabilityEntry.source_id == UUID(data["id"]))).input_schema
+        self.assertEqual((schema["required"], schema["properties"]["query"]["type"], list(schema["properties"])), (["query", "name"], "string", ["query", "name"]))
+        self.call(data["id"], {"query": "问", "name": "x"})
+        self.assertEqual(self.server.bodies[-1]["inputs"], {"name": "x"})
+
     def test_an_input_mapping_overrides_the_read_variables(self) -> None:
         self.server.form = FORM
         data = self.dify("workflow", "Mapped", input_mapping={"order_no": "order"})
@@ -185,6 +209,18 @@ class DifyAdapterTests(base.FlowConnectionTests):
         self.assertEqual((result.status, result.content, tokens), ("ok", "你好", ["你", "好"]))
         with self.session_factory() as db:
             self.assertEqual(db.scalar(select(DifyConversation)).dify_conversation_id, "d9")
+
+    def test_a_cut_off_stream_is_an_error_even_after_some_text_and_crlf_and_a_missing_last_blank_line_are_read(self) -> None:
+        data = self.dify("chatflow", "Cut", streaming=True)
+        self.stream_with(sse({"event": "message", "answer": "半句", "task_id": "t"}))
+        self.assertEqual(self.call(data["id"], {"query": "x"}).code, "tool.stream_interrupted")
+        crlf = sse({"event": "message", "answer": "完", "task_id": "t"}, {"event": "message_end"}).replace(b"\n", b"\r\n")
+        self.stream_with(crlf)
+        self.assertEqual(self.call(data["id"], {"query": "x"}).content, "完")
+        self.stream_with(sse({"event": "message", "answer": "尾"}, {"event": "message_end"})[:-2])  # the last frame has no blank line after it
+        self.assertEqual(self.call(data["id"], {"query": "x"}).content, "尾")
+        self.stream_with(sse({"event": "error", "status": "internal", "message": "boom"}))
+        self.assertEqual(self.call(data["id"], {"query": "x"}).code, "tool.upstream_error")  # a non-numeric status is still a classified error
 
     def test_a_streamed_workflow_returns_only_the_final_output(self) -> None:
         data = self.dify("workflow", "Streams too", streaming=True, output_mapping={"field": "text"})
