@@ -468,7 +468,7 @@
 
 ### T-008 邮件发送基础设施（已完成，待验收）
 
-- 迁移 `0053_mail_deliveries`（可降级）：`mail_deliveries` 只存收件人掩码 + SHA-256 哈希、模板、语言、状态、错误、job_id、时间；正文与模板上下文不入库。`beework/mail.py` 的 `send_mail` 只入队 `mail.send`，worker 用 `SmtpTransport` / `ConsoleTransport` 渲染 Jinja2 模板并发送，失败沿 T-002 队列退避重试，`dead` 在平台「后台任务」页可见；同收件人同模板 1 分钟最多 3 封。
+- 迁移 `0055_mail_deliveries`（可降级）：`mail_deliveries` 只存收件人掩码 + SHA-256 哈希、模板、语言、状态、错误、job_id、时间；正文与模板上下文不入库。`beework/mail.py` 的 `send_mail` 只入队 `mail.send`，worker 用 `SmtpTransport` / `ConsoleTransport` 渲染 Jinja2 模板并发送，失败沿 T-002 队列退避重试，`dead` 在平台「后台任务」页可见；同收件人同模板 1 分钟最多 3 封。
 - 成员邀请与「重新发送」改为真实发信（SET-010）；平台创建租户勾选「立即发送开通邀请」时不再预设密码，改为给首位管理员发邀请、由其在链接里自行设置姓名密码（PLT-022）；平台新增「邮件投递」页（`/platform/mail`，`GET /platform/mail/deliveries` 仅平台管理员、收件人掩码）；`password_reset` / 通用通知模板为后续任务预留。
 - 本地栈加 Mailpit（`127.0.0.1:8025`，Web UI 只绑回环；compose 默认 `MAIL_TRANSPORT=smtp` 指向它），`MAIL_*` 只进 `.env.example` 占位；`settings.mail_transport` 裸跑默认 `console`，不会误连外部 SMTP。
 - 验证：ruff；PostgreSQL 迁移升降级 + `alembic check` + **全量 1251 项 OK**；前端 tsc / lint / i18n / build；`scripts/check_mail_e2e.py` 在真实栈上跑通「发信 → Mailpit 收信 → 链接接受邀请 → 管理员登录」。**生产 SMTP / 邮件服务商未连过**（外部条件仍缺），页面未做浏览器目视验收；频控为应用内计数、无跨实例锁；退订链接未做（规则未定义）。

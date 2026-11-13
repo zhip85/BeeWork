@@ -1,7 +1,7 @@
 """Mail delivery records (T-008)
 
-Revision ID: 0053_mail_deliveries
-Revises: 0052_capability_registry
+Revision ID: 0055_mail_deliveries
+Revises: 0054_execution_policy
 Create Date: 2026-11-13 10:00:00.000000
 
 """
@@ -11,8 +11,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = '0053_mail_deliveries'
-down_revision: str | None = '0052_capability_registry'
+revision: str = '0055_mail_deliveries'
+down_revision: str | None = '0054_execution_policy'  # T-165 and T-163 are ahead of this migration on main
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

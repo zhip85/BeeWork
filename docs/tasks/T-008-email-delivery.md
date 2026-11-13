@@ -36,7 +36,7 @@
 
 **改动文件**
 
-- 后端新增：`mail.py`（`send_mail` 只入队 `mail.send`、`MailTransport` / `SmtpTransport` / `ConsoleTransport`、Jinja2 渲染、收件人掩码+哈希、频控、worker handler）、`models/mail.py`（`mail_deliveries`）、`schemas/mail.py`、`mail_templates/{zh-CN,en}/`（成员邀请、租户开通邀请、密码重置预留、通用通知，各含 subject/body.txt/body.html）；迁移 `0053_mail_deliveries.py`（down_revision `0052_capability_registry`，可降级）。
+- 后端新增：`mail.py`（`send_mail` 只入队 `mail.send`、`MailTransport` / `SmtpTransport` / `ConsoleTransport`、Jinja2 渲染、收件人掩码+哈希、频控、worker handler）、`models/mail.py`（`mail_deliveries`）、`schemas/mail.py`、`mail_templates/{zh-CN,en}/`（成员邀请、租户开通邀请、密码重置预留、通用通知，各含 subject/body.txt/body.html）；迁移 `0055_mail_deliveries.py`（down_revision `0054_execution_policy`，可降级）。
 - 后端修改：`config.py`（`MAIL_*`）、`models/__init__.py` / `worker/runner.py`（模型与 handler 注册）、`api/jobs.py`（投递记录列表）、`api/members.py`（邀请与重发真实发信）、`api/platform_tenants.py` + `schemas/__init__.py`（`send_admin_invitation`，PLT-022）、`requirements.txt`（jinja2）、`backend/tests/test_mail.py`（35 项）、`backend/tests/test_retire_flow_canvas_migration.py`（既有测试修复，见遗留问题）。
 - 前端：`PlatformMailPage.tsx`（邮件投递记录）、`PlatformConsole.tsx`（导航/面包屑）、`PlatformTenantsPage.tsx`（立即发送开通邀请勾选框）、`i18n/{zh-CN,en}/platform.json`。
 - 部署：`compose.yaml` 加 Mailpit（Web UI `127.0.0.1:8025`）并给 api/worker 注入 `MAIL_*`；`.env.example` 加占位（无真实密钥）；新增 `scripts/check_mail_e2e.py` 真实栈 e2e。
