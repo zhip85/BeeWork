@@ -775,6 +775,7 @@ from beework.models import (  # noqa: E402,F401
     governance,
     jobs,
     knowledge,
+    mail,
     memory,
     notifications,
     plans,

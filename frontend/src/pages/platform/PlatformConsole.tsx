@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   ListRestart,
+  Mail,
   BookText,
   ScanEye,
   ShieldAlert,
@@ -21,6 +22,7 @@ import { PlatformModelsPage } from './PlatformModelsPage'
 import { PlatformOverviewPage } from './PlatformOverviewPage'
 import { PlatformTenantsPage } from './PlatformTenantsPage'
 import { PlatformJobsPage } from './PlatformJobsPage'
+import { PlatformMailPage } from './PlatformMailPage'
 import { PlatformPlansPage } from './PlatformPlansPage'
 import { PlatformSkillsPage } from './PlatformSkillsPage'
 import { PlatformGlossaryPage } from './glossary/PlatformGlossaryPage'
@@ -41,6 +43,7 @@ export function PlatformConsole({
   const isAuditPage = location.pathname === '/platform/audit'
   const isModelPage = location.pathname === '/platform/models'
   const isJobsPage = location.pathname === '/platform/jobs'
+  const isMailPage = location.pathname === '/platform/mail'
   const isPlansPage = location.pathname === '/platform/plans'
   const isGlossaryPage = location.pathname === '/platform/glossaries'
   const isPiiPage = location.pathname === '/platform/pii-rules'
@@ -71,6 +74,9 @@ export function PlatformConsole({
         </NavLink>
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/jobs">
           <ListRestart size={18} strokeWidth={1.8} /><span>{t('jobs')}</span>
+        </NavLink>
+        <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/mail">
+          <Mail size={18} strokeWidth={1.8} /><span>{t('mail')}</span>
         </NavLink>
         <div className="nav-caption">{t('definitions')}</div>
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/models">
@@ -108,7 +114,7 @@ export function PlatformConsole({
       </aside>
       <main className="main-area platform-main">
         <header className="topbar">
-          <div className="breadcrumbs"><span>{t('breadcrumbRoot')}</span><span className="crumb-slash">/</span><strong>{isTenantPage ? t('tenants') : isAuditPage ? t('auditPage') : isModelPage ? t('models') : isJobsPage ? t('jobs') : isPlansPage ? t('plans.nav') : isGlossaryPage ? t('glossaries') : isPiiPage ? t('piiRules') : isBaselinePage ? t('baseline') : isSkillsPage ? t('skills') : t('overviewPage')}</strong></div>
+          <div className="breadcrumbs"><span>{t('breadcrumbRoot')}</span><span className="crumb-slash">/</span><strong>{isTenantPage ? t('tenants') : isAuditPage ? t('auditPage') : isModelPage ? t('models') : isJobsPage ? t('jobs') : isMailPage ? t('mail') : isPlansPage ? t('plans.nav') : isGlossaryPage ? t('glossaries') : isPiiPage ? t('piiRules') : isBaselinePage ? t('baseline') : isSkillsPage ? t('skills') : t('overviewPage')}</strong></div>
           <div className="topbar-actions">
             <LanguageSwitch persist /><span className="platform-admin-badge"><i />{t('adminBadge')}</span>
             {user.memberships.length > 0 && <Link className="platform-tenant-link" to="/">{t('enterWorkspace')}</Link>}
@@ -131,6 +137,8 @@ export function PlatformConsole({
                 ? <PlatformSkillsPage />
               : isJobsPage
                 ? <PlatformJobsPage />
+              : isMailPage
+                ? <PlatformMailPage />
               : isTenantPage
                 ? <PlatformTenantsPage currentUserId={user.id} />
                 : <PlatformOverviewPage />}

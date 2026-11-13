@@ -22,7 +22,10 @@ class CreateTenantRequest(BaseModel):
     industry: str = Field(default="general_office", max_length=32)  # a code of the industry dictionary (T-051)
     admin_email: EmailStr
     admin_name: str = Field(min_length=1, max_length=120)
-    admin_password: str = Field(min_length=12, max_length=256)
+    # Either set an initial password here (delivered out of band) or set send_admin_invitation (T-008 / PLT-022)
+    # and the admin sets their own password from the invitation mail.
+    admin_password: str | None = Field(default=None, min_length=12, max_length=256)
+    send_admin_invitation: bool = False
     # "trial" starts the workspace in trial status; it is suspended automatically when the trial ends (T-005).
     provisioning: Literal["formal", "trial"] = "formal"
     trial_days: int = Field(default=14, ge=1, le=90)

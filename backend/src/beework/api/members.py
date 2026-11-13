@@ -21,6 +21,7 @@ from beework.auth import (
 from beework.config import settings
 from beework.db import get_db
 from beework.entitlements import CONSOLE_FREE_ROLES, quota_limit, seat_usage
+from beework.mail import MailRateLimited, send_mail
 from beework.models import (
     AuditEvent,
     AuthSession,
@@ -57,6 +58,49 @@ router = APIRouter()
 
 
 _UNLIMITED_SEATS = 1_000_000
+
+
+def _invitation_mail_context(
+    db: Session, *, tenant: Tenant, inviter: User | None, invitation_url: str, expires_at: datetime
+) -> dict:
+    """Context for the invitation mail (SET-010). The URL carries the invitation token and must
+    never end up in logs or audit events; it only goes into the mail job payload."""
+    locale = getattr(inviter, "locale", None) if inviter is not None else None
+    return {
+        "tenant_name": tenant.name,
+        "inviter_name": inviter.display_name if inviter is not None else "企业管理员",
+        "invitation_url": invitation_url,
+        "expires_at": expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC"),
+    }, (locale or "zh-CN")
+
+
+def _send_invitation_mail(
+    db: Session,
+    *,
+    tenant: Tenant,
+    inviter: User | None,
+    to: str,
+    invitation_url: str,
+    expires_at: datetime,
+    template: str = "member_invitation",
+    context_extra: dict | None = None,
+) -> None:
+    context, locale = _invitation_mail_context(
+        db, tenant=tenant, inviter=inviter, invitation_url=invitation_url, expires_at=expires_at
+    )
+    if context_extra:
+        context.update(context_extra)
+    try:
+        send_mail(
+            db,
+            tenant_id=tenant.id,
+            to=to,
+            template=template,
+            context=context,
+            locale=locale,
+        )
+    except MailRateLimited as exc:
+        raise ApiError(429, "mail.rate_limited", "该收件人的邀请邮件发送过于频繁，请一分钟后再试") from exc
 
 
 def _seat_limit(db: Session, tenant_id: UUID) -> int:
@@ -235,6 +279,8 @@ def create_member_invitations(
 
     created: list[CreatedMemberInvitationResponse] = []
     now = datetime.now(UTC)
+    tenant = db.get(Tenant, membership.tenant_id)
+    inviter = db.get(User, membership.user_id)
     for email in emails:
         token = secrets.token_urlsafe(32)
         invitation = MemberInvitation(
@@ -250,11 +296,20 @@ def create_member_invitations(
         )
         db.add(invitation)
         db.flush()
+        invitation_url = f"{settings.app_origin}/invite?token={token}"
+        _send_invitation_mail(
+            db,
+            tenant=tenant,
+            inviter=inviter,
+            to=email,
+            invitation_url=invitation_url,
+            expires_at=invitation.expires_at,
+        )
         base = _invitation_response(db, invitation)
         created.append(
             CreatedMemberInvitationResponse(
                 **base.model_dump(),
-                invitation_url=f"{settings.app_origin}/invite?token={token}",
+                invitation_url=invitation_url,
             )
         )
         db.add(
@@ -425,6 +480,16 @@ def resend_member_invitation(
     invitation.token_hash = hashlib.sha256(token.encode()).hexdigest()
     invitation.status = "pending"
     invitation.expires_at = datetime.now(UTC) + timedelta(days=7)
+    tenant = db.get(Tenant, membership.tenant_id)
+    inviter = db.get(User, membership.user_id) if membership.user_id else None
+    _send_invitation_mail(
+        db,
+        tenant=tenant,
+        inviter=inviter,
+        to=invitation.email,
+        invitation_url=f"{settings.app_origin}/invite?token={token}",
+        expires_at=invitation.expires_at,
+    )
     db.add(
         AuditEvent(
             tenant_id=membership.tenant_id,

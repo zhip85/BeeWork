@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -9,13 +11,16 @@ from beework.api.conventions import require_platform_admin
 from beework.auth import (
     require_csrf,
 )
+from beework.config import settings
 from beework.db import get_db
 from beework.entitlements import change_subscription, create_subscription, portal_grant, seat_usage
 from beework.glossary import ensure_industry
 from beework.governance.tenant_glossary import preset_for_tenant
+from beework.mail import MailRateLimited, send_mail
 from beework.models import (
     AuditEvent,
     AuthSession,
+    MemberInvitation,
     Membership,
     Organization,
     PlatformOperationRequest,
@@ -68,6 +73,12 @@ def create_tenant(
     tenant_admin = db.scalar(select(User).where(User.email == admin_email))
     if tenant_admin:
         raise HTTPException(status_code=409, detail="企业管理员邮箱已注册，请使用其他邮箱")
+    if payload.send_admin_invitation and payload.admin_password:
+        raise HTTPException(status_code=422, detail="发送开通邀请时不需要设置初始密码")
+    if not payload.send_admin_invitation and not payload.admin_password:
+        raise HTTPException(
+            status_code=422, detail="请设置企业管理员初始密码，或改为发送开通邀请邮件"
+        )
     tenant = Tenant(
         name=payload.name,
         slug=payload.slug,
@@ -91,34 +102,81 @@ def create_tenant(
         db, tenant, seats=payload.seat_limit,
         portal_mode=payload.portal_mode, portal_seats=payload.portal_seats, portal_overage=payload.portal_overage,
     )
-    tenant_admin = User(
-        email=admin_email,
-        display_name=payload.admin_name,
-        password_hash=hash_password(payload.admin_password),
-        is_platform_admin=False,
-    )
-    db.add(tenant_admin)
-    db.flush()
-    db.add(
-        Membership(
+    invitation_id: str | None = None
+    if payload.send_admin_invitation:
+        # PLT-022 / T-008: no password is set here; the admin picks one when accepting the invitation mail.
+        invitation_token = secrets.token_urlsafe(32)
+        invitation_expires = datetime.now(UTC) + timedelta(days=7)
+        admin_invitation = MemberInvitation(
             tenant_id=tenant.id,
-            user_id=tenant_admin.id,
-            organization_id=root_organization.id,
+            email=admin_email,
             role="tenant_admin",
+            organization_id=root_organization.id,
+            token_hash=hashlib.sha256(invitation_token.encode()).hexdigest(),
+            status="pending",
+            invited_by=user.id,
+            expires_at=invitation_expires,
         )
-    )
-    db.add(
-        AuditEvent(
-            tenant_id=tenant.id,
-            actor_user_id=user.id,
-            action="tenant.created",
-            details={
-                "slug": tenant.slug,
-                "tenant_admin_user_id": str(tenant_admin.id),
-                "tenant_admin_email": tenant_admin.email,
-            },
+        db.add(admin_invitation)
+        db.flush()
+        invitation_id = str(admin_invitation.id)
+        invitation_url = f"{settings.app_origin}/invite?token={invitation_token}"
+        try:
+            send_mail(
+                db,
+                tenant_id=tenant.id,
+                to=admin_email,
+                template="tenant_admin_invitation",
+                context={
+                    "tenant_name": tenant.name,
+                    "admin_name": payload.admin_name,
+                    "invitation_url": invitation_url,
+                    "expires_at": invitation_expires.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC"),
+                },
+            )
+        except MailRateLimited as exc:
+            raise HTTPException(status_code=429, detail="邀请邮件发送过于频繁，请一分钟后再试") from exc
+        db.add(
+            AuditEvent(
+                tenant_id=tenant.id,
+                actor_user_id=user.id,
+                action="tenant.created",
+                details={
+                    "slug": tenant.slug,
+                    "tenant_admin_invitation_id": invitation_id,
+                    "tenant_admin_email": admin_email,
+                },
+            )
         )
-    )
+    else:
+        tenant_admin = User(
+            email=admin_email,
+            display_name=payload.admin_name,
+            password_hash=hash_password(str(payload.admin_password)),
+            is_platform_admin=False,
+        )
+        db.add(tenant_admin)
+        db.flush()
+        db.add(
+            Membership(
+                tenant_id=tenant.id,
+                user_id=tenant_admin.id,
+                organization_id=root_organization.id,
+                role="tenant_admin",
+            )
+        )
+        db.add(
+            AuditEvent(
+                tenant_id=tenant.id,
+                actor_user_id=user.id,
+                action="tenant.created",
+                details={
+                    "slug": tenant.slug,
+                    "tenant_admin_user_id": str(tenant_admin.id),
+                    "tenant_admin_email": tenant_admin.email,
+                },
+            )
+        )
     db.add(
         AuditEvent(
             tenant_id=None,
@@ -131,6 +189,7 @@ def create_tenant(
                 "plan": tenant.plan,
                 "region": tenant.region,
                 "provisioning": payload.provisioning,
+                **({"admin_invited": True} if payload.send_admin_invitation else {}),
                 **({"trial_days": str(payload.trial_days)} if payload.provisioning == "trial" else {}),
             },
         )

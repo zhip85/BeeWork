@@ -1,0 +1,7 @@
+Hello,
+
+{{ message }}
+
+{% if link %}See details: {{ link }}
+{% endif %}
+— BeeWork

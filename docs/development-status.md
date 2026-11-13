@@ -19,7 +19,7 @@
 | 阶段 | 范围 | 状态 | 说明 |
 |---|---|---|---|
 | 0 | 工程底座 | 大部分完成 | Compose、迁移、按领域拆分的前后端代码、ruff/oxlint、SQLite + PostgreSQL 测试、CI 已就绪；Worker/队列已实现（T-002）。 |
-| 1 | 租户、组织、角色权限与审计 | 收尾中 | 缺：i18n 框架、登录失败锁定、邀请邮件、生产清理调度/告警、外部存证。 |
+| 1 | 租户、组织、角色权限与审计 | 收尾中 | 邀请邮件已由 T-008 补齐（真实 SMTP → Mailpit 验证）；其余为本节早期记录，按各任务状态为准：生产清理调度/告警、外部存证。 |
 | 2 | 平台定义、套餐权益与模型配置 | 进行中 | 已完成：模型目录、环境配置（非企业版仅生产）、租户生命周期 7 态 + 双人复核、LiteLLM 同步与连通测试。缺：套餐版本/权益/配额、BYOK、跨环境发布、真实供应商调用验收（缺供应商 Key）。 |
 | 3 | 助理构建、审批、版本与最小运行闭环 | 未开始 | 前置：Worker/队列、首发模型供应商。 |
 | 4 | 知识库（Dify） | 已完成（有条件） | T-030/T-031/T-033 已完成：知识库、文档、挂载与运行时检索，Dify 已用真实环境验证；FAQ（T-032）未做。 |
@@ -465,6 +465,14 @@
 
 - 取代 T-058。优先规则（关键词 / 正则）→ 注册中心召回 → 分类 LLM（JEV 先用普通 LLM，模型是设置项）→ 阈值 + 差距：高置信、唯一、允许直达、非写操作的能力直接调用（路径 A：Dify 应用 / `direct_output` 直接返回，其他结果一次模型调用整合；FAQ 直答），其余交给智能体（路径 B，带候选提示）。任何失败都回到路径 B，不让运行失败；路由记录里没有用户原文与参数值。编排页“意图判断”、规则编辑与测试、卸载前的引用提醒、发布检查 `route.rule_target_invalid`。无迁移。
 - 验证：ruff；`test_intent_engine` / `test_intent_runtime` / `test_intent_config`；前端 tsc / lint / i18n / style。**页面未目视验收；JEV 专用模型未接入。**
+
+### T-008 邮件发送基础设施（已完成，待验收）
+
+- 迁移 `0053_mail_deliveries`（可降级）：`mail_deliveries` 只存收件人掩码 + SHA-256 哈希、模板、语言、状态、错误、job_id、时间；正文与模板上下文不入库。`beework/mail.py` 的 `send_mail` 只入队 `mail.send`，worker 用 `SmtpTransport` / `ConsoleTransport` 渲染 Jinja2 模板并发送，失败沿 T-002 队列退避重试，`dead` 在平台「后台任务」页可见；同收件人同模板 1 分钟最多 3 封。
+- 成员邀请与「重新发送」改为真实发信（SET-010）；平台创建租户勾选「立即发送开通邀请」时不再预设密码，改为给首位管理员发邀请、由其在链接里自行设置姓名密码（PLT-022）；平台新增「邮件投递」页（`/platform/mail`，`GET /platform/mail/deliveries` 仅平台管理员、收件人掩码）；`password_reset` / 通用通知模板为后续任务预留。
+- 本地栈加 Mailpit（`127.0.0.1:8025`，Web UI 只绑回环；compose 默认 `MAIL_TRANSPORT=smtp` 指向它），`MAIL_*` 只进 `.env.example` 占位；`settings.mail_transport` 裸跑默认 `console`，不会误连外部 SMTP。
+- 验证：ruff；PostgreSQL 迁移升降级 + `alembic check` + **全量 1251 项 OK**；前端 tsc / lint / i18n / build；`scripts/check_mail_e2e.py` 在真实栈上跑通「发信 → Mailpit 收信 → 链接接受邀请 → 管理员登录」。**生产 SMTP / 邮件服务商未连过**（外部条件仍缺），页面未做浏览器目视验收；频控为应用内计数、无跨实例锁；退订链接未做（规则未定义）。
+- 附带修复既有测试 `test_retire_flow_canvas_migration.py`：head 前移到 0052+ 后，该测试停在 0051 就跑 `alembic check` 会失败，现改为 check 前升级到 head。
 
 ## 4. 下一步
 

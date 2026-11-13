@@ -19,8 +19,10 @@ from beework.auth import require_csrf
 from beework.db import get_db
 from beework.models import AuditEvent, Membership, User
 from beework.models.jobs import Job
+from beework.models.mail import MailDelivery
 from beework.rbac import require_tenant_permission
 from beework.schemas.jobs import JobResponse
+from beework.schemas.mail import MailDeliveryResponse
 from beework.worker.events import stream_run_events
 from beework.worker.queue import retry_job
 
@@ -61,6 +63,28 @@ def retry_platform_job(
     db.add(AuditEvent(actor_user_id=user.id, action="job.retried", details={"job_id": str(job.id)}))
     db.commit()
     return JobResponse.model_validate(job)
+
+
+@router.get("/platform/mail/deliveries", response_model=Page[MailDeliveryResponse])
+def list_mail_deliveries(
+    status_filter: str | None = Query(default=None, alias="status", max_length=12),
+    template: str | None = Query(default=None, max_length=64),
+    pagination: Pagination = Depends(get_pagination),
+    _user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+) -> Page[MailDeliveryResponse]:
+    """Mail delivery records (T-008): recipients are masked, bodies never enter the database."""
+    statement = select(MailDelivery)
+    if status_filter:
+        statement = statement.where(MailDelivery.status == status_filter)
+    if template:
+        statement = statement.where(MailDelivery.template == template)
+    items, total = paginate(
+        db, statement.order_by(MailDelivery.created_at.desc(), MailDelivery.id), pagination
+    )
+    return Page[MailDeliveryResponse](
+        items=items, total=total, limit=pagination.limit, offset=pagination.offset
+    )
 
 
 @router.get("/runs/{run_id}/events")

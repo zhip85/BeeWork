@@ -49,6 +49,13 @@ services:
       LANGFUSE_HOST: ${LANGFUSE_HOST:-}
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-false}
+      MAIL_FROM: ${MAIL_FROM:-BeeWork <no-reply@beework.local>}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -98,6 +105,13 @@ services:
       LANGFUSE_HOST: ${LANGFUSE_HOST:-}
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-smtp}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-false}
+      MAIL_FROM: ${MAIL_FROM:-BeeWork <no-reply@beework.local>}
     volumes:
       - ./backend/src:/app/src
       - knowledge_uploads:/data/uploads
@@ -109,6 +123,14 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+
+  # Local SMTP catcher (T-008). Every mail the worker sends lands in its inbox; open the Web UI at
+  # http://127.0.0.1:8025. In production point SMTP_HOST at a real provider and keep mailpit off.
+  mailpit:
+    image: axllent/mailpit:v1.24
+    ports:
+      - "127.0.0.1:8025:8025"
+    restart: unless-stopped
 
   # Stand-in for the knowledge engine (RAGFlow's and Dify's dataset / document / retrieval endpoints) for development
   # without a real instance; see scripts/fake_ragflow.py. For Dify: KNOWLEDGE_ENGINE=dify DIFY_BASE_URL=http://ragflow-fake:9380/v1.

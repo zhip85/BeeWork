@@ -8,6 +8,7 @@
   "opsData": "运营数据",
   "tenants": "租户管理",
   "jobs": "后台任务",
+  "mail": "邮件投递",
   "definitions": "平台定义",
   "models": "模型目录",
   "auditSection": "审计",
