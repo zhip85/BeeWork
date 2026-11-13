@@ -136,6 +136,9 @@ class AssistantModelOption(BaseModel):
     display_name: str
     provider: str
     is_default: bool
+    # T-014: the configuration page warns when a chosen model was disabled and names its degradation model.
+    status: str = "healthy"
+    fallback_display_name: str | None = None
 
 
 class AssistantModelOptionsResponse(BaseModel):

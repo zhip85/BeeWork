@@ -73,6 +73,7 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "model_catalog.created": "新增模型目录项",
     "model_catalog.updated": "更新模型目录项",
     "model_catalog.disabled": "停用模型目录项",
+    "model_catalog.deleted": "删除模型目录项",
     "model_environment.updated": "更新模型环境配置",
     "model_environment.published": "发布模型环境配置",
     "model_catalog.tested": "测试模型连通性",

@@ -1,17 +1,24 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from beework import model_catalog
 from beework.api.conventions import require_platform_admin
 from beework.auth import (
     require_csrf,
 )
 from beework.config import settings
 from beework.db import get_db
-from beework.gateway_sync import request_model_sync, sync_environments_using_model
+from beework.errors import ApiError
+from beework.gateway_sync import (
+    request_model_deletion,
+    request_model_sync,
+    sync_environments_of_chain,
+    sync_models_using_fallback,
+)
 from beework.integrations.litellm import model_alias
 from beework.model_secrets import encrypt_model_api_key
 from beework.model_testing import run_model_test
@@ -69,7 +76,7 @@ def _validate_platform_model_references(
     db: Session,
     payload: PlatformModelWriteRequest,
     *,
-    model_id: UUID | None = None,
+    model: PlatformModel | None = None,
 ) -> list[Tenant]:
     tenants = list(
         db.scalars(
@@ -79,29 +86,29 @@ def _validate_platform_model_references(
     if len(tenants) != len(set(payload.allowlist_tenant_ids)):
         raise HTTPException(status_code=422, detail="白名单包含不存在的租户")
 
-    if payload.fallback_model_id is None:
-        return tenants
-    if payload.fallback_model_id == model_id:
-        raise HTTPException(status_code=422, detail="模型不能降级到自身")
-    fallback = db.get(PlatformModel, payload.fallback_model_id)
-    if fallback is None:
-        raise HTTPException(status_code=422, detail="降级模型不存在")
-    if fallback.model_type != payload.model_type or fallback.region != payload.region:
-        raise HTTPException(status_code=422, detail="降级模型必须与当前模型类型和区域一致")
-
-    visited: set[UUID] = set()
-    current: PlatformModel | None = fallback
-    while current is not None:
-        if current.id == model_id:
-            raise HTTPException(status_code=422, detail="降级模型不能形成循环引用")
-        if current.id in visited:
-            raise HTTPException(status_code=409, detail="现有模型降级关系已存在循环")
-        visited.add(current.id)
-        current = (
-            db.get(PlatformModel, current.fallback_model_id)
-            if current.fallback_model_id
-            else None
+    # Review fix 2: only validate the degradation target when it actually changes — editing an
+    # unrelated field must not fail because a legacy target has since been disabled.
+    shape_changed = model is not None and (payload.model_type != model.model_type or payload.region != model.region)
+    if model is None or payload.fallback_model_id != model.fallback_model_id or shape_changed:
+        model_catalog.validate_fallback(
+            db,
+            model_id=None if model is None else model.id,
+            fallback_model_id=payload.fallback_model_id,
+            model_type=payload.model_type,
+            region=payload.region,
         )
+    if shape_changed:
+        # Review fix 4: a region/type change must not leave referencing models degrading across
+        # regions or types — reject until their own degradation config is fixed first.
+        for referencer in model_catalog.models_referencing_as_fallback(db, model.id):
+            if referencer.model_type != payload.model_type or referencer.region != payload.region:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"模型「{referencer.display_name}」的降级指向本模型，修改区域或类型会使其跨区域或跨类型，"
+                        "请先调整它的降级配置"
+                    ),
+                )
     return tenants
 
 
@@ -115,7 +122,7 @@ def _write_platform_model(
     tenant_rows = _validate_platform_model_references(
         db,
         payload,
-        model_id=None if create else model.id,
+        model=None if create else model,
     )
     if create and not payload.api_key:
         raise HTTPException(status_code=422, detail="新增模型必须填写 API Key")
@@ -264,9 +271,49 @@ def update_platform_model(
         raise HTTPException(status_code=409, detail="模型目录更新冲突") from error
     db.refresh(model)
     request_model_sync(db, model)
-    sync_environments_using_model(db, model.id)
+    sync_environments_of_chain(db, model.id)
+    sync_models_using_fallback(db, model.id)
     db.refresh(model)
     return _platform_model_response(model)
+
+
+@router.delete("/platform/models/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_platform_model(
+    model_id: UUID,
+    user: User = Depends(require_platform_admin),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> Response:
+    """PLT-093: only a model no tenant enabled and no other model degrades to can be deleted."""
+    model = db.get(PlatformModel, model_id, with_for_update=True)  # a concurrent "degrade to this model" waits for us (and then finds it gone)
+    if model is None:
+        raise HTTPException(status_code=404, detail="未找到模型")
+    blocker = model_catalog.delete_blockers(db, model.id)
+    if blocker is not None:
+        raise ApiError(409, "model_catalog.in_use", blocker)
+    alias = model_alias(model.id)
+    db.add(
+        AuditEvent(
+            tenant_id=None,
+            actor_user_id=user.id,
+            action="model_catalog.deleted",
+            details={
+                "model_id": str(model.id),
+                "display_name": model.display_name,
+                "gateway_alias": alias,
+            },
+        )
+    )
+    db.delete(model)
+    try:
+        # Review fix 3: enqueueing the cleanup job can flush the delete and hit the fallback
+        # foreign key when a tenant enablement races this deletion — that must stay a 409, not a 500.
+        request_model_deletion(db, model.id, alias)
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise ApiError(409, "model_catalog.in_use", "模型仍被引用，只能停用") from error
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _platform_model_or_404(db: Session, model_id: UUID) -> PlatformModel:

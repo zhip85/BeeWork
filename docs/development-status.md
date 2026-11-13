@@ -466,6 +466,13 @@
 - 取代 T-058。优先规则（关键词 / 正则）→ 注册中心召回 → 分类 LLM（JEV 先用普通 LLM，模型是设置项）→ 阈值 + 差距：高置信、唯一、允许直达、非写操作的能力直接调用（路径 A：Dify 应用 / `direct_output` 直接返回，其他结果一次模型调用整合；FAQ 直答），其余交给智能体（路径 B，带候选提示）。任何失败都回到路径 B，不让运行失败；路由记录里没有用户原文与参数值。编排页“意图判断”、规则编辑与测试、卸载前的引用提醒、发布检查 `route.rule_target_invalid`。无迁移。
 - 验证：ruff；`test_intent_engine` / `test_intent_runtime` / `test_intent_config`；前端 tsc / lint / i18n / style。**页面未目视验收；JEV 专用模型未接入。**
 
+### T-014 模型目录补全（已完成，有条件）
+
+- **无新迁移**：核对迁移 `0009_platform_models` 已覆盖 PRD 3.14.2 的全部字段（区域、上下文窗口、最大输出、默认温度、RPM、降级模型、输入/输出扣点），无需补列。
+- 降级（PLT-090 / PLT-092）：`model_catalog.py` 统一校验同类型同区域、目标未停用、无循环；保存后由 Worker 把降级关系写成 LiteLLM router 级 `POST /fallback`（实测可经 API 动态管理，不改 `config.yaml`），请求级 `fallbacks` 作为网关重启后的双保险；运行时按**当前**目录解析冻结快照里的模型别名，停用模型直接改用降级别名。
+- 停用影响：`/assistants/model-options` 返回 `status` / `fallback_display_name`，智能体基础页标红「模型已停用，正在使用降级模型 X」；配置检查有降级时报 high、无降级时报 blocker。删除限制（PLT-093）：`DELETE /platform/models/{id}` 在有租户启用或被其它模型设为降级目标时 409，成功时写审计并入队 `gateway.delete_model` 清理 deployment 与 fallback。编辑弹窗新增「测试调用」（延迟 + 示例输出）与自定义删除确认。
+- 验证：ruff 全量；PostgreSQL 一次性库上 `alembic upgrade → check → downgrade base → upgrade`；全量后端套件（修复 review 意见后重跑）**1285 项全部 OK**；`test_model_catalog_completion` 21 项；前端 tsc / lint / i18n / style / build；**连过真实本地 LiteLLM**（请求级 / router 级降级、租户虚拟 Key 权限，见任务文件「实测记录」）。`check_model_fallback_e2e.py` 完整模式与 `check_gateway_e2e.py` 未实跑：验收期间共享 Compose 栈的 api 服务未监听、LiteLLM 重启后持续无法就绪（详见任务文件「完成记录」与「遗留问题」）。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
+from beework import model_catalog
 from beework.api.common import lock_tenant
 from beework.api.conventions import (
     ApiError,
@@ -466,11 +467,14 @@ def assistant_model_options(
 ) -> AssistantModelOptionsResponse:
     models, environment = _enabled_chat_models(db, membership.tenant_id)
     default = next((model.id for model, is_default in models if is_default), None)
+    states = model_catalog.model_states(db, [model.id for model, _ in models])  # one query, not N+1
     return AssistantModelOptionsResponse(
         environment=environment,
         models=[
             AssistantModelOption(
-                id=model.id, display_name=model.display_name, provider=model.provider, is_default=is_default
+                id=model.id, display_name=model.display_name, provider=model.provider, is_default=is_default,
+                status=model.status,
+                fallback_display_name=states[model.id].fallback_name,
             )
             for model, is_default in models
         ],

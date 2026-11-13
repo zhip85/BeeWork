@@ -16,6 +16,7 @@ import beework.agent_teams  # noqa: F401  (registers the leaf-agent tool provide
 import beework.capability_registry  # noqa: F401  (keeps the unified capability entries derived from their sources)
 import beework.capability_service  # noqa: F401  (registers the MCP tool provider and the mcp mount resolver)
 import beework.skill_service  # noqa: F401  (registers the skill load tool and the skill mount resolver)
+from beework import model_catalog
 from beework.compliance import get_policy
 from beework.conversations import append_message, history_for_run
 from beework.faqs import record_hits as record_faq_hits
@@ -115,11 +116,22 @@ def gateway_llm_for(
         raise RuntimeFailure("runtime.gateway_not_ready", str(exc)) from exc
     except ValueError as exc:
         raise RuntimeFailure("runtime.gateway_not_ready", "环境网关密钥不可用，请重新保存模型配置") from exc
-    return build_chat_model(dsl, api_key=api_key, metadata=metadata)
+    effective = dsl
+    # T-014: the frozen snapshot may name a model that was disabled since it was published. Resolve it
+    # against the current catalog, and give the gateway one degradation target for a failed call.
+    resolved = model_catalog.resolve_runtime_model(db, effective.model_alias)
+    effective = effective.model_copy(update={"model_alias": resolved.alias})
+    info = dict(metadata)
+    if resolved.switched_from:
+        info["model_fallback_from"] = resolved.switched_from
+    return build_chat_model(effective, api_key=api_key, metadata=info, fallbacks=resolved.fallbacks)
 
 
 def gateway_rewrite_llm(db: Session, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
-    """The question-rewrite model (OC-041): the configured one, or the assistant's own when none is chosen."""
+    """The question-rewrite model (OC-041): the configured one, or the assistant's own when none is chosen.
+
+    Both go through catalog resolution (T-014 review fix 5): a configured model that was disabled
+    since the draft was saved is replaced by its degradation target, with one request-level fallback."""
     environment = db.scalar(
         select(TenantModelEnvironment).where(
             TenantModelEnvironment.tenant_id == run.tenant_id, TenantModelEnvironment.environment == run.environment
@@ -127,12 +139,22 @@ def gateway_rewrite_llm(db: Session, run: Run, dsl: AssistantDSLv1) -> BaseChatM
     )
     if environment is None:
         raise RuntimeFailure("runtime.gateway_not_ready", "该环境尚未配置模型")
-    alias = model_alias(UUID(dsl.oc.rewrite.model_id)) if dsl.oc.rewrite.model_id else dsl.model_alias
-    return build_rewrite_model(alias, api_key=tenant_gateway_key(environment), metadata={**run_metadata(run), "purpose": "rewrite"})
+    resolved = model_catalog.resolve_runtime_model(
+        db,
+        model_alias(UUID(dsl.oc.rewrite.model_id)) if dsl.oc.rewrite.model_id else dsl.model_alias,
+    )
+    info = {**run_metadata(run), "purpose": "rewrite"}
+    if resolved.switched_from:
+        info["model_fallback_from"] = resolved.switched_from
+    return build_rewrite_model(
+        resolved.alias, api_key=tenant_gateway_key(environment), metadata=info, fallbacks=resolved.fallbacks
+    )
 
 
 def gateway_intent_llm(db: Session, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
-    """The L2 classifier model (T-161): the configured one, or the assistant's own when none is chosen."""
+    """The L2 classifier model (T-161): the configured one, or the assistant's own when none is chosen.
+
+    Resolved through the catalog like the rewrite model (T-014 review fix 5)."""
     environment = db.scalar(
         select(TenantModelEnvironment).where(
             TenantModelEnvironment.tenant_id == run.tenant_id, TenantModelEnvironment.environment == run.environment
@@ -140,8 +162,16 @@ def gateway_intent_llm(db: Session, run: Run, dsl: AssistantDSLv1) -> BaseChatMo
     )
     if environment is None:
         raise RuntimeFailure("runtime.gateway_not_ready", "该环境尚未配置模型")
-    alias = model_alias(UUID(dsl.oc.intent.model_id)) if dsl.oc.intent.model_id else dsl.model_alias
-    return build_intent_model(alias, api_key=tenant_gateway_key(environment), metadata={**run_metadata(run), "purpose": "intent"})
+    resolved = model_catalog.resolve_runtime_model(
+        db,
+        model_alias(UUID(dsl.oc.intent.model_id)) if dsl.oc.intent.model_id else dsl.model_alias,
+    )
+    info = {**run_metadata(run), "purpose": "intent"}
+    if resolved.switched_from:
+        info["model_fallback_from"] = resolved.switched_from
+    return build_intent_model(
+        resolved.alias, api_key=tenant_gateway_key(environment), metadata=info, fallbacks=resolved.fallbacks
+    )
 
 
 def _intent_model(bind: Any, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:

@@ -1,0 +1,16 @@
+{
+  "testCall": "Test call",
+  "testWorking": "Testing…",
+  "testHint": "Sends one real request using the saved configuration; unsaved edits are not included.",
+  "testResult": "Call succeeded in {{latency}} ms. Sample output: {{content}}",
+  "testNoOutput": "Call succeeded in {{latency}} ms; the model returned no sample output.",
+  "testFailed": "Call failed: {{error}}",
+  "testUnavailable": "Only a healthy chat model already synced to the AI gateway can be tested.",
+  "delete": "Delete",
+  "deleteTitle": "Delete model",
+  "deleteBody": "This cannot be undone and the AI gateway deployment will be removed. Delete \"{{name}}\"?",
+  "deleted": "Model \"{{name}}\" deleted; the AI gateway configuration is being cleaned up.",
+  "deleteFailed": "Failed to delete the model",
+  "disabledUsingFallback": "This model is disabled; {{name}} is serving instead",
+  "disabledNoFallback": "This model is disabled and has no degradation model; choose another model"
+}

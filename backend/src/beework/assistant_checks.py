@@ -1,14 +1,16 @@
 """Assistant configuration check (T-021): the rules behind ``GET /assistants/{id}/checks`` and publish blockers."""
 
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from beework import model_catalog
 from beework.agent_teams import REASON_TEXT
 from beework.capabilities import resolve_mounts
 from beework.gateway_sync import environment_ready
-from beework.models import TenantModelEnvironment
+from beework.models import PlatformModel, TenantModelEnvironment
 from beework.models.assistants import Assistant
 from beework.schemas.assistant_checks import CheckIssue
 
@@ -36,11 +38,25 @@ def check_assistant(
     if not description:
         issues.append(CheckIssue(code="description_missing", severity="blocker", message="请填写使用场景 / 简介", target="basic"))
 
+    from beework.runtime.oc import OCConfig
+
+    oc = OCConfig.model_validate(config.get("oc") or {})
     model_id = config.get("model_id")
+    # one catalog read for the main, rewrite and intent models (PLT-090)
+    states = model_catalog.model_states(db, [m for m in (model_id, oc.rewrite.model_id, oc.intent.model_id) if m])
     if not model_id:
         issues.append(CheckIssue(code="runtime.model_unavailable", severity="blocker", message="智能体尚未选择模型", target="basic"))
-    elif str(model_id) not in enabled_model_ids:
-        issues.append(CheckIssue(code="runtime.model_unavailable", severity="blocker", message="所选模型未在当前环境启用", target="basic"))
+    else:
+        # PLT-090 + review fix 7: the catalog state is the single source — one issue per fault.
+        # A disabled (or deleted) model is reported by the catalog rules below; the environment
+        # allowlist rule only applies to a model that is still serving in the catalog.
+        state = states.get(_uuid(model_id)) or model_catalog.ModelState(unavailable=True)
+        if state.unavailable and state.fallback_name and _fallback_usable(db, assistant.tenant_id, state):
+            issues.append(CheckIssue(code="runtime.model_disabled_fallback", severity="high", message=f"模型已停用，正在使用降级模型 {state.fallback_name}", target="basic"))
+        elif state.unavailable:
+            issues.append(CheckIssue(code="runtime.model_disabled", severity="blocker", message="所选模型已停用或已删除，且没有可用的降级模型，请更换模型", target="basic"))
+        elif str(model_id) not in enabled_model_ids:
+            issues.append(CheckIssue(code="runtime.model_unavailable", severity="blocker", message="所选模型未在当前环境启用", target="basic"))
 
     fallback_id = config.get("fallback_model_id")
     if fallback_id and str(fallback_id) not in enabled_model_ids:
@@ -78,20 +94,58 @@ def check_assistant(
                 CheckIssue(code="mount.invalid", severity="high", message=f"挂载的能力“{label}”{state}", target="capabilities")
             )
 
-    issues.extend(_intent_issues(db, assistant, config))
+    issues.extend(_oc_model_issues(db, assistant.tenant_id, oc, states))
+    issues.extend(_intent_issues(db, assistant, config, oc))
 
     if not (config.get("greeting") or "").strip():
         issues.append(CheckIssue(code="greeting_empty", severity="info", message="未设置开场白", target="basic"))
     return issues
 
 
-def _intent_issues(db: Session, assistant: Assistant, config: dict[str, Any]) -> list[CheckIssue]:
+def _uuid(value: Any) -> UUID | None:
+    try:
+        return UUID(str(value))
+    except ValueError:
+        return None
+
+
+def _fallback_usable(db: Session, tenant_id: UUID, state: "model_catalog.ModelState") -> bool:
+    """The model that takes over a disabled one only serves this tenant if its plan / allowlist entitles it (its gateway scope)."""
+    target = db.get(PlatformModel, state.fallback_id) if state.fallback_id else None
+    return target is not None and model_catalog.tenant_may_use(db, tenant_id, target)
+
+
+def _oc_model_issues(db: Session, tenant_id: UUID, oc: Any, states: dict[UUID, "model_catalog.ModelState"]) -> list[CheckIssue]:
+    """T-014 review fix 5: the rewrite and intent-classifier models resolve through the catalog at
+    run time just like the main model, so a disabled or deleted one is flagged the same way — only
+    while the feature that uses it is switched on."""
+    issues: list[CheckIssue] = []
+    for label, code, enabled, model_id in (
+        ("改写", "runtime.rewrite_model_disabled", oc.rewrite.enabled, oc.rewrite.model_id),
+        ("意图", "runtime.intent_model_disabled", oc.intent.enabled, oc.intent.model_id),
+    ):
+        if not enabled or not model_id:
+            continue
+        state = states.get(_uuid(model_id)) or model_catalog.ModelState(unavailable=True)
+        if state.unavailable and state.fallback_name and _fallback_usable(db, tenant_id, state):
+            issues.append(CheckIssue(
+                code=code, severity="high",
+                message=f"{label}模型已停用，正在使用降级模型 {state.fallback_name}", target="orchestration",
+            ))
+        elif state.unavailable:
+            issues.append(CheckIssue(
+                code=code, severity="blocker",
+                message=f"{label}模型已停用或已删除，请更换模型", target="orchestration",
+            ))
+    return issues
+
+
+def _intent_issues(db: Session, assistant: Assistant, config: dict[str, Any], oc: Any) -> list[CheckIssue]:
     """T-161: a priority rule whose target is no longer a directly callable capability of the agent's scope would be skipped at run
     time; say so before publishing. Only while intent judgement and the priority rules are switched on (they are what runs)."""
     from beework import intent_service
-    from beework.runtime.oc import OCConfig
 
-    intent = OCConfig.model_validate(config.get("oc") or {}).intent
+    intent = oc.intent
     if not (intent.enabled and intent.priority_rules_enabled):
         return []
     callable_ids = set(intent_service.load_scope(db, assistant.tenant_id, config).callable_by_id())

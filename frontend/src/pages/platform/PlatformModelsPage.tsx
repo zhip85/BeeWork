@@ -5,7 +5,9 @@ import {
   Plus,
   X,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { apiRequest } from '../../api'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { ModelDraft, ModelTestResult, PlatformModel, PlatformTenant } from '../../types'
 import { enumLabel, enumOptions } from '../../i18n'
 
@@ -36,6 +38,7 @@ function emptyModelDraft(): ModelDraft {
 }
 
 export function PlatformModelsPage() {
+  const { t: tm } = useTranslation('modelCatalog')
   const [models, setModels] = useState<PlatformModel[]>([])
   const [tenants, setTenants] = useState<PlatformTenant[]>([])
   const [draft, setDraft] = useState<ModelDraft | null>(null)
@@ -43,6 +46,9 @@ export function PlatformModelsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<ModelTestResult | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<PlatformModel | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
@@ -76,6 +82,7 @@ export function PlatformModelsPage() {
   function editModel(model: PlatformModel) {
     setError('')
     setNotice('')
+    setTestResult(null)
     setDraft({
       id: model.id,
       display_name: model.display_name,
@@ -171,12 +178,15 @@ export function PlatformModelsPage() {
     }
   }
 
-  async function testModel(model: PlatformModel, accessOnly: boolean) {
+  async function testModel(model: PlatformModel, accessOnly: boolean, inEditor = false) {
     setBusyModel(model.id)
+    setTesting(inEditor)
     setError('')
     setNotice('')
+    if (inEditor) setTestResult(null)
     try {
       const result = await apiRequest<ModelTestResult>(`/api/v1/platform/models/${model.id}/test`, { method: 'POST', body: JSON.stringify({ access_only: accessOnly }) })
+      if (inEditor) setTestResult(result)
       if (result.ok) {
         setNotice(`${model.display_name}${result.access_only ? '（仅校验网关凭证与模型权限，未调用供应商）' : ''} 调用成功，耗时 ${result.latency_ms} ms：${result.content ?? ''}`)
       } else {
@@ -186,8 +196,24 @@ export function PlatformModelsPage() {
       setError(requestError instanceof Error ? requestError.message : '测试失败')
     } finally {
       setBusyModel('')
+      setTesting(false)
     }
   }
+
+  async function deleteModel(model: PlatformModel) {
+    setError('')
+    setNotice('')
+    try {
+      await apiRequest<void>(`/api/v1/platform/models/${model.id}`, { method: 'DELETE' })
+      await refreshModels()
+      setNotice(tm('deleted', { name: model.display_name }))
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : tm('deleteFailed'))
+    }
+  }
+
+  const savedModel = draft?.id ? models.find((model) => model.id === draft.id) ?? null : null
+  const canTestInEditor = Boolean(savedModel && savedModel.gateway_sync_status === 'synced' && savedModel.model_type === 'chat' && savedModel.status !== 'disabled')
 
   return (
     <section className="platform-models-page">
@@ -197,7 +223,7 @@ export function PlatformModelsPage() {
           <h1>模型目录</h1>
           <p>管理平台可供租户使用的模型、区域、价格和凭证。密钥加密保存，不会再次显示明文。</p>
         </div>
-        <button className="primary-button" onClick={() => { setError(''); setDraft(emptyModelDraft()) }} type="button">
+        <button className="primary-button" onClick={() => { setError(''); setTestResult(null); setDraft(emptyModelDraft()) }} type="button">
           <Plus size={16} />新增模型
         </button>
       </div>
@@ -246,6 +272,7 @@ export function PlatformModelsPage() {
                         <button className="text-action" disabled={busyModel === model.id} onClick={() => void testModel(model, false)} type="button">真实调用</button>
                       </>
                     )}
+                    <button className="text-action" onClick={() => setDeleteTarget(model)} type="button">{tm('delete')}</button>
                   </td>
                 </tr>
               ))}</tbody>
@@ -297,12 +324,45 @@ export function PlatformModelsPage() {
                 </div>
               </div>
             </div>
+            <div className="model-editor-section model-editor-test">
+              <small>{tm('testHint')}</small>
+              {!canTestInEditor && <small>{tm('testUnavailable')}</small>}
+              {testResult && (
+                <p className={testResult.ok ? 'tenant-success' : 'members-error'} role="status">
+                  {testResult.ok
+                    ? testResult.content
+                      ? tm('testResult', { latency: testResult.latency_ms, content: testResult.content })
+                      : tm('testNoOutput', { latency: testResult.latency_ms })
+                    : tm('testFailed', { error: testResult.error ?? '' })}
+                </p>
+              )}
+            </div>
             <footer className="model-editor-footer">
               <button className="secondary-button" disabled={saving} onClick={() => setDraft(null)} type="button">取消</button>
+              <button
+                className="secondary-button"
+                disabled={saving || testing || !canTestInEditor || !savedModel}
+                onClick={() => savedModel && void testModel(savedModel, false, true)}
+                type="button"
+              >{testing ? tm('testWorking') : tm('testCall')}</button>
               <button className="primary-button" disabled={saving} type="submit">{saving ? '正在保存…' : '保存模型'}</button>
             </footer>
           </form>
         </div>
+      )}
+      {deleteTarget && (
+        <ConfirmDialog
+          body={tm('deleteBody', { name: deleteTarget.display_name })}
+          confirmLabel={tm('delete')}
+          danger
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            const target = deleteTarget
+            setDeleteTarget(null)
+            await deleteModel(target)
+          }}
+          title={tm('deleteTitle')}
+        />
       )}
     </section>
   )

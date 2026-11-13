@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from beework import model_catalog
 from beework.integrations.litellm import (
     GatewayError,
     LiteLLMClient,
@@ -83,10 +84,12 @@ def sync_platform_model(db: Session, model: PlatformModel) -> None:
         model.gateway_error = None
         db.commit()
         return
+    alias = model_alias(model.id)
     try:
         with LiteLLMClient() as client:
             if model.status == "disabled":
                 client.delete_model(model.id)
+                client.clear_fallback(alias)
             else:
                 client.upsert_model(
                     model_id=model.id,
@@ -98,6 +101,13 @@ def sync_platform_model(db: Session, model: PlatformModel) -> None:
                     rpm_limit=model.rpm_limit,
                     model_type=model.model_type,
                 )
+                # T-014: the catalog's degradation target is a router-level fallback in LiteLLM,
+                # managed over /fallback so the gateway (not BeeWork) retries a failing call.
+                fallback = model_catalog.gateway_fallback_alias(db, model)
+                if fallback:
+                    client.set_fallback(alias, [fallback])
+                else:
+                    client.clear_fallback(alias)
     except (GatewayError, ValueError) as exc:
         model.gateway_sync_status = "failed"
         model.gateway_error = str(exc)[:500]
@@ -108,24 +118,42 @@ def sync_platform_model(db: Session, model: PlatformModel) -> None:
     db.commit()
 
 
+def _tenant_may_use_alias(db: Session, tenant_id: UUID, alias: str) -> bool:
+    target_id = model_catalog.model_id_from_alias(alias)
+    target = db.get(PlatformModel, target_id) if target_id else None
+    return target is not None and model_catalog.tenant_may_use(db, tenant_id, target)
+
+
 def sync_tenant_environment(db: Session, tenant: Tenant, config: TenantModelEnvironment) -> None:
-    """Restrict the environment's gateway team to the models it has enabled."""
+    """Restrict the environment's gateway team to the models it has enabled — plus, T-014, the
+    alias each of them resolves to at run time.
+
+    A disabled entry is replaced outright by its degradation target (its deployment is gone), so
+    that target must be allowed by the team or the tenant key gets rejected on the direct request
+    (review fix 1); the same goes for a serving entry's request-level fallback."""
     if not gateway_configured():
         config.gateway_sync_status = "not_configured"
         config.gateway_error = None
         db.commit()
         return
-    aliases = [
-        model_alias(model_id)
-        for model_id in db.scalars(
-            select(TenantModelSelection.model_id)
-            .join(PlatformModel, PlatformModel.id == TenantModelSelection.model_id)
-            .where(
-                TenantModelSelection.environment_id == config.id,
-                PlatformModel.status != "disabled",
-            )
-        )
-    ]
+    aliases: list[str] = []
+    seen: set[str] = set()
+    for model_id in db.scalars(
+        select(TenantModelSelection.model_id).where(TenantModelSelection.environment_id == config.id)
+    ):
+        model = db.get(PlatformModel, model_id)
+        if model is None:
+            continue
+        resolved = model_catalog.resolve_runtime_model(db, model_alias(model_id))
+        if model.status == "disabled" and resolved.alias == model_alias(model_id):
+            continue  # disabled without a serving target: nothing to allow
+        own = model_alias(model_id)
+        for candidate in (resolved.alias, *resolved.fallbacks):
+            if candidate != own and not _tenant_may_use_alias(db, tenant.id, candidate):
+                continue  # a degradation target the tenant is not entitled to is never put in its scope
+            if candidate not in seen:
+                seen.add(candidate)
+                aliases.append(candidate)
     alias = team_alias(tenant.id, config.environment)
     try:
         with LiteLLMClient() as client:
@@ -185,6 +213,35 @@ def sync_environments_using_model(db: Session, model_id) -> None:
         request_environment_sync(db, config)
 
 
+def sync_models_using_fallback(db: Session, model_id: UUID) -> None:
+    """A degradation target changed state: re-sync every model whose chain includes it (T-014).
+
+    Transitive, not just direct referencers: with A→B→C, disabling C changes the first serving
+    hop of B *and* can empty A's chain once B is gone too, so A's router fallback must be
+    recomputed as well or it keeps pointing at a model the gateway no longer serves (review fix 4)."""
+    for model in model_catalog.models_whose_chain_includes(db, model_id):
+        request_model_sync(db, model)
+
+
+def sync_environments_of_chain(db: Session, model_id: UUID) -> None:
+    """Re-scope the tenant environments of this model and of every model degrading through it:
+    their team allowlist is derived from the resolved aliases (T-014 review fix 1/4)."""
+    for model in (db.get(PlatformModel, model_id), *model_catalog.models_whose_chain_includes(db, model_id)):
+        if model is not None:
+            sync_environments_using_model(db, model.id)
+
+
+def request_model_deletion(db: Session, model_id: UUID, alias: str) -> None:
+    """PLT-093: cleanup of the gateway deployment + router fallback after a catalog row is deleted.
+    Queued with the business transaction so a gateway outage is retried by the Worker (T-005)."""
+    if not gateway_configured():
+        return
+    enqueue(
+        db, "gateway.delete_model", {"model_id": str(model_id), "alias": alias},
+        idempotency_key=f"gateway.delete_model:{model_id}",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Worker jobs.
 # ---------------------------------------------------------------------------
@@ -195,6 +252,16 @@ def sync_model_job(db: Session, payload: dict[str, Any]) -> None:
     model = db.get(PlatformModel, UUID(payload["model_id"]))
     if model is not None:
         sync_platform_model(db, model)
+
+
+@job_handler("gateway.delete_model")
+def delete_model_job(db: Session, payload: dict[str, Any]) -> None:
+    """Remove the deployment and its router fallback; idempotent, so a retry after a partial failure is safe."""
+    if not gateway_configured():
+        return
+    with LiteLLMClient() as client:
+        client.delete_model(UUID(payload["model_id"]))
+        client.clear_fallback(payload["alias"])
 
 
 @job_handler("gateway.sync_environment")

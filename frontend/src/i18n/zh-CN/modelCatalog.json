@@ -1,0 +1,16 @@
+{
+  "testCall": "测试调用",
+  "testWorking": "正在测试…",
+  "testHint": "按已保存的配置发起一次真实调用，不会保存当前未提交的修改。",
+  "testResult": "调用成功，耗时 {{latency}} ms。示例输出：{{content}}",
+  "testNoOutput": "调用成功，耗时 {{latency}} ms，模型未返回示例输出。",
+  "testFailed": "调用失败：{{error}}",
+  "testUnavailable": "模型需已同步到 AI 网关、处于健康状态且为对话类型才能测试。",
+  "delete": "删除",
+  "deleteTitle": "删除模型",
+  "deleteBody": "删除后不可恢复，并会从 AI 网关移除对应 deployment。确认删除「{{name}}」？",
+  "deleted": "已删除模型「{{name}}」，正在清理 AI 网关配置。",
+  "deleteFailed": "删除模型失败",
+  "disabledUsingFallback": "模型已停用，正在使用降级模型 {{name}}",
+  "disabledNoFallback": "模型已停用且未配置降级模型，请更换模型"
+}
