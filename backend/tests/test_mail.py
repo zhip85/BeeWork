@@ -1,6 +1,8 @@
 """T-008 mail delivery: rendering, transport, queue handler, rate limit and API wiring."""
+import json
 import unittest
 from datetime import UTC, datetime
+from unittest import mock
 from uuid import UUID, uuid4
 
 from sqlalchemy import create_engine, event, select
@@ -17,6 +19,7 @@ from beework.mail import (
     render_mail,
     send_mail,
 )
+from beework.model_secrets import decrypt_model_api_key
 from beework.models import Base, MemberInvitation, Membership, Organization, Tenant, User
 from beework.models.jobs import Job
 from beework.models.mail import MailDelivery
@@ -24,6 +27,11 @@ from beework.security import hash_password
 from beework.worker.queue import claim_jobs, execute_job
 from isolation import disable_external_integrations
 from test_assistants import PASSWORD, AssistantTests
+
+
+def unseal(payload: dict) -> dict:
+    """What a mail job carries once decrypted: the recipient and the template context."""
+    return json.loads(decrypt_model_api_key(payload["sealed"]))
 
 
 class RecordingTransport:
@@ -156,9 +164,14 @@ class MailServiceTests(unittest.TestCase):
         delivery = self.send()
         with self.session_factory() as db:
             job = db.get(Job, delivery.job_id)
-            self.assertEqual(job.payload["to"], "new@example.com")
-            self.assertIn("invitation_url", job.payload["context"])
+            sealed = unseal(job.payload)
+            self.assertEqual(sealed["to"], "new@example.com")
+            self.assertIn("invitation_url", sealed["context"])
             self.assertEqual(db.get(MailDelivery, delivery.id).error, None)
+            # Nothing usable sits in the table in clear: not the address, not the link.
+            dumped = json.dumps(job.payload)
+            self.assertNotIn("new@example.com", dumped)
+            self.assertNotIn("x.test/i", dumped)
 
     def test_same_recipient_and_template_is_rate_limited(self) -> None:
         self.send()
@@ -179,7 +192,7 @@ class MailServiceTests(unittest.TestCase):
             self.assertEqual(job.status, "queued")  # backed off for a retry, not dead yet
             fresh = db.get(MailDelivery, delivery.id)
             self.assertEqual(fresh.status, "failed")
-            self.assertIn("smtp unavailable", fresh.error)
+            self.assertEqual(fresh.error, "smtp_unreachable")  # a short code, not the provider's message
             self.assertEqual(fresh.attempts, 1)
         self.transport.fail = False
         with self.session_factory.begin() as db:
@@ -203,6 +216,68 @@ class MailServiceTests(unittest.TestCase):
         with self.session_factory() as db:
             self.assertEqual(db.get(Job, job_id).status, "dead")
             self.assertEqual(db.get(MailDelivery, delivery.id).status, "failed")
+
+    def test_a_message_that_cannot_be_built_goes_dead_at_once_with_a_safe_code(self) -> None:
+        with self.session_factory.begin() as db:
+            delivery = send_mail(
+                db, tenant_id=self.tenant_id, to="bad@example.com", template="member_invitation",
+                context={"invitation_url": "u", "tenant_name": "t", "inviter_name": "i", "expires_at": "e"}, max_attempts=5,
+            )
+            job_id = delivery.job_id
+        with mock.patch.object(mail_service, "render_mail", side_effect=ValueError("secret detail bad@example.com")):
+            self.run_jobs()
+        with self.session_factory() as db:
+            self.assertEqual((db.get(Job, job_id).status, db.get(Job, job_id).attempts), ("dead", 1))  # not five attempts
+            self.assertEqual(db.get(MailDelivery, delivery.id).error, "invalid_message")
+            self.assertNotIn("bad@example.com", db.get(Job, job_id).last_error or "")
+
+    def test_a_mail_that_was_sent_is_not_sent_again_by_a_retry(self) -> None:
+        delivery = self.send()
+        self.run_jobs()
+        with self.session_factory.begin() as db:
+            from beework.worker.queue import retry_job
+
+            retry_job(db, db.get(Job, delivery.job_id))  # a platform admin presses "retry" on a succeeded job
+        self.run_jobs()
+        self.assertEqual(len(self.transport.sent), 1)
+
+    def test_the_rate_limit_is_per_tenant(self) -> None:
+        with self.session_factory.begin() as db:
+            other = Tenant(name="Other", slug="other")
+            db.add(other)
+            db.flush()
+            other_id = other.id
+        for _ in range(3):
+            self.send()
+        with self.assertRaises(MailRateLimited):
+            self.send()
+        with self.session_factory.begin() as db:  # the same recipient, another tenant's invitation: not blocked by the first tenant's mails
+            send_mail(db, tenant_id=other_id, to="new@example.com", template="member_invitation",
+                      context={"invitation_url": "u", "tenant_name": "t", "inviter_name": "i", "expires_at": "e"})
+
+    def test_a_stored_locale_is_mapped_to_one_the_templates_have(self) -> None:
+        for stored, expected in (("en-US", "en"), ("EN", "en"), ("zh", "zh-CN"), ("zh-CN", "zh-CN"), ("fr", "zh-CN"), (None, "zh-CN"), ("", "zh-CN")):
+            self.assertEqual(mail_service.normalize_locale(stored), expected, stored)
+
+    def test_a_line_break_in_a_name_cannot_break_the_subject_header(self) -> None:
+        captured = {}
+
+        class Capture:
+            def sendmail(self, *a, **k): ...
+
+        transport = SmtpTransport(host="smtp.test", port=25)
+        with mock.patch("beework.mail.smtplib.SMTP") as smtp:
+            smtp.return_value.__enter__.return_value.send_message.side_effect = lambda message: captured.update(subject=message["Subject"])
+            transport.send(from_addr="a@b.test", to_addr="c@d.test", subject="Hello\r\nBcc: x@y.test", body_text="t", body_html="<p>t</p>")
+        self.assertEqual(captured["subject"], "Hello Bcc: x@y.test")  # one header line, no injected header
+
+    def test_smtp_credentials_are_never_sent_in_plaintext_and_implicit_tls_is_supported(self) -> None:
+        with self.assertRaises(ValueError):
+            SmtpTransport(host="smtp.test", port=25, username="u", password="p")
+        with mock.patch("beework.mail.smtplib.SMTP_SSL") as ssl_smtp:
+            SmtpTransport(host="smtp.test", port=465, username="u", password="p", use_ssl=True).send(
+                from_addr="a@b.test", to_addr="c@d.test", subject="s", body_text="t", body_html="<p>t</p>")
+        ssl_smtp.assert_called_once()
 
     def test_console_transport_is_the_default_and_never_leaks_the_body(self) -> None:
         mail_service.set_transport(None)
@@ -268,7 +343,7 @@ class InvitationMailTests(AssistantTests):
         # The worker delivers it; the invitation link (with its token) reaches the mail only.
         with self.session_factory() as db:
             job = db.get(Job, deliveries[0].job_id)
-            self.assertIn("/invite?token=", job.payload["context"]["invitation_url"])
+            self.assertIn("/invite?token=", unseal(job.payload)["context"]["invitation_url"])
         self.run_jobs()
         self.assertEqual(len(self.transport.sent), 1)
         self.assertEqual(self.transport.sent[0]["to_addr"], "newbie@example.com")
@@ -381,8 +456,8 @@ class PlatformTenantInvitationTests(AssistantTests):
             self.assertIsNotNone(delivery)
             self.assertEqual(delivery.status, "queued")
             job = db.get(Job, delivery.job_id)
-            self.assertIn("/invite?token=", job.payload["context"]["invitation_url"])
-            self.assertIn("Alex Chen", job.payload["context"]["admin_name"])
+            self.assertIn("/invite?token=", unseal(job.payload)["context"]["invitation_url"])
+            self.assertIn("Alex Chen", unseal(job.payload)["context"]["admin_name"])
             tenant = db.get(Tenant, invitation.tenant_id)
             self.assertEqual(tenant.name, "Invited Co")
 
@@ -442,5 +517,31 @@ for _name in [n for n in dir(AssistantTests) if n.startswith("test_")]:
     setattr(InvitationMailTests, _name, None)
     setattr(PlatformTenantInvitationTests, _name, None)
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_the_platform_jobs_api_never_returns_the_sealed_mail_payload(self) -> None:
+        with self.session_factory.begin() as db:
+            send_mail(db, tenant_id=UUID(self.ids["tenant"]), to="hidden@example.com", template="member_invitation",
+                      context={"invitation_url": "https://x.test/invite?token=SECRET-TOKEN", "tenant_name": "t", "inviter_name": "i", "expires_at": "e"})
+        headers = self.platform_login()
+        response = self.client.get("/api/v1/platform/jobs?kind=mail.send", headers=headers)
+        self.assertEqual(response.status_code, 200, response.text)
+        for hidden in ("SECRET-TOKEN", "hidden@example.com", "sealed"):
+            self.assertNotIn(hidden, response.text)
+        self.assertIn("delivery_id", response.text)
+
+    def test_a_tenant_waiting_for_its_admin_can_be_edited_and_says_why_admin_edits_wait(self) -> None:
+        headers = self.platform_login()
+        created = self.client.post("/api/v1/platform/tenants", json=self.payload(admin_password=None, send_admin_invitation=True), headers=headers)
+        self.assertEqual(created.status_code, 201, created.text)
+        tenant_id = created.json()["id"]
+        edited = self.client.patch(f"/api/v1/platform/tenants/{tenant_id}", json={"name": "Renamed Co", "seat_limit": 12}, headers=headers)
+        self.assertEqual((edited.status_code, edited.json()["name"], edited.json()["seat_limit"]), (200, "Renamed Co", 12))
+        admin_edit = self.client.patch(f"/api/v1/platform/tenants/{tenant_id}", json={"admin_name": "Someone"}, headers=headers)
+        self.assertEqual(admin_edit.status_code, 409)
+        self.assertIn("邀请尚未被接受", admin_edit.json()["detail"])
+
+    def test_the_request_itself_refuses_both_or_neither_of_password_and_invitation(self) -> None:
+        headers = self.platform_login()
+        both = self.client.post("/api/v1/platform/tenants", json=self.payload(send_admin_invitation=True), headers=headers)
+        neither = self.client.post("/api/v1/platform/tenants", json=self.payload(admin_password=None), headers=headers)
+        self.assertEqual((both.status_code, neither.status_code), (422, 422))
+

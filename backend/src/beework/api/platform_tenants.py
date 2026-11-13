@@ -73,12 +73,6 @@ def create_tenant(
     tenant_admin = db.scalar(select(User).where(User.email == admin_email))
     if tenant_admin:
         raise HTTPException(status_code=409, detail="企业管理员邮箱已注册，请使用其他邮箱")
-    if payload.send_admin_invitation and payload.admin_password:
-        raise HTTPException(status_code=422, detail="发送开通邀请时不需要设置初始密码")
-    if not payload.send_admin_invitation and not payload.admin_password:
-        raise HTTPException(
-            status_code=422, detail="请设置企业管理员初始密码，或改为发送开通邀请邮件"
-        )
     tenant = Tenant(
         name=payload.name,
         slug=payload.slug,
@@ -272,7 +266,7 @@ def update_tenant(
             .limit(1)
         )
         if admin is None:
-            raise HTTPException(status_code=409, detail="该企业没有可编辑的企业管理员")
+            raise HTTPException(status_code=409, detail="该企业还没有企业管理员（开通邀请尚未被接受），接受邀请后才能编辑管理员信息")
         if payload.admin_name and payload.admin_name != admin.display_name:
             changes["admin_name"] = f"{admin.display_name} → {payload.admin_name}"
             admin.display_name = payload.admin_name

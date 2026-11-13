@@ -61,7 +61,8 @@ class Settings(BaseSettings):
     smtp_port: int = 1025
     smtp_user: str = ""
     smtp_password: str = ""
-    smtp_use_tls: bool = False
+    smtp_use_tls: bool = False  # STARTTLS on the submission port (587)
+    smtp_use_ssl: bool = False  # implicit TLS (465)
     # RFC 5322 From header, e.g. "BeeWork <no-reply@beework.local>".
     mail_from: str = "BeeWork <no-reply@beework.local>"
     # Where uploaded knowledge files are kept (a volume shared by the API and the Worker); see file_store.py.

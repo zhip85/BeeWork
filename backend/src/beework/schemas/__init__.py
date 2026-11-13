@@ -33,6 +33,14 @@ class CreateTenantRequest(BaseModel):
     portal_seats: int | None = Field(default=None, ge=1, le=10000000)
     portal_overage: Literal["hard", "grace_5", "grace_10"] | None = None
 
+    @model_validator(mode="after")
+    def password_or_invitation(self) -> "CreateTenantRequest":
+        if self.send_admin_invitation and self.admin_password:
+            raise ValueError("发送开通邀请时不需要设置初始密码")
+        if not self.send_admin_invitation and not self.admin_password:
+            raise ValueError("请设置企业管理员初始密码，或改为发送开通邀请邮件")
+        return self
+
     @field_validator("admin_name")
     @classmethod
     def strip_admin_name(cls, value: str) -> str:

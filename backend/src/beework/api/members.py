@@ -21,7 +21,7 @@ from beework.auth import (
 from beework.config import settings
 from beework.db import get_db
 from beework.entitlements import CONSOLE_FREE_ROLES, quota_limit, seat_usage
-from beework.mail import MailRateLimited, send_mail
+from beework.mail import MailRateLimited, normalize_locale, send_mail
 from beework.models import (
     AuditEvent,
     AuthSession,
@@ -61,17 +61,17 @@ _UNLIMITED_SEATS = 1_000_000
 
 
 def _invitation_mail_context(
-    db: Session, *, tenant: Tenant, inviter: User | None, invitation_url: str, expires_at: datetime
-) -> dict:
-    """Context for the invitation mail (SET-010). The URL carries the invitation token and must
-    never end up in logs or audit events; it only goes into the mail job payload."""
-    locale = getattr(inviter, "locale", None) if inviter is not None else None
+    *, tenant: Tenant, inviter: User | None, invitation_url: str, expires_at: datetime
+) -> tuple[dict, str]:
+    """Context and locale for the invitation mail (SET-010). The URL carries the invitation token and must
+    never end up in logs or audit events; it only goes into the (encrypted) mail job payload."""
+    locale = normalize_locale(getattr(inviter, "locale", None) if inviter is not None else None)
     return {
         "tenant_name": tenant.name,
         "inviter_name": inviter.display_name if inviter is not None else "企业管理员",
         "invitation_url": invitation_url,
         "expires_at": expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC"),
-    }, (locale or "zh-CN")
+    }, locale
 
 
 def _send_invitation_mail(
@@ -86,7 +86,7 @@ def _send_invitation_mail(
     context_extra: dict | None = None,
 ) -> None:
     context, locale = _invitation_mail_context(
-        db, tenant=tenant, inviter=inviter, invitation_url=invitation_url, expires_at=expires_at
+        tenant=tenant, inviter=inviter, invitation_url=invitation_url, expires_at=expires_at
     )
     if context_extra:
         context.update(context_extra)
