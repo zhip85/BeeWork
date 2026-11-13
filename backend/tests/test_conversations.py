@@ -208,6 +208,29 @@ class ConversationTests(unittest.TestCase):
             window = conv.history_for_run(db, run, 3)
         self.assertEqual([m["content"] for m in window], ["ok", "m3", "ok"])  # the 3 messages right before m4
 
+    def test_token_estimate_and_window_trimming(self) -> None:
+        self.assertEqual(conv.estimate_tokens(""), 0)
+        self.assertEqual(conv.estimate_tokens("你好世界"), 3)  # about 0.7 per CJK character
+        self.assertEqual(conv.estimate_tokens("hello world!"), 4)  # a quarter of a character otherwise
+        history = [{"role": "user", "content": "一" * 100}, {"role": "assistant", "content": "二" * 100}, {"role": "user", "content": "三" * 100}]
+        each = conv.estimate_tokens("一" * 100) + 4
+        self.assertEqual(conv.trim_to_token_budget(history, each * 3), history)
+        self.assertEqual([m["content"][0] for m in conv.trim_to_token_budget(history, each * 2 + 1)], ["二", "三"])  # the oldest goes first
+        self.assertEqual([m["content"][0] for m in conv.trim_to_token_budget(history, 1)], ["三"])  # the newest is always kept
+        self.assertEqual(conv.trim_to_token_budget([], 100), [])
+
+    def test_history_for_run_applies_the_token_budget_to_the_window(self) -> None:
+        headers = self.login("admin@example.com")
+        first = self.say(headers, "m1" * 400)
+        self.say(headers, "m2" * 400, conversation_id=first["conversation_id"])
+        self.say(headers, "m3", conversation_id=first["conversation_id"])
+        with self.session_factory.begin() as db:
+            run = db.scalar(select(Run).where(Run.conversation_id == UUID(first["conversation_id"])).order_by(Run.created_at.desc()))
+            everything = conv.history_for_run(db, run, 10)
+            small = conv.history_for_run(db, run, 10, max_tokens=conv.estimate_tokens("m2" * 400) + 20)
+        self.assertEqual(len(everything), 4)
+        self.assertEqual([m["content"] for m in small], ["ok", "m2" * 400, "ok"][-len(small):])  # older messages are dropped, never the newest
+
     def test_conversation_can_only_be_continued_by_its_creator_for_the_same_assistant(self) -> None:
         headers = self.login("admin@example.com")
         started = self.say(headers, "hi")

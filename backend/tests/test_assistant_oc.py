@@ -1,6 +1,7 @@
 """T-054: the OC page backend — draft saving, the OC-only approval flow and permissions."""
 
 import unittest
+from unittest import mock
 
 from sqlalchemy import select
 
@@ -51,7 +52,7 @@ class OCTests(test_versions.VersionTests):
         self.assertEqual((state["has_changes"], state["diff"]), (False, []))
         self.assertEqual([s["stage"] for s in state["stages"]], ["pii", "memory", "glossary", "rewrite", "routing", "components"])
         self.assertEqual([s["index"] for s in state["stages"]], [1, 2, 3, 4, 5, 6])
-        self.assertEqual({s["stage"] for s in state["stages"] if s["available"]}, {"pii", "glossary", "rewrite", "routing"})  # memory and components have not landed on this branch
+        self.assertEqual({s["stage"] for s in state["stages"] if s["available"]}, {"pii", "glossary", "rewrite", "routing", "memory"})  # components have not landed yet
         self.assertEqual((state["assistant"]["name"], state["assistant"]["live_version"], state["assistant"]["can_edit"]), ("Helper", None, True))
         self.assertEqual(state["approval"]["approver_role"], "security_officer")  # default of “智能体规则变更”
 
@@ -126,12 +127,16 @@ class OCTests(test_versions.VersionTests):
     def test_a_registered_stage_summary_shows_up(self) -> None:
         from beework import assistant_oc
 
+        previous = assistant_oc.STAGE_SUMMARIES.get("memory")
         assistant_oc.register_summary("memory", lambda db, assistant, oc: f"短期 {'开' if oc.memory.short_term.enabled else '关'}")
         try:
             row = next(s for s in self.get_oc().json()["stages"] if s["stage"] == "memory")
             self.assertEqual((row["available"], row["summary"]), (True, "短期 开"))
         finally:
-            assistant_oc.STAGE_SUMMARIES.pop("memory")
+            if previous is not None:
+                assistant_oc.STAGE_SUMMARIES["memory"] = previous  # put the real summary back
+            else:
+                assistant_oc.STAGE_SUMMARIES.pop("memory", None)
         with self.assertRaises(ValueError):
             assistant_oc.register_summary("nope", lambda *_: "")
 
@@ -167,6 +172,18 @@ class OCTests(test_versions.VersionTests):
         self.save_oc({"intent": {"priority_rules_enabled": True}})
         config = self.refresh()["config"]
         self.assertEqual((config["prompt"], config["oc"]["intent"]["priority_rules_enabled"]), ("Custom prompt.", True))
+
+    def test_the_memory_summary_and_what_the_plan_allows(self) -> None:
+        stages = {s["stage"]: s for s in self.get_oc().json()["stages"]}
+        self.assertTrue(stages["memory"]["available"])
+        self.assertIn("短期 3 轮", stages["memory"]["summary"])
+        info = self.client.get(self.oc_url("/memory/info"), headers=self.admin).json()
+        self.assertEqual(set(info), {"tier", "long_term_allowed", "shared_profile_allowed"})
+        with mock.patch("beework.memory.memory_tier", lambda *_: "short"):
+            self.assertIn("专业版", {s["stage"]: s for s in self.get_oc().json()["stages"]}["memory"]["summary"])
+            self.assertEqual(self.client.get(self.oc_url("/memory/info"), headers=self.admin).json()["long_term_allowed"], False)
+        self.save_oc({"memory": {"long_term": {"enabled": False}}})
+        self.assertIn("长期记忆关闭", {s["stage"]: s for s in self.get_oc().json()["stages"]}["memory"]["summary"])
 
     # -- submitting ---------------------------------------------------------------
 

@@ -458,7 +458,8 @@ def _execute_run(
                     return llm_factory(run, fallback_dsl)
                 with Session(bind=bind) as side:  # called from a graph worker thread: own session
                     return gateway_llm_for(side, run.tenant_id, run.environment, fallback_dsl, run_metadata(run))
-        history = history_for_run(db, run, dsl.limits.history_messages)
+        short_term = dsl.oc.memory.short_term  # OC-020: the window in rounds (a round is a question and its answer) and its token budget
+        history = history_for_run(db, run, short_term.window_rounds * 2, max_tokens=short_term.max_tokens) if short_term.enabled and dsl.limits.history_messages > 0 else []  # history_messages=0 still switches history off
         with trace_run(run.id, metadata=run_metadata(run), redact=redact, redactor=make_redactor(pii_rules)) as trace:
             trace_url = trace.trace_url
             traces.append(trace)

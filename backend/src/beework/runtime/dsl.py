@@ -58,7 +58,7 @@ class LimitsConfig(BaseModel):
     max_tool_calls: int = Field(default=20, ge=1, le=100)  # tool calls per run, over all rounds (T-162)
     timeout_seconds: int = Field(default=60, ge=5, le=300)
     max_input_chars: int = Field(default=4000, ge=1, le=20000)
-    # Short-term memory: how many previous user/assistant messages are sent as context (T-056 refines).
+    # Deprecated (T-056): the window is oc.memory.short_term (rounds and tokens). Only 0 is still honoured — it sends no history.
     history_messages: int = Field(default=20, ge=0, le=100)
 
 
