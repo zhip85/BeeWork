@@ -75,6 +75,12 @@ class FakeLiteLLM:
     def delete_model(self, model_id):
         self.calls.append(("delete_model", str(model_id)))
 
+    def set_fallback(self, model_name, fallback_models):  # T-014: the catalog's degradation target
+        self.calls.append(("set_fallback", model_name, tuple(fallback_models)))
+
+    def clear_fallback(self, model_name):
+        self.calls.append(("clear_fallback", model_name))
+
 
 class TenantLifecycleTests(unittest.TestCase):
     @classmethod
@@ -345,7 +351,7 @@ class TenantLifecycleTests(unittest.TestCase):
         rows = listing["models"] if isinstance(listing, dict) and "models" in listing else listing
         listed = {m["id"]: m for m in rows}
         self.assertEqual(listed[created.json()["id"]]["gateway_sync_status"], "synced")
-        self.assertEqual([c[0] for c in FakeLiteLLM.calls], ["upsert_model"])
+        self.assertEqual([c[0] for c in FakeLiteLLM.calls], ["upsert_model", "clear_fallback"])  # no degradation target: the router rule is cleared
 
     def test_the_hourly_reconcile_requeues_keys_that_disagree_with_the_tenant_status(self) -> None:
         self.gateway()
