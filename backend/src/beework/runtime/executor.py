@@ -152,7 +152,7 @@ def _intent_model(bind: Any, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
 
 def _intent_runtime(
     bind: Any, run: Run, dsl: AssistantDSLv1, *, trace: Any, check_stop: Callable[[], None], guard: Callable[[str], str],
-    end_user: str | None, llm_factory: LLMFactory | None, retriever: Retriever,
+    end_user: str | None, llm_factory: LLMFactory | None, retriever: Retriever, deadline: float | None = None,
 ) -> IntentRuntime | None:
     """What the route stage works with (T-161): the agent's scope read from the capability registry, the classifier and the argument
     extractor, the calls of path A and FAQ answers. Every database access uses a session of its own: the stage runs in a graph worker
@@ -190,13 +190,15 @@ def _intent_runtime(
             logger.warning("Argument extraction unavailable", exc_info=True)
             return Slots("failed", problems=["error"])
 
-    def invoke(target: Candidate, args: dict[str, Any]):
+    def invoke(target: Candidate, args: dict[str, Any], stream: Callable[[str], None] | None = None):
         with Session(bind=bind) as side:
             ctx = ToolContext(
                 tenant_id=run.tenant_id, allowed=frozenset({target.tool}), run_id=run.id, assistant_id=run.assistant_id, end_user=end_user,
-                guard_output=guard, span=trace.span, environment=run.environment, check_stop=check_stop,
+                guard_output=guard, span=trace.span, environment=run.environment, check_stop=check_stop, stream=stream, deadline=deadline,
             )
-            return invoke_tool(side, ctx, target.tool, args)
+            result = invoke_tool(side, ctx, target.tool, args)
+            side.commit()  # a Chatflow call binds its Dify conversation
+            return result
 
     def faq(target: Candidate, query: str) -> FaqAnswer | None:
         with Session(bind=bind) as side:
@@ -465,13 +467,15 @@ def _execute_run(
                 tool_runtime = ToolRuntime(
                     bind, dsl, tenant_id=run.tenant_id, run_id=run.id, assistant_id=run.assistant_id,
                     end_user=str(end_user_id) if end_user_id else None, guard_output=guard_tool_output, span=trace.span,
-                    environment=run.environment, check_stop=check_stop, clock=clock,
+                    environment=run.environment, check_stop=check_stop, clock=clock, max_calls=dsl.limits.max_tool_calls,
+                    deadline=started + dsl.limits.timeout_seconds,
                 )
             intent_runtime = None
             if dsl.oc.intent.enabled:  # L2: the agent's scope from the capability registry, the classifier, path A (T-161)
                 intent_runtime = _intent_runtime(
                     bind, run, dsl, trace=trace, check_stop=check_stop, guard=guard_tool_output,
                     end_user=str(end_user_id) if end_user_id else None, llm_factory=intent_llm_factory, retriever=retriever or EngineRetriever(),
+                    deadline=started + dsl.limits.timeout_seconds,
                 )
             graph = compile_assistant(
                 dsl,

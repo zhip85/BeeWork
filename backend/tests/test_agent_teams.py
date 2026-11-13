@@ -287,7 +287,8 @@ class TeamRuntimeTests(test_agent_runtime.AgentRuntimeTests):
             ]},
         )
         self.team_up(leaf)
-        self.leaf_model = ToolChat(script=[[tool_call("mcp_1_search", {"q": "政策"})], "查到了"])
+        self.register_source()  # the leaf's tools come from the capability registry (T-162)
+        self.leaf_model = ToolChat(script=[[tool_call("mcp_2_search", {"q": "政策"})], "查到了"])
         agent_teams.LEAF_MODEL_FACTORY[:] = [lambda *_: self.leaf_model]
         main = ToolChat(script=[[tool_call("agent_1_agent", {"task": "查政策"})], "结论"])
         run_id, events = self.run_agent(main)

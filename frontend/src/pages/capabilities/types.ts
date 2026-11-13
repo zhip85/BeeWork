@@ -102,6 +102,13 @@ export type FlowConnection = {
   input_mapping: Record<string, string>
   output_mapping: Record<string, string>
   streaming: boolean
+  app_mode: string | null
+  parameters: { variable: string; label: string; type: 'string' | 'number'; required: boolean; options: string[]; max_length: number | null }[]
+  parameters_synced_at: string | null
+  parameters_error: string | null
+  sticky: boolean
+  idle_ttl_minutes: number
+  exit_words: string[]
   status: 'enabled' | 'disabled'
   state: 'available' | 'disabled' | 'invalid'
   state_reason: string | null
@@ -140,5 +147,8 @@ export type RegistryEntry = {
   meta: Record<string, unknown>
   row_version: number
   updated_at: string
+  unstable: boolean
 }
 export type RegistryList = { items: RegistryEntry[]; total: number }
+
+export type ToolStat = { tool: string; entry_id: string | null; name: string; calls: number; ok: number; success_rate: number; avg_ms: number; retries: number; circuit_opened: number; refused: number }

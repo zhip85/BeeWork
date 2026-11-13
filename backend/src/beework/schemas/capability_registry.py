@@ -69,6 +69,7 @@ class EntryResponse(BaseModel):
     row_version: int
     updated_at: datetime
     input_schema: dict[str, Any] | None = None  # only on the single-entry read
+    unstable: bool = False  # its circuit is open or being probed (T-165): calls are being refused
 
 
 class EntryList(BaseModel):
@@ -84,3 +85,23 @@ class RecallEntry(BaseModel):
 class RecallResponse(BaseModel):
     items: list[RecallEntry]
     scope: int  # how many entries the assistant can see (available ones)
+
+
+class ToolStat(BaseModel):
+    """What happened to the calls of one tool in a period (T-165): from the metadata of ``tool_invocations``."""
+
+    tool: str
+    entry_id: UUID | None = None
+    name: str
+    calls: int
+    ok: int
+    success_rate: float  # of the calls that ran (refused calls are counted separately)
+    avg_ms: int  # of the successful calls
+    retries: int  # extra attempts beyond the first
+    circuit_opened: int
+    refused: int  # calls refused because the circuit was open
+
+
+class ToolStatList(BaseModel):
+    days: int
+    items: list[ToolStat]

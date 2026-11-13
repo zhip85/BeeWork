@@ -23,6 +23,7 @@ from sqlalchemy import event, insert, inspect, select, update
 from sqlalchemy.orm import Session
 
 from beework.capabilities import MOUNT_RESOLVERS
+from beework.config import settings
 from beework.models import utc_now
 from beework.models.assistants import Assistant
 from beework.models.capabilities import ApiPlugin, Capability, McpConnection, Skill
@@ -40,7 +41,9 @@ DIRECT_DEFAULT = {"mcp_tool": True, "api_tool": True, "skill": True, "dify_workf
 # Where the owner of an entry is managed — the registry only shows and links to it (sub-agents and knowledge bases have their own pages).
 OWNER_PAGE = {"mcp_tool": "capabilities", "api_tool": "capabilities", "skill": "capabilities", "dify_workflow": "capabilities", "dify_chatflow": "capabilities", "agent": "assistants", "kb": "knowledge"}
 RETRY_ON = ("network", "timeout", "5xx", "429")
-DEFAULT_POLICY: dict[str, Any] = {"timeout_ms": 30_000, "max_attempts": 1, "backoff_ms": 0, "retry_on": []}
+def default_policy() -> dict[str, Any]:
+    """The platform default of a call's policy (``settings.tool_*``, read when asked so a changed setting applies to every path)."""
+    return {"timeout_ms": settings.tool_timeout_ms, "max_attempts": settings.tool_max_attempts, "backoff_ms": settings.tool_backoff_ms, "retry_on": []}
 MAX_EXAMPLES = 10
 
 
@@ -226,7 +229,7 @@ def _sync_after_flush(session: Session, _context) -> None:
                 if cap is not None:
                     capabilities[cap.id] = cap
         elif isinstance(obj, FlowConnection):
-            if obj in session.new or _changed(obj, "name", "description", "kind", "input_mapping", "deleted_at"):
+            if obj in session.new or _changed(obj, "name", "description", "kind", "input_mapping", "parameters", "deleted_at"):
                 sync_connection(session, obj)
         elif isinstance(obj, Assistant):
             if obj in session.new or _changed(obj, "name", "description", "status", "live_version_id", "deleted_at", "draft_config"):
@@ -366,9 +369,8 @@ def recall(db: Session, tenant_id: UUID, config: dict[str, Any] | None, query: s
 
 
 def resolve_policy(entry: CapabilityEntry) -> dict[str, Any]:
-    """Timeout and retry of an entry: its own settings over the platform default (a tenant default arrives with T-165). Stored and
-    resolved here; the executor starts using it in T-165."""
-    policy = dict(DEFAULT_POLICY)
+    """Timeout and retry of an entry: its own settings over the platform default (``tools.policy`` applies it, T-165)."""
+    policy = default_policy()
     if entry.timeout_ms:
         policy["timeout_ms"] = entry.timeout_ms
     if entry.retry:

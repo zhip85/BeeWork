@@ -204,7 +204,12 @@
       "outputField": "输出字段",
       "outputFieldHint": "Workflow：只把这个输出字段返回给智能体；留空则返回全部输出",
       "streaming": "流式输出",
-      "streamingHint": "当前调用以阻塞方式返回，开关先保存为配置"
+      "streamingHint": "开启后以流式读取 Dify 的回答；对话流程的回答直接作为回复时会逐字推送给用户",
+      "sticky": "多轮粘性",
+      "stickyHint": "流程等待用户下一句时，下一条消息直接回到该流程。",
+      "idleTtl": "闲置时间（分钟）",
+      "exitWords": "退出词",
+      "exitWordsHint": "用户只发这些词时结束多轮，用逗号分隔。"
     },
     "test": "测试连接",
     "testing": "测试中…",
@@ -232,7 +237,17 @@
     "saved": "已保存",
     "backTo": "返回{{kind}}",
     "editTitle": "编辑 {{kind}} 连接",
-    "readonly": "你没有编辑权限，只能查看。"
+    "readonly": "你没有编辑权限，只能查看。",
+    "params": {
+      "title": "应用输入变量",
+      "none": "该应用没有输入变量",
+      "error": "读取失败：{{reason}}",
+      "required": "必填",
+      "syncedAt": "上次读取：{{when}}",
+      "never": "尚未读取",
+      "sync": "重新读取参数",
+      "synced": "已重新读取应用参数"
+    }
   },
   "apiForm": {
     "type": "接口类型",
@@ -350,13 +365,17 @@
         "5xx": "5xx",
         "429": "429 限流"
       },
-      "retryHint": "只有只读的调用会被重试，由执行层生效",
+      "retryHint": "只有只读的调用，或声明了幂等的写操作会被重试；连续失败会暂停调用一段时间（熔断）",
       "save": "保存",
       "saving": "保存中…",
       "cancel": "取消",
       "saved": "已保存",
       "source": "名称、说明和输入参数由来源决定，不能在这里修改。",
-      "open": "去管理"
-    }
+      "open": "去管理",
+      "stats": "近 7 天：{{calls}} 次调用，成功率 {{rate}}%，平均 {{ms}} 毫秒，重试 {{retries}} 次，熔断 {{opened}} 次",
+      "noStats": "近 7 天没有调用记录"
+    },
+    "unstable": "不稳定",
+    "unstableHint": "连续多次调用失败，已暂时停止调用，稍后会自动试探恢复。"
   }
 }

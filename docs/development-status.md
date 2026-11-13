@@ -461,7 +461,7 @@
 - `capability_entries`（迁移 0052）：七种注册项（MCP 工具、API 工具、Skill、Dify Workflow / Chatflow、子智能体、知识库），派生自各来源（flush 监听器在同一事务里重算），ID 稳定，来源拥有的事实被覆盖、注册中心独有的字段（意图描述与示例、可直达、直接返回结果、超时与重试）不受影响；状态读取时按来源计算；按智能体挂载范围可见与召回；子智能体与知识库在各自页面管理、不在能力目录里注册。能力页新增“注册中心”页签。
 - 验证：ruff；PostgreSQL 迁移升降级 + `alembic check`；`test_capability_registry` 23 项；前端 tsc / lint / i18n / style / build。**超时与重试只存储与解析，执行侧在 T-165；召回只有关键词匹配。**
 
-### T-161 L2 意图判断与路径 A / B（待验收）
+### T-161 L2 意图判断与路径 A / B（已完成，有条件）
 
 - 取代 T-058。优先规则（关键词 / 正则）→ 注册中心召回 → 分类 LLM（JEV 先用普通 LLM，模型是设置项）→ 阈值 + 差距：高置信、唯一、允许直达、非写操作的能力直接调用（路径 A：Dify 应用 / `direct_output` 直接返回，其他结果一次模型调用整合；FAQ 直答），其余交给智能体（路径 B，带候选提示）。任何失败都回到路径 B，不让运行失败；路由记录里没有用户原文与参数值。编排页“意图判断”、规则编辑与测试、卸载前的引用提醒、发布检查 `route.rule_target_invalid`。无迁移。
 - 验证：ruff；`test_intent_engine` / `test_intent_runtime` / `test_intent_config`；前端 tsc / lint / i18n / style。**页面未目视验收；JEV 专用模型未接入。**

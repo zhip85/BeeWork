@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { apiRequest } from '../../api'
 import type { TenantMembership } from '../../types'
-import type { EntryKind, EntryStatus, RegistryEntry, RegistryList } from './types'
+import type { EntryKind, EntryStatus, RegistryEntry, RegistryList, ToolStat } from './types'
 
 const KINDS: EntryKind[] = ['mcp_tool', 'api_tool', 'skill', 'dify_workflow', 'dify_chatflow', 'agent', 'kb']
 const STATUSES: EntryStatus[] = ['available', 'disabled', 'invalid']
@@ -87,6 +87,7 @@ export function RegistryTab({ tenant }: { tenant: TenantMembership }) {
               <span className={`assistant-status flows-status-${entry.status === 'available' ? 'published' : entry.status === 'disabled' ? 'disabled' : 'draft'}`}>{t(`registry.status.${entry.status}`)}</span>
               <span className="flows-tag">{t(`registry.kind.${entry.kind}`)}</span>
               {entry.writes && <span className="flows-tag">{t('registry.writes')}</span>}
+              {entry.unstable && <span className="flows-tag" title={t('registry.unstableHint')}>{t('registry.unstable')}</span>}
             </header>
             <button className="flows-card-body" onClick={() => setEditing(entry)} type="button">
               <h3>{entry.name}</h3>
@@ -118,6 +119,12 @@ function EntryDialog({ entry, canEdit, tenantId, onClose, onSaved }: { entry: Re
   const [retryOn, setRetryOn] = useState<string[]>(entry.retry?.retry_on ?? [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [stat, setStat] = useState<ToolStat | null>(null)
+  useEffect(() => {
+    let active = true
+    apiRequest<{ items: ToolStat[] }>('/api/v1/registry/stats?days=7', {}, tenantId).then((data) => active && setStat(data.items.find((item) => item.entry_id === entry.id) ?? null)).catch(() => undefined)
+    return () => { active = false }
+  }, [entry.id, tenantId])
   const lines = examples.split('\n').map((line) => line.trim()).filter(Boolean)
   const tooMany = lines.length > MAX_EXAMPLES
 
@@ -149,6 +156,8 @@ function EntryDialog({ entry, canEdit, tenantId, onClose, onSaved }: { entry: Re
       <form aria-label={entry.name} className="create-modal" onClick={(event) => event.stopPropagation()} onSubmit={(event) => void save(event)} role="dialog">
         <h2>{t('registry.dialog.title', { name: entry.name })}</h2>
         <p className="wizard-muted">{t('registry.dialog.source')}</p>
+        {entry.unstable && <p className="form-error" role="status">{t('registry.unstableHint')}</p>}
+        <p className="wizard-muted">{stat ? t('registry.dialog.stats', { calls: stat.calls, rate: Math.round(stat.success_rate * 100), ms: stat.avg_ms, retries: stat.retries, opened: stat.circuit_opened }) : t('registry.dialog.noStats')}</p>
         <fieldset disabled={!canEdit || saving} style={{ border: 0, padding: 0, margin: 0, display: 'grid', gap: 12 }}>
           <label className="kb-field"><span>{t('registry.dialog.intent')}</span><textarea maxLength={500} onChange={(event) => setIntent(event.target.value)} rows={3} value={intent} /><small>{t('registry.dialog.intentHint')}</small></label>
           <label className="kb-field"><span>{t('registry.dialog.examples')}</span><textarea onChange={(event) => setExamples(event.target.value)} rows={4} value={examples} /><small className={tooMany ? 'form-error' : undefined}>{t('registry.dialog.examplesHint', { max: MAX_EXAMPLES })}</small></label>

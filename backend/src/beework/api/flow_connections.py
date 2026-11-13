@@ -67,6 +67,8 @@ def _response(db: Session, membership: Membership, conn: FlowConnection) -> Flow
         id=conn.id, kind=conn.kind, name=conn.name, description=conn.description, source_type=conn.source_type,
         base_url=conn.base_url, host=svc.host_of(conn.base_url), app_id=conn.app_id, credential_mask=svc.mask_of(conn),
         input_mapping=conn.input_mapping or {}, output_mapping=conn.output_mapping or {}, streaming=conn.streaming,
+        app_mode=conn.app_mode, parameters=conn.parameters or [], parameters_synced_at=conn.parameters_synced_at, parameters_error=conn.parameters_error,
+        sticky=conn.sticky, idle_ttl_minutes=conn.idle_ttl_minutes, exit_words=conn.exit_words or [],
         status=conn.status, state=state, state_reason=reason, last_test_at=conn.last_test_at, last_test_ok=conn.last_test_ok,
         last_test_error=conn.last_test_error, last_test_ms=conn.last_test_ms, references=len(_references(db, conn)),
         row_version=conn.row_version, created_by=conn.created_by, updated_by=conn.updated_by, created_at=conn.created_at,
@@ -114,6 +116,8 @@ def _apply(db: Session, membership: Membership, conn: FlowConnection, payload: F
     if not secret and conn.source_type == "dify" and svc.host_of(new_url) != svc.host_of(conn.base_url):
         # a stored key belongs to the host it was entered for: it must not travel to another one
         raise ApiError(422, "flow_connection.credential_reentry", "更换了 Base URL 的主机，请重新填写 API Key（已保存的凭据不会发往新主机）")
+    if (conn.base_url, conn.app_id) != (new_url, app_id) or secret:  # another application or key: what was read before no longer describes it
+        conn.app_mode, conn.parameters, conn.parameters_synced_at = None, [], None
     conn.base_url = new_url
     conn.app_id = app_id
     if secret:
@@ -122,7 +126,24 @@ def _apply(db: Session, membership: Membership, conn: FlowConnection, payload: F
     conn.input_mapping = _mapping(payload.input_mapping, "输入映射", keys_are_identifiers=True)
     conn.output_mapping = _mapping(payload.output_mapping, "输出映射", keys_are_identifiers=False)
     conn.streaming = payload.streaming
+    conn.sticky, conn.idle_ttl_minutes = payload.sticky, payload.idle_ttl_minutes
+    words = [w.strip() for w in payload.exit_words if w.strip()]
+    if any(len(w) > 20 for w in words):
+        raise ApiError(422, "validation.invalid", "退出词不能超过 20 个字")
+    conn.exit_words = list(dict.fromkeys(words))
     conn.source_type = "dify"
+    _sync(conn)
+
+
+def _sync(conn: FlowConnection) -> None:
+    """Read the application's type and input variables (T-163). An application of the wrong type is refused with the reason; any other
+    failure (unreachable, wrong key …) is recorded on the connection and does not stop it from being saved."""
+    try:
+        svc.sync_app(conn)
+    except svc.ToolError as exc:
+        if exc.code == "flow.kind_mismatch":
+            raise ApiError(422, "flow_connection.kind_mismatch", exc.message) from exc
+        conn.parameters_error = exc.message[:300]
 
 
 def _checked_url(value: str) -> str:
@@ -222,6 +243,25 @@ def test_connection(
     _audit(db, membership, "flow_connection.tested", conn)
     db.commit()
     return FlowConnectionTestResult(ok=ok, error=error, error_category=category, duration_ms=ms, connection=_response(db, membership, conn))
+
+
+@router.post("/flow-connections/{connection_id}/sync", response_model=FlowConnectionResponse)
+def sync_connection(
+    connection_id: UUID,
+    membership: Membership = Depends(require_tenant_permission("capabilities:edit")),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> FlowConnectionResponse:
+    """Read the application's type and input variables again (the application changed in Dify)."""
+    conn = _load(db, membership, connection_id)
+    if conn.source_type != "dify":
+        raise ApiError(422, "flow_connection.source_retired", "本平台画布已取消，请改用 Dify 应用")
+    _sync(conn)
+    conn.row_version += 1
+    conn.updated_by = _actor_name(db, membership)
+    _audit(db, membership, "flow_connection.synced", conn)
+    db.commit()
+    return _response(db, membership, conn)
 
 
 def _set_status(db: Session, membership: Membership, connection_id: UUID, new: str) -> FlowConnectionResponse:

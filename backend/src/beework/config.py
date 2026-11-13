@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     # T-071: tool calls (MCP, API plugins, flow connections) only reach public https hosts. Local development may allow
     # http and loopback / private addresses with ALLOW_INSECURE_TOOL_URLS=true; never switch it on in production.
     allow_insecure_tool_urls: bool = False
+    # T-165: the platform default policy of a tool call (an entry of the capability registry overrides it). Retrying is off by default.
+    tool_timeout_ms: int = 30000
+    tool_max_attempts: int = 1
+    tool_backoff_ms: int = 0
+    tool_retry_on: str = "network,timeout,5xx,429"
+    tool_breaker_failures: int = 5  # consecutive failures that open the circuit of a tool
+    tool_breaker_window_seconds: int = 120  # failures further apart than this do not add up
+    tool_breaker_open_seconds: int = 30  # how long an open circuit refuses calls before one probe is let through
     app_origin: str = "http://localhost:5173"
     bootstrap_tenant_name: str = "Acme 科技"
     bootstrap_tenant_slug: str = "acme"

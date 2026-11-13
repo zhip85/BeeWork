@@ -153,7 +153,7 @@ class AgentProvider:
         tools = ToolRuntime(
             db.get_bind(), dsl, tenant_id=ctx.tenant_id, run_id=ctx.run_id, assistant_id=assistant.id, end_user=ctx.end_user,
             guard_output=ctx.guard_output, span=ctx.span, depth=ctx.depth + 1, allow_agents=False,  # a leaf never delegates further
-            environment=ctx.environment, check_stop=ctx.check_stop,
+            environment=ctx.environment, check_stop=ctx.check_stop, deadline=ctx.deadline,
         )
         deps = RuntimeDeps(
             llm=model, retriever=EngineRetriever(), tenant_id=ctx.tenant_id,

@@ -241,6 +241,8 @@ def run_agent(dsl: AssistantDSLv1, deps: RuntimeDeps, state: RuntimeState, write
         for c in result.chunks
     ]
 
+    if deps.tools is not None:  # too many tools to offer at once: start with L2's candidates (T-162)
+        deps.tools.disclose([str(c.get("name") or "") for c in (state.get("l3_hints") or {}).get("candidates", [])])
     offered = deps.tools.schemas() if deps.tools is not None else []
     messages: list[BaseMessage] = [SystemMessage(content=_system_prompt(dsl, {**state, **update}, tools=bool(offered)))]
     for turn in state.get("history", []):
@@ -255,6 +257,8 @@ def run_agent(dsl: AssistantDSLv1, deps: RuntimeDeps, state: RuntimeState, write
     model = _ModelCaller(deps, writer)
     text = ""
     for _round in range(dsl.limits.max_iterations if offered else 1):
+        if deps.tools is not None and _round:
+            offered = deps.tools.schemas()  # progressive disclosure: what find_capability unlocked is callable from now on
         reply, round_usage, text = model.call(messages, offered)
         usage = _add_usage(usage, round_usage)
         if not reply.tool_calls:
@@ -301,7 +305,7 @@ def _run_tool(deps: RuntimeDeps, writer: Callable[[Any], None], call: dict[str, 
     deps.check_stop()
     result, duration_ms = deps.tools.call(alias, args)
     writer({"type": "step", "name": "tool", "tool": alias, "status": "completed" if result.status == "ok" else "failed",
-            "duration_ms": duration_ms, "code": result.code})
+            "duration_ms": duration_ms, "code": result.code, "entry_id": deps.tools.entry_id(alias)})
     content = result.content if result.status == "ok" else f"[工具调用失败：{result.content}]"
     return ToolMessage(content=content, tool_call_id=str(call.get("id") or alias), name=alias)
 

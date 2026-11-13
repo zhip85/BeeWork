@@ -55,6 +55,7 @@ class ToolsConfig(BaseModel):
 class LimitsConfig(BaseModel):
     max_tokens: int = Field(default=1024, ge=16, le=8192)
     max_iterations: int = Field(default=8, ge=1, le=20)  # tool-calling rounds per message
+    max_tool_calls: int = Field(default=20, ge=1, le=100)  # tool calls per run, over all rounds (T-162)
     timeout_seconds: int = Field(default=60, ge=5, le=300)
     max_input_chars: int = Field(default=4000, ge=1, le=20000)
     # Short-term memory: how many previous user/assistant messages are sent as context (T-056 refines).
