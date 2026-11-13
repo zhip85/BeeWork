@@ -226,7 +226,7 @@ def _sync_after_flush(session: Session, _context) -> None:
                 if cap is not None:
                     capabilities[cap.id] = cap
         elif isinstance(obj, FlowConnection):
-            if obj in session.new or _changed(obj, "name", "description", "kind", "input_mapping", "deleted_at"):
+            if obj in session.new or _changed(obj, "name", "description", "kind", "input_mapping", "parameters", "deleted_at"):
                 sync_connection(session, obj)
         elif isinstance(obj, Assistant):
             if obj in session.new or _changed(obj, "name", "description", "status", "live_version_id", "deleted_at", "draft_config"):

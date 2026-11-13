@@ -99,15 +99,23 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
         return expansion_update(deps, original, result.query, {"rewrite_steps": result.steps, "rewrite_failure": None}, result.sub_questions)
 
     def call(runtime: IntentRuntime, target: Candidate, args: dict[str, Any], *, stream: bool = False):
+        """Run a capability. With ``stream`` its tokens go to the user as they arrive; what was sent is returned too, because a failure
+        after that must not be followed by a second, different answer."""
         deps.check_stop()
+        sent: list[str] = []
         sink = None
-        if stream and not deps.hold_output:  # the reply is this capability's own answer: its tokens go to the user as they arrive
+        if stream and not deps.hold_output:  # the reply is this capability's own answer
             from langgraph.config import get_stream_writer
 
             writer = get_stream_writer()
-            sink = lambda text: writer({"type": "token", "text": text})  # noqa: E731
+
+            def sink(text: str) -> None:
+                sent.append(text)
+                writer({"type": "token", "text": text})
+
         with deps.clock.external(), deps.span(f"route.{target.kind}"):
-            return runtime.invoke(target, args, sink)
+            result = runtime.invoke(target, args, sink)
+        return result, "".join(sent)
 
     def run_path_a(runtime: IntentRuntime, decision: IntentDecision, candidates: list[Candidate], query: str, history: list[dict[str, str]]) -> RuntimeState:
         """Carry out path A. Anything that does not work out turns the decision into path B (in place) and returns the L3 hints."""
@@ -129,7 +137,10 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
             update["route_info"] = {"slots": {"status": slots.status, "missing": slots.missing}}
             return update
         direct = target.kind.startswith("dify") or target.direct_output
-        result = call(runtime, target, slots.args, stream=direct)
+        result, streamed = call(runtime, target, slots.args, stream=direct)
+        if result.status != "ok" and streamed:
+            # Part of the answer is with the user already: the agent must not add a second one. What was sent stays the reply.
+            return {"text": streamed, "answered": True, "usage": {"input": None, "output": None}, "route_info": {"slots": {"status": "ok"}, "executed": True, "capability_error": result.code or "tool.failed", "partial": True}}
         if result.status != "ok":
             decision.to_b("capability_failed")
             return {"l3_hints": _hints(decision, candidates, failed=target.name), "route_info": {"slots": {"status": "ok"}, "capability_error": result.code or "tool.failed"}}
@@ -154,7 +165,7 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
                 with deps.clock.external():
                     slots = runtime.extract(decision.target, sub, history)
                 if slots.status == "ok":
-                    result = call(runtime, decision.target, slots.args)
+                    result, _sent = call(runtime, decision.target, slots.args)
                     if result.status == "ok" and result.content.strip():
                         results.append({"question": sub, "target": decision.target.name, "answer": result.content.strip()})
                         answered = True
