@@ -19,6 +19,7 @@ from beework.models.jobs import RunEvent
 from beework.models.tools import ToolInvocation
 from beework.runtime.dsl import AssistantDSLv1, ToolMount, dsl_from_draft
 from beework.runtime.errors import RunTimedOut
+from beework.runtime.tool_runtime import ToolRuntime
 from beework.schemas.assistants import AssistantDraftConfig
 from beework.tools.executor import PROVIDERS, ToolError, ToolOutput, ToolSpec
 
@@ -112,7 +113,21 @@ class AgentRuntimeTests(test_runtime.RuntimeTests):
             assistant.draft_config = {**assistant.draft_config, **config}
 
     def mount_tools(self, tools: list[str] | None = None, delegate: str = "需要查资料时使用") -> None:
+        self.register_source()
         self.configure(mounts={"mcp": [str(CAP)]}, mount_settings={str(CAP): {"tools": tools or [], "delegate": delegate}})
+
+    def register_source(self) -> None:
+        """The tools come from the capability registry (T-162), which derives from a real MCP connection: create the one the fakes stand for."""
+        from beework.models.capabilities import Capability, McpConnection
+
+        with self.session_factory.begin() as db:
+            if db.get(Capability, CAP) is not None:
+                return
+            tenant = UUID(str(self.ids["tenant"]))
+            db.add(Capability(id=CAP, tenant_id=tenant, kind="mcp", name="Fake MCP", description="d", status="available"))
+            db.flush()
+            tools = [{"name": s.name.split(":", 2)[2], "description": s.description, "input_schema": s.parameters, "read_only": not s.writes} for s in SPECS.values()]
+            db.add(McpConnection(capability_id=CAP, tenant_id=tenant, url="https://mcp.example.com/mcp", tools=tools, selected_tools=[t["name"] for t in tools]))
 
     def run_agent(self, llm: BaseChatModel, message: str = "帮我查一下") -> tuple[str, list[RunEvent]]:
         run_id = self.start_run(self.headers, message).json()["run_id"]
@@ -126,7 +141,7 @@ class AgentRuntimeTests(test_runtime.RuntimeTests):
 
     def test_the_model_calls_a_mounted_tool_and_answers_from_its_result(self) -> None:
         self.mount_tools()
-        llm = ToolChat(script=[[tool_call("mcp_1_search", {"q": "退货"})], "7 天内可以退货"])
+        llm = ToolChat(script=[[tool_call("mcp_2_search", {"q": "退货"})], "7 天内可以退货"])
         run_id, events = self.run_agent(llm)
         self.assertEqual(self.run_row(run_id).status, "succeeded")
         self.assertEqual(events[-1].data["text"], "7 天内可以退货")
@@ -137,7 +152,7 @@ class AgentRuntimeTests(test_runtime.RuntimeTests):
         self.assertIn("result for 退货", tool_message.content)
         self.assertEqual(self.run_row(run_id).tokens_in, 7 + 10)  # both rounds are counted
         steps = self.tool_steps(events)
-        self.assertEqual([(s["tool"], s["status"]) for s in steps], [("mcp_1_search", "completed")])
+        self.assertEqual([(s["tool"], s["status"]) for s in steps], [("mcp_2_search", "completed")])
         with self.session_factory() as db:
             recorded = db.scalars(select(ToolInvocation).where(ToolInvocation.run_id == UUID(run_id))).all()
         self.assertEqual([(r.tool_name, r.status) for r in recorded], [(f"mcp:{CAP}:search", "ok")])
@@ -178,7 +193,7 @@ class AgentRuntimeTests(test_runtime.RuntimeTests):
     def test_invalid_arguments_a_failing_tool_and_a_write_that_needs_confirmation_are_all_told_to_the_model(self) -> None:
         self.mount_tools()
         llm = ToolChat(script=[
-            [tool_call("mcp_1_search", {"wrong": 1}, "a"), tool_call("mcp_3_boom", {"q": "x"}, "b"), tool_call("mcp_2_update", {"q": "x"}, "c")],
+            [tool_call("mcp_2_search", {"wrong": 1}, "a"), tool_call("mcp_1_boom", {"q": "x"}, "b"), tool_call("mcp_3_update", {"q": "x"}, "c")],
             "处理完毕",
         ])
         run_id, events = self.run_agent(llm)
@@ -192,8 +207,7 @@ class AgentRuntimeTests(test_runtime.RuntimeTests):
     def test_the_iteration_limit_ends_the_loop_with_an_answer_from_what_was_gathered(self) -> None:
         self.mount_tools()
         self.configure(max_output_tokens=512)
-        looping = [tool_call("mcp_1_search", {"q": "again"})]
-        llm = ToolChat(script=[looping] * 8 + ["根据已有信息的回答"])
+        llm = ToolChat(script=[[tool_call("mcp_2_search", {"q": f"again {i}"})] for i in range(8)] + ["根据已有信息的回答"])
         run_id, events = self.run_agent(llm)
         self.assertEqual(events[-1].data["text"], "根据已有信息的回答")
         self.assertEqual(len(llm.calls), 9)  # eight rounds with tools, then one without
@@ -202,13 +216,64 @@ class AgentRuntimeTests(test_runtime.RuntimeTests):
         notice = [m for m in llm.calls[8][0] if getattr(m, "content", "").startswith("已达到工具调用次数上限")]
         self.assertTrue(notice)
 
+    def test_the_same_call_twice_is_not_executed_again_and_the_total_is_capped(self) -> None:
+        self.mount_tools(["search"])
+        real = ToolRuntime
+        limit = mock.patch("beework.runtime.executor.ToolRuntime", lambda *a, **kw: real(*a, **{**kw, "max_calls": 2}))
+        limit.start()
+        self.addCleanup(limit.stop)
+        again = [tool_call("mcp_1_search", {"q": "a"}, "1"), tool_call("mcp_1_search", {"q": "a"}, "2")]
+        llm = ToolChat(script=[again, [tool_call("mcp_1_search", {"q": "b"}, "3")], [tool_call("mcp_1_search", {"q": "c"}, "4")], "好的"])
+        run_id, events = self.run_agent(llm)
+        self.assertEqual([args for _name, args in self.mcp.executed], [{"q": "a"}, {"q": "b"}])  # the repeat and the third distinct call never ran
+        codes = [step["code"] for step in self.tool_steps(events)]
+        self.assertEqual(codes, [None, "tool.repeated", None, "tool.limit_reached"])
+        self.assertEqual(self.run_row(run_id).status, "succeeded")
+
+    def test_a_tool_step_names_the_registry_entry_and_the_tools_are_the_registrys(self) -> None:
+        from beework.models.capability_registry import CapabilityEntry
+
+        self.mount_tools(["search"])
+        llm = ToolChat(script=[[tool_call("mcp_1_search", {"q": "x"})], "ok"])
+        _run_id, events = self.run_agent(llm)
+        with self.session_factory() as db:
+            entry = db.scalar(select(CapabilityEntry).where(CapabilityEntry.source_id == CAP, CapabilityEntry.identifier == "search"))
+            self.assertEqual(self.tool_steps(events)[0]["entry_id"], str(entry.id))
+            entry.intent_description = "查退货政策"
+            db.commit()
+        llm = ToolChat(script=["ok"])
+        self.run_agent(llm)
+        self.assertEqual(llm.calls[0][1], ["mcp_1_search"])
+
+    def test_too_many_tools_are_offered_through_find_capability(self) -> None:
+        many = {f"mcp:{CAP}:t{i:02d}": spec(f"t{i:02d}") for i in range(35)}
+        with mock.patch.dict(SPECS, many):
+            self.register_source()
+            self.mount_tools([])
+            llm = ToolChat(script=[[tool_call("find_capability", {"query": "t07"})], [tool_call("mcp_10_t07", {"q": "x"})], "好"])
+            _run_id, _events = self.run_agent(llm)
+        self.assertEqual(llm.calls[0][1], ["find_capability"])  # nothing to start with: no candidates from L2
+        self.assertTrue(any("mcp_" in m.content and "t07" in m.content for m in llm.calls[1][0] if isinstance(m, ToolMessage)))
+        self.assertIn("mcp_10_t07", llm.calls[1][1])  # found, so callable from then on
+        self.assertEqual(len(llm.calls[1][1]), 2)
+        self.assertEqual([name for name, _ in self.mcp.executed], [f"mcp:{CAP}:t07"])
+
+    def test_a_hidden_tool_cannot_be_called_before_it_is_found(self) -> None:
+        many = {f"mcp:{CAP}:t{i:02d}": spec(f"t{i:02d}") for i in range(35)}
+        with mock.patch.dict(SPECS, many):
+            self.register_source()
+            self.mount_tools([])
+            llm = ToolChat(script=[[tool_call("mcp_10_t07", {"q": "x"})], "好"])
+            self.run_agent(llm)
+        self.assertEqual(self.mcp.executed, [])
+
     def test_the_overall_timeout_stops_a_tool_loop(self) -> None:
         self.mount_tools()
 
         def slow(*_args, **_kwargs):
             raise RunTimedOut(60)
 
-        llm = ToolChat(script=[[tool_call("mcp_1_search", {"q": "x"})], "never"])
+        llm = ToolChat(script=[[tool_call("mcp_2_search", {"q": "x"})], "never"])
         with mock.patch("beework.runtime.compiler._run_tool", slow):
             run_id, _events = self.run_agent(llm)
         run = self.run_row(run_id)
@@ -219,7 +284,7 @@ class AgentRuntimeTests(test_runtime.RuntimeTests):
         # a platform output rule that masks a literal, the way a PII rule would
         with mock.patch("beework.runtime.executor.scan") as scan:
             scan.return_value = mock.Mock(text="result [MASKED]", blocked=False, message="")
-            llm = ToolChat(script=[[tool_call("mcp_1_search", {"q": "x"})], "done"])
+            llm = ToolChat(script=[[tool_call("mcp_2_search", {"q": "x"})], "done"])
             self.run_agent(llm)
         tool_message = next(m for m in llm.calls[1][0] if isinstance(m, ToolMessage))
         self.assertEqual(tool_message.content, "result [MASKED]")

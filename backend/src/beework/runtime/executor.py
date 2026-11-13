@@ -465,7 +465,7 @@ def _execute_run(
                 tool_runtime = ToolRuntime(
                     bind, dsl, tenant_id=run.tenant_id, run_id=run.id, assistant_id=run.assistant_id,
                     end_user=str(end_user_id) if end_user_id else None, guard_output=guard_tool_output, span=trace.span,
-                    environment=run.environment, check_stop=check_stop, clock=clock,
+                    environment=run.environment, check_stop=check_stop, clock=clock, max_calls=dsl.limits.max_tool_calls,
                 )
             intent_runtime = None
             if dsl.oc.intent.enabled:  # L2: the agent's scope from the capability registry, the classifier, path A (T-161)
