@@ -45,6 +45,8 @@ class AssistantDraftConfig(BaseModel):
 
     dsl_version: Literal[1] = 1
     prompt: str = Field(default="", max_length=8000)
+    # AST-052: set when the editor accepted an AI suggestion and saved the draft (T-029).
+    prompt_ai_optimized: bool = False
     # Identity and style (演进 PRD 6.4, T-061). New fields all have defaults: older drafts and frozen snapshots still load.
     role: str = Field(default="", max_length=200)
     answer_style: Literal["concise", "balanced", "detailed"] = "balanced"
@@ -145,3 +147,28 @@ class AssistantModelOptionsResponse(BaseModel):
     environment: str
     models: list[AssistantModelOption]
     default_model_id: UUID | None
+
+
+class PromptSuggestionRequest(BaseModel):
+    """T-029 / AST-021: material for the model; nothing here is written to the draft."""
+
+    name: str = Field(min_length=1, max_length=50)
+    scenario: str = Field(min_length=1, max_length=500)
+    current_prompt: str = Field(default="", max_length=8000)
+    locale: Literal["zh-CN", "en"] = "zh-CN"
+    # When the editor belongs to an existing agent, its scope is checked before any model call.
+    assistant_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def check_material(self) -> "PromptSuggestionRequest":
+        if not self.name.strip() or not self.scenario.strip():
+            raise ValueError("名称和使用场景不能为空")
+        return self
+
+
+class PromptSuggestionResponse(BaseModel):
+    prompt: str
+    truncated: bool
+    locale: str
+    environment: str
+    model_id: UUID

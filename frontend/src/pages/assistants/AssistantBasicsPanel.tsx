@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiRequest } from '../../api'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
 import { ASSISTANT_CATEGORIES } from './types'
 import type { Assistant, AssistantCategory, AssistantModelOptions, AssistantVisibility, OrganizationOption } from './types'
@@ -13,6 +14,7 @@ type Form = {
   organizationId: string
   category: AssistantCategory
   prompt: string
+  promptAiOptimized: boolean
   modelId: string
   role: string
   answerStyle: 'concise' | 'balanced' | 'detailed'
@@ -27,12 +29,15 @@ type Form = {
   feedback: boolean
 }
 
+type SuggestionResult = { prompt: string; truncated: boolean }
+
 const fromAssistant = (assistant: Assistant): Form => ({
   name: assistant.name,
   description: assistant.description,
   organizationId: assistant.organization_id,
   category: assistant.category,
   prompt: assistant.config.prompt,
+  promptAiOptimized: Boolean(assistant.config.prompt_ai_optimized),
   modelId: assistant.config.model_id ?? '',
   role: assistant.config.role ?? '',
   answerStyle: assistant.config.answer_style ?? 'balanced',
@@ -57,12 +62,14 @@ export function AssistantBasicsPanel({
   canEdit: boolean
   onSaved: () => void
 }) {
-  const { t } = useTranslation('assistants')
-  const { t: tm } = useTranslation('modelCatalog')
+  const { t, i18n } = useTranslation('assistants')
   const { t: td } = useTranslation('detail')
+  const { t: tm } = useTranslation('modelCatalog')
   const [form, setForm] = useState<Form>(() => fromAssistant(assistant))
   const [models, setModels] = useState<AssistantModelOptions | null>(null)
   const [saving, setSaving] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
+  const [confirmOverwrite, setConfirmOverwrite] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const baseline = JSON.stringify(fromAssistant(assistant))
@@ -93,6 +100,7 @@ export function AssistantBasicsPanel({
   const selectedModel = models?.models.find((model) => model.id === form.modelId)
   const modelDisabled = selectedModel?.status === 'disabled'
   const lockedOrganization = tenant.role !== 'tenant_admin'
+  const suggestionReady = Boolean(form.name.trim() && form.description.trim())
 
   async function save() {
     setSaving(true)
@@ -112,6 +120,7 @@ export function AssistantBasicsPanel({
           config: {
             ...assistant.config,
             prompt: form.prompt,
+            prompt_ai_optimized: form.promptAiOptimized,
             model_id: form.modelId || null,
             role: form.role.trim(),
             answer_style: form.answerStyle,
@@ -132,6 +141,36 @@ export function AssistantBasicsPanel({
     } finally {
       setSaving(false)
     }
+  }
+
+  async function generateSuggestion() {
+    setSuggesting(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = await apiRequest<SuggestionResult>('/api/v1/assistants/prompt-suggestions', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: form.name.trim(),
+          scenario: form.description.trim(),
+          current_prompt: form.prompt,
+          assistant_id: assistant.id,
+          locale: i18n.language.startsWith('en') ? 'en' : 'zh-CN',
+        }),
+      }, tenant.id)
+      // The suggestion only fills the form; the draft is written when the user saves.
+      setForm((current) => ({ ...current, prompt: result.prompt, promptAiOptimized: true }))
+      setNotice(result.truncated ? t('wizard.basics.suggestion.truncated') : t('wizard.basics.suggestion.filled'))
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : t('wizard.basics.suggestion.failed'))
+    } finally {
+      setSuggesting(false)
+    }
+  }
+
+  function requestSuggestion() {
+    if (form.prompt.trim()) setConfirmOverwrite(true)
+    else void generateSuggestion()
   }
 
   return (
@@ -170,10 +209,25 @@ export function AssistantBasicsPanel({
             {(['concise', 'balanced', 'detailed'] as const).map((key) => <option key={key} value={key}>{t(`wizard.basics.styles.${key}`)}</option>)}
           </select>
         </label>
-        <label>{t('wizard.basics.prompt')}
-          <textarea maxLength={MAX_PROMPT} onChange={(event) => update('prompt', event.target.value)} rows={12} value={form.prompt} />
-          <small>{t('wizard.basics.chars', { count: form.prompt.length, max: MAX_PROMPT })}</small>
-        </label>
+        <div className="assistants-prompt-field">
+          <div className="assistants-prompt-head">
+            <label htmlFor="assistant-prompt">{t('wizard.basics.prompt')}</label>
+            {canEdit && (
+              <button
+                className="text-button"
+                disabled={suggesting || !suggestionReady}
+                onClick={requestSuggestion}
+                title={suggestionReady ? undefined : t('wizard.basics.suggestion.needsInput')}
+                type="button"
+              >{suggesting ? t('wizard.basics.suggestion.working') : t('wizard.basics.aiSuggest')}</button>
+            )}
+          </div>
+          <textarea id="assistant-prompt" maxLength={MAX_PROMPT} onChange={(event) => update('prompt', event.target.value)} rows={12} value={form.prompt} />
+          <div className="assistants-prompt-meta">
+            <small>{t('wizard.basics.chars', { count: form.prompt.length, max: MAX_PROMPT })}</small>
+            {form.promptAiOptimized && <span className="assistants-ai-optimized">{t('wizard.basics.suggestion.optimized')}</span>}
+          </div>
+        </div>
         <label>{t('wizard.basics.model')}
           <select disabled={noModels} onChange={(event) => update('modelId', event.target.value)} value={form.modelId}>
             {!form.modelId && <option value="" />}
@@ -222,6 +276,15 @@ export function AssistantBasicsPanel({
         <label className="wizard-toggle"><input checked={form.suggested} onChange={(event) => update('suggested', event.target.checked)} type="checkbox" /><span><strong>{t('wizard.experience.suggested')}</strong><small>{t('wizard.experience.suggestedHint')}</small></span></label>
         <label className="wizard-toggle"><input checked={form.feedback} onChange={(event) => update('feedback', event.target.checked)} type="checkbox" /><span><strong>{t('wizard.experience.feedback')}</strong><small>{t('wizard.experience.feedbackHint')}</small></span></label>
       </fieldset>
+      {confirmOverwrite && (
+        <ConfirmDialog
+          body={t('wizard.basics.suggestion.confirmBody')}
+          confirmLabel={t('wizard.basics.suggestion.confirm')}
+          onCancel={() => setConfirmOverwrite(false)}
+          onConfirm={() => { setConfirmOverwrite(false); void generateSuggestion() }}
+          title={t('wizard.basics.suggestion.confirmTitle')}
+        />
+      )}
     </form>
   )
 }

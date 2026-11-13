@@ -6,6 +6,7 @@ export type AssistantCategory = (typeof ASSISTANT_CATEGORIES)[number]
 export type AssistantConfig = {
   dsl_version: 1
   prompt: string
+  prompt_ai_optimized?: boolean
   role?: string
   answer_style?: 'concise' | 'balanced' | 'detailed'
   model_id: string | null

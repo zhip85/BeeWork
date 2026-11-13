@@ -138,7 +138,17 @@
       "prompt": "智能体提示词",
       "chars": "当前字符数：{{count}} / {{max}}",
       "aiSuggest": "AI 生成建议",
-      "aiSuggestSoon": "该功能即将开放",
+      "suggestion": {
+        "working": "生成中…",
+        "needsInput": "请先填写名称与使用场景",
+        "confirmTitle": "覆盖现有提示词？",
+        "confirmBody": "AI 生成建议会替换当前提示词，尚未保存的内容将丢失。",
+        "confirm": "生成并覆盖",
+        "filled": "已填入生成结果，保存后才写入草稿。",
+        "truncated": "生成结果已截取到 8000 字，保存后才写入草稿。",
+        "failed": "生成建议失败，请稍后重试",
+        "optimized": "AI 已优化"
+      },
       "model": "LLM 模型",
       "modelDefault": "（默认）",
       "noModels": "当前环境尚未启用对话模型，请先在设置中启用。",

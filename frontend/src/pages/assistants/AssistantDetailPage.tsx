@@ -148,6 +148,10 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
 
   const editable = assistant.can_edit
   const canEditBasics = editable && can('assistants:edit')
+  const promptLines = assistant.config.prompt.split('\n')
+  const promptPreview = assistant.config.prompt
+    ? promptLines.slice(0, 3).join('\n') + (promptLines.length > 3 ? '…' : '')
+    : t('basic.none')
 
   const menu: { key: string; label: string; run: () => void; danger?: boolean }[] = []
   if (editable && can('assistants:edit')) menu.push({ key: 'copy', label: ta('menu.copy'), run: () => void copy() })
@@ -202,6 +206,17 @@ export function AssistantDetailPage({ tenant }: { tenant: TenantMembership }) {
                 ))}
               </ul>
             )}
+          </div>
+
+          <div className="detail-card">
+            <header className="detail-card-head">
+              <h2>{t('basic.title')}</h2>
+              {assistant.config.prompt_ai_optimized && <span className="assistants-ai-optimized">{t('basic.aiOptimized')}</span>}
+            </header>
+            <div className="assistant-prompt-summary">
+              <strong>{t('basic.prompt')}</strong>
+              <p>{promptPreview}</p>
+            </div>
           </div>
 
           <p className="wizard-muted">{t('metricsPending')}</p>

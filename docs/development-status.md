@@ -473,6 +473,11 @@
 - 停用影响：`/assistants/model-options` 返回 `status` / `fallback_display_name`，智能体基础页标红「模型已停用，正在使用降级模型 X」；配置检查有降级时报 high、无降级时报 blocker。删除限制（PLT-093）：`DELETE /platform/models/{id}` 在有租户启用或被其它模型设为降级目标时 409，成功时写审计并入队 `gateway.delete_model` 清理 deployment 与 fallback。编辑弹窗新增「测试调用」（延迟 + 示例输出）与自定义删除确认。
 - 验证：ruff 全量；PostgreSQL 一次性库上 `alembic upgrade → check → downgrade base → upgrade`；全量后端套件（修复 review 意见后重跑）**1285 项全部 OK**；`test_model_catalog_completion` 21 项；前端 tsc / lint / i18n / style / build；**连过真实本地 LiteLLM**（请求级 / router 级降级、租户虚拟 Key 权限，见任务文件「实测记录」）。`check_model_fallback_e2e.py` 完整模式与 `check_gateway_e2e.py` 未实跑：验收期间共享 Compose 栈的 api 服务未监听、LiteLLM 重启后持续无法就绪（详见任务文件「完成记录」与「遗留问题」）。
 
+### T-029 助理提示词 AI 生成建议（已完成，有条件）
+
+- **无新迁移**。`POST /api/v1/assistants/prompt-suggestions` 用当前环境默认对话模型经 LiteLLM 生成系统指令（中英模板按界面语言选），`source=debug` 计 1 点、30 秒超时、输出去 Markdown 围栏并截断 8000 字、成功写审计；结果只填「基础」页表单，保存草稿时写 `draft_config.prompt_ai_optimized`，概览基础配置卡片显示「AI 已优化」（AST-052）。规格写的「向导第 2 步」在 T-021 重构时已删除，按钮改放智能体「基础」页提示词字段旁，见任务文件「完成记录」。
+- 验证：ruff 全量；PostgreSQL 一次性库 `alembic upgrade → check → downgrade base → upgrade`（`MIGRATE_EXIT=0`）；`test_prompt_suggestions` 11 项（假模型：截断、模板按语言、422 / 403 / 跨租户 404 / 504 / 502 / 配额 403 / 审计 / 草稿标记往返）；前端 tsc / lint / i18n / style / build；全量后端套件 1248 项（本任务 11 项全 ok，3 项流式用例补 Valkey 后重跑通过，1 项 0051 迁移用例在纯 main 基线上同样失败，见任务文件「完成记录」）。**未连过真实第三方模型；`check_gateway_e2e.py` 未实跑**（共享 Compose 开发库被并行分支迁移推进导致 api 服务启动失败，隔离栈 API 未监听；与 T-014 记录的问题同类，详见任务文件「遗留问题」）。
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

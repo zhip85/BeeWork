@@ -68,6 +68,7 @@
     "viewPrompt": "查看完整提示词",
     "promptTitle": "完整提示词",
     "copy": "复制",
+    "aiOptimized": "AI 已优化",
     "hint": "修改后点“保存”写入草稿，发布后才对线上生效。",
     "reset": "撤销修改",
     "experience": "体验"

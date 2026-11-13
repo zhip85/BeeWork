@@ -75,3 +75,18 @@ def build_rewrite_model(
         max_retries=0,
         extra_body=extra_body,
     )
+
+
+def build_suggestion_model(model_alias: str, *, api_key: str, metadata: dict[str, Any]) -> ChatOpenAI:
+    """One non-streaming call that writes a whole system prompt (T-029): 30 s limit, no retries."""
+    return ChatOpenAI(
+        model=model_alias,
+        base_url=f"{settings.litellm_base_url.rstrip('/')}/v1",
+        api_key=SecretStr(api_key),
+        streaming=False,
+        max_tokens=4096,
+        temperature=0.3,
+        timeout=30,
+        max_retries=0,
+        extra_body={"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}},
+    )

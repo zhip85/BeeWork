@@ -68,6 +68,7 @@
     "viewPrompt": "View full prompt",
     "promptTitle": "Full prompt",
     "copy": "Copy",
+    "aiOptimized": "AI optimized",
     "hint": "Click Save to write the draft; changes reach live only after publishing.",
     "reset": "Discard changes",
     "experience": "Experience"
