@@ -7,12 +7,19 @@ from beework.config import settings
 from beework.runtime.dsl import AssistantDSLv1
 
 
-def build_chat_model(dsl: AssistantDSLv1, *, api_key: str, metadata: dict[str, Any]) -> ChatOpenAI:
+def build_chat_model(
+    dsl: AssistantDSLv1, *, api_key: str, metadata: dict[str, Any], fallbacks: list[str] | None = None
+) -> ChatOpenAI:
     """ChatOpenAI pointed at LiteLLM with the tenant environment's virtual key.
 
     ``metadata`` (tenant, assistant, run, ...) is forwarded to the gateway so usage can be attributed. LiteLLM only
     persists request metadata placed under ``spend_logs_metadata``; usage metering (T-011) reads it back from there.
+    ``fallbacks`` is the platform catalog's degradation model (T-014): the gateway retries a failed call once with it,
+    even if its router-level fallback setting was lost on a gateway restart.
     """
+    extra_body: dict[str, Any] = {"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}}
+    if fallbacks:
+        extra_body["fallbacks"] = fallbacks
     return ChatOpenAI(
         model=dsl.model_alias,
         base_url=f"{settings.litellm_base_url.rstrip('/')}/v1",
@@ -23,13 +30,19 @@ def build_chat_model(dsl: AssistantDSLv1, *, api_key: str, metadata: dict[str, A
         temperature=dsl.temperature,
         timeout=dsl.limits.timeout_seconds,
         max_retries=0,
-        extra_body={"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}},
+        extra_body=extra_body,
     )
 
 
-def build_intent_model(model_alias: str, *, api_key: str, metadata: dict[str, Any]) -> ChatOpenAI:
+def build_intent_model(
+    model_alias: str, *, api_key: str, metadata: dict[str, Any], fallbacks: list[str] | None = None
+) -> ChatOpenAI:
     """A short, non-streaming structured call for the L2 classifier and argument extraction (T-161): deterministic, a small JSON answer,
-    8 s limit. The model is whichever the administrator chose — an ordinary chat model now, a dedicated classification model later."""
+    8 s limit. The model is whichever the administrator chose — an ordinary chat model now, a dedicated classification model later.
+    ``fallbacks`` is the catalog's degradation target (T-014)."""
+    extra_body: dict[str, Any] = {"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}}
+    if fallbacks:
+        extra_body["fallbacks"] = fallbacks
     return ChatOpenAI(
         model=model_alias,
         base_url=f"{settings.litellm_base_url.rstrip('/')}/v1",
@@ -39,12 +52,18 @@ def build_intent_model(model_alias: str, *, api_key: str, metadata: dict[str, An
         temperature=0,
         timeout=8,
         max_retries=0,
-        extra_body={"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}},
+        extra_body=extra_body,
     )
 
 
-def build_rewrite_model(model_alias: str, *, api_key: str, metadata: dict[str, Any]) -> ChatOpenAI:
-    """A short, non-streaming call for question rewriting (T-057): low temperature, small output, 1.5 s limit."""
+def build_rewrite_model(
+    model_alias: str, *, api_key: str, metadata: dict[str, Any], fallbacks: list[str] | None = None
+) -> ChatOpenAI:
+    """A short, non-streaming call for question rewriting (T-057): low temperature, small output, 1.5 s limit.
+    ``fallbacks`` is the catalog's degradation target (T-014)."""
+    extra_body: dict[str, Any] = {"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}}
+    if fallbacks:
+        extra_body["fallbacks"] = fallbacks
     return ChatOpenAI(
         model=model_alias,
         base_url=f"{settings.litellm_base_url.rstrip('/')}/v1",
@@ -54,5 +73,5 @@ def build_rewrite_model(model_alias: str, *, api_key: str, metadata: dict[str, A
         temperature=0,
         timeout=1.5,
         max_retries=0,
-        extra_body={"metadata": {**metadata, "spend_logs_metadata": dict(metadata)}},
+        extra_body=extra_body,
     )

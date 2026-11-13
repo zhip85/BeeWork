@@ -58,6 +58,7 @@ export function AssistantBasicsPanel({
   onSaved: () => void
 }) {
   const { t } = useTranslation('assistants')
+  const { t: tm } = useTranslation('modelCatalog')
   const { t: td } = useTranslation('detail')
   const [form, setForm] = useState<Form>(() => fromAssistant(assistant))
   const [models, setModels] = useState<AssistantModelOptions | null>(null)
@@ -89,6 +90,8 @@ export function AssistantBasicsPanel({
     : !(Number(form.temperature) >= 0 && Number(form.temperature) <= 2) ? t('wizard.errors.temperatureRange')
     : form.maxOutput && !(Number(form.maxOutput) >= 16 && Number(form.maxOutput) <= 8192) ? t('wizard.errors.maxOutputRange') : ''
   const noModels = models !== null && models.models.length === 0
+  const selectedModel = models?.models.find((model) => model.id === form.modelId)
+  const modelDisabled = selectedModel?.status === 'disabled'
   const lockedOrganization = tenant.role !== 'tenant_admin'
 
   async function save() {
@@ -177,6 +180,7 @@ export function AssistantBasicsPanel({
             {models?.models.map((model) => <option key={model.id} value={model.id}>{model.display_name}{model.is_default ? t('wizard.basics.modelDefault') : ''}</option>)}
           </select>
           {noModels && <small className="form-error">{t('wizard.basics.noModels')}</small>}
+          {modelDisabled && <small className="form-error">{selectedModel?.fallback_display_name ? tm('disabledUsingFallback', { name: selectedModel.fallback_display_name }) : tm('disabledNoFallback')}</small>}
         </label>
         <label>{t('wizard.basics.fallbackModel')}
           <select disabled={noModels} onChange={(event) => update('fallbackModelId', event.target.value)} value={form.fallbackModelId}>

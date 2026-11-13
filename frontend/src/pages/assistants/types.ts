@@ -59,7 +59,7 @@ export type AssistantSummary = {
 
 export type AssistantModelOptions = {
   environment: string
-  models: { id: string; display_name: string; provider: string; is_default: boolean }[]
+  models: { id: string; display_name: string; provider: string; is_default: boolean; status?: string; fallback_display_name?: string | null }[]
   default_model_id: string | null
 }
 

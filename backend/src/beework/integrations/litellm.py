@@ -29,7 +29,9 @@ NO_MODELS_ALIAS = "bw-no-models"
 
 
 class GatewayError(RuntimeError):
-    pass
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def gateway_configured() -> bool:
@@ -78,7 +80,7 @@ class LiteLLMClient:
         except httpx.HTTPError as exc:
             raise GatewayError(f"无法连接 AI 网关：{exc.__class__.__name__}") from exc
         if response.status_code >= 400:
-            raise GatewayError(_error_message(response))
+            raise GatewayError(_error_message(response), response.status_code)
         if not response.content:
             return None
         try:
@@ -127,7 +129,23 @@ class LiteLLMClient:
         try:
             self._request("POST", "/model/delete", json={"id": str(model_id)})
         except GatewayError as exc:
-            if "not found" not in str(exc).lower() and "404" not in str(exc):
+            if exc.status_code != 404:  # a deployment that is already gone is fine; the status code, not the text (aliases are UUIDs)
+                raise
+
+    def set_fallback(self, model_name: str, fallback_models: list[str]) -> None:
+        """T-014: router-level degradation, managed over the API (no config.yaml edit)."""
+        self._request(
+            "POST",
+            "/fallback",
+            json={"model": model_name, "fallback_models": fallback_models, "fallback_type": "general"},
+        )
+
+    def clear_fallback(self, model_name: str) -> None:
+        """Remove a degradation rule; a rule that was never created is not an error."""
+        try:
+            self._request("DELETE", f"/fallback/{model_name}?fallback_type=general")
+        except GatewayError as exc:
+            if exc.status_code != 404:
                 raise
 
     def ensure_team(self, *, team_id: str | None, alias: str, models: list[str]) -> str:
