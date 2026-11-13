@@ -62,6 +62,17 @@ class Settings(BaseSettings):
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
+    # Outbound mail (T-008). Transport "smtp" delivers via SMTP (Mailpit in development); "console"
+    # only logs a masked line (handy for tests and bare local runs). Empty SMTP_USER = no auth.
+    mail_transport: str = "console"  # "smtp" or "console"
+    smtp_host: str = "localhost"
+    smtp_port: int = 1025
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = False  # STARTTLS on the submission port (587)
+    smtp_use_ssl: bool = False  # implicit TLS (465)
+    # RFC 5322 From header, e.g. "BeeWork <no-reply@beework.local>".
+    mail_from: str = "BeeWork <no-reply@beework.local>"
     # Where uploaded knowledge files are kept (a volume shared by the API and the Worker); see file_store.py.
     file_storage_dir: str = "/data/uploads"
     integration_timeout_seconds: float = 10.0

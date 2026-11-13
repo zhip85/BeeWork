@@ -14,6 +14,7 @@ type TenantForm = {
   adminName: string
   adminEmail: string
   adminPassword: string
+  sendAdminInvitation: boolean
   seatLimit: number
   plan: string
   region: string
@@ -48,7 +49,7 @@ const PORTAL_MODES = [['named', '指定用户'], ['active', '按月活跃'], ['u
 const PORTAL_OVERAGES = [['hard', '硬限制'], ['grace_5', '宽限 5%'], ['grace_10', '宽限 10%']] as const
 
 const EMPTY_FORM: TenantForm = {
-  name: '', slug: '', adminName: '', adminEmail: '', adminPassword: '', seatLimit: 10, plan: 'standard',
+  name: '', slug: '', adminName: '', adminEmail: '', adminPassword: '', sendAdminInvitation: false, seatLimit: 10, plan: 'standard',
   region: 'ap_singapore', industry: 'general_office', provisioning: 'formal', trialDays: 14, trialEndsAt: '',
   portalMode: 'named', portalSeats: '200', portalOverage: 'hard',
 }
@@ -67,9 +68,10 @@ function TenantFields({ form, onChange, mode, status, memberCount, industries }:
     <>
       <label>企业名称<input maxLength={160} minLength={2} onChange={(event) => onChange({ name: event.target.value })} placeholder="例如：Acme 科技" required value={form.name} /></label>
       <label>工作区标识<input maxLength={80} minLength={3} onChange={(event) => onChange({ slug: event.target.value.toLowerCase() })} pattern="[a-z0-9][a-z0-9-]{1,78}[a-z0-9]" placeholder="例如：acme-tech" required value={form.slug} /><small>小写字母、数字和连字符；用于识别工作区。</small></label>
-      <label>企业管理员姓名<input maxLength={120} onChange={(event) => onChange({ adminName: event.target.value })} placeholder="例如：Alex Chen" required value={form.adminName} /></label>
-      <label>企业管理员邮箱<input autoComplete="off" onChange={(event) => onChange({ adminEmail: event.target.value })} placeholder="admin@company.com" required type="email" value={form.adminEmail} /></label>
-      <label>{editing ? '重置管理员密码' : '初始登录密码'}<input autoComplete="new-password" minLength={12} onChange={(event) => onChange({ adminPassword: event.target.value })} required={!editing} type="password" value={form.adminPassword} /><small>{editing ? '留空则不修改；设置后该管理员的现有登录会话会失效，请通过安全渠道交付新密码。' : '至少 12 位，请通过安全渠道交付给企业管理员。'}</small></label>
+      <label>企业管理员姓名<input maxLength={120} onChange={(event) => onChange({ adminName: event.target.value })} placeholder="例如：Alex Chen" required={!editing} value={form.adminName} /></label>
+      <label>企业管理员邮箱<input autoComplete="off" onChange={(event) => onChange({ adminEmail: event.target.value })} placeholder="admin@company.com" required={!editing} type="email" value={form.adminEmail} /></label>
+      <label>{editing ? '重置管理员密码' : '初始登录密码'}<input autoComplete="new-password" minLength={12} disabled={form.sendAdminInvitation} onChange={(event) => onChange({ adminPassword: event.target.value })} required={!editing && !form.sendAdminInvitation} type="password" value={form.adminPassword} /><small>{editing ? '留空则不修改；设置后该管理员的现有登录会话会失效，请通过安全渠道交付新密码。' : form.sendAdminInvitation ? '已改为发送开通邀请邮件：管理员将自行设置密码。' : '至少 12 位，请通过安全渠道交付给企业管理员。'}</small></label>
+      {!editing && <label className="checkbox-label"><input checked={form.sendAdminInvitation} onChange={(event) => onChange({ sendAdminInvitation: event.target.checked, adminPassword: event.target.checked ? '' : form.adminPassword })} type="checkbox" />立即发送开通邀请邮件<small>勾选后不设置初始密码：平台向管理员邮箱发送开通邀请（PLT-022），管理员通过邮件链接自行设置姓名与密码。可在「邮件投递」页查看发送状态。</small></label>}
       <label>{editing ? '席位上限' : '初始席位上限'}<input max={100000} min={1} onChange={(event) => onChange({ seatLimit: Number(event.target.value) })} required type="number" value={form.seatLimit} /><small>{editing ? `当前成员与待接受邀请共 ${memberCount ?? 0} 个；不能低于已使用的席位。` : '当前由平台按租户配置；后续套餐权益将接管此上限。'}</small></label>
       <label>套餐<select onChange={(event) => onChange({ plan: event.target.value })} value={form.plan}><option value="standard">标准版</option><option value="professional">专业版</option><option value="enterprise">企业版</option></select>{editing && <small>保存后立即按新套餐的权益生效。</small>}</label>
       <fieldset className="portal-grant-fields">
@@ -110,6 +112,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
   const [editError, setEditError] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [resending, setResending] = useState('')
 
   useEffect(() => {
     let active = true
@@ -150,7 +153,8 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
             slug: createForm.slug,
             admin_name: createForm.adminName,
             admin_email: createForm.adminEmail,
-            admin_password: createForm.adminPassword,
+            admin_password: createForm.sendAdminInvitation ? undefined : createForm.adminPassword,
+            send_admin_invitation: createForm.sendAdminInvitation,
             seat_limit: createForm.seatLimit,
             plan: createForm.plan,
             region: createForm.region,
@@ -165,7 +169,9 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
       )
       setTenants((current) => [created, ...current])
       setCreateForm({ ...EMPTY_FORM, ...portalDefaults[EMPTY_FORM.plan] })
-      setNotice(`已创建 ${created.name}。首位企业管理员为 ${created.admin_email}；平台账号没有加入该企业。`)
+      setNotice(createForm.sendAdminInvitation
+        ? `已创建 ${created.name}。开通邀请邮件已发送给 ${createForm.adminEmail}，管理员接受邀请后自行设置密码。`
+        : `已创建 ${created.name}。首位企业管理员为 ${created.admin_email}；平台账号没有加入该企业。`)
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : '创建企业失败')
     } finally {
@@ -186,7 +192,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
     setEditing(tenant)
     setEditForm({
       name: tenant.name, slug: tenant.slug, adminName: tenant.admin_name ?? '', adminEmail: tenant.admin_email ?? '',
-      adminPassword: '', seatLimit: tenant.seat_limit, plan: tenant.plan, region: tenant.region, industry: tenant.industry, provisioning: 'formal',
+      adminPassword: '', sendAdminInvitation: false, seatLimit: tenant.seat_limit, plan: tenant.plan, region: tenant.region, industry: tenant.industry, provisioning: 'formal',
       trialDays: 14, trialEndsAt: tenant.trial_ends_at ? tenant.trial_ends_at.slice(0, 10) : '',
       portalMode: tenant.portal_mode as TenantForm['portalMode'], portalSeats: tenant.portal_seats == null ? '' : String(tenant.portal_seats),
       portalOverage: (tenant.portal_overage ?? 'hard') as TenantForm['portalOverage'],
@@ -264,6 +270,25 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
       setError(requestError instanceof Error ? requestError.message : '生命周期操作失败')
     } finally {
       setLifecycleSubmitting(false)
+    }
+  }
+
+  async function resendAdminInvitation(tenant: PlatformTenant) {
+    if (!tenant.admin_invitation_id) return
+    setResending(tenant.id)
+    setError('')
+    setNotice('')
+    try {
+      const updated = await apiRequest<PlatformTenant>(
+        `/api/v1/platform/tenants/${tenant.id}/admin-invitations/${tenant.admin_invitation_id}/resend`,
+        { method: 'POST', body: JSON.stringify({}) },
+      )
+      setTenants((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      setNotice(`已重新发送开通邀请到 ${tenant.admin_invitation_email}，旧链接已失效。`)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : '重发开通邀请失败')
+    } finally {
+      setResending('')
     }
   }
 
@@ -352,7 +377,17 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
               <tbody>{tenants.map((tenant) => (
                 <tr key={tenant.id}>
                   <td><strong className="tenant-name-cell">{tenant.name}</strong><small className="platform-tenant-slug">{tenant.slug}</small></td>
-                  <td>{tenant.admin_name ? <span className="platform-admin-cell"><strong>{tenant.admin_name}</strong><small>{tenant.admin_email}</small></span> : <span className="role-text">未设置</span>}</td>
+                  <td>{tenant.admin_name ? <span className="platform-admin-cell"><strong>{tenant.admin_name}</strong><small>{tenant.admin_email}</small></span> : tenant.admin_invitation_id ? (
+                    <span className="platform-admin-cell">
+                      <strong>{tenant.admin_invitation_name ?? tenant.admin_invitation_email}</strong>
+                      <small>{tenant.admin_invitation_email}</small>
+                      <small className={tenant.admin_invitation_status === 'expired' ? 'form-error' : 'role-text'}>
+                        {tenant.admin_invitation_status === 'expired' ? '邀请已过期' : '邀请待接受'}
+                        {tenant.admin_invitation_expires_at ? `（${tenant.admin_invitation_status === 'expired' ? '过期于' : '有效至'} ${new Date(tenant.admin_invitation_expires_at).toLocaleDateString()}）` : ''}
+                      </small>
+                      {tenant.status !== 'deleted' && <button className="tenant-status-action" disabled={resending === tenant.id} onClick={() => void resendAdminInvitation(tenant)} type="button">{resending === tenant.id ? '发送中…' : '重发邀请'}</button>}
+                    </span>
+                  ) : <span className="role-text">未设置</span>}</td>
                   <td><span className="platform-admin-cell"><strong>{enumLabel('plan', tenant.plan)}</strong><small>{enumLabel('region', tenant.region)}</small></span></td>
                   <td>{tenant.seat_limit}</td>
                   <td><span className="platform-admin-cell"><strong>{tenant.portal_mode === 'unlimited' ? '全员不限' : (tenant.portal_seats ?? 0).toLocaleString()}</strong><small>{PORTAL_MODES.find(([value]) => value === tenant.portal_mode)?.[1]}</small></span></td>

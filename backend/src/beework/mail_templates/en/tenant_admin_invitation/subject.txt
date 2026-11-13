@@ -1,0 +1,1 @@
+Your "{{ tenant_name }}" workspace is ready — set up your admin account

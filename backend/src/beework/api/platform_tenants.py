@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -5,17 +7,21 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from beework.api.conventions import require_platform_admin
+from beework.api.common import lock_tenant
+from beework.api.conventions import ApiError, require_platform_admin
 from beework.auth import (
     require_csrf,
 )
+from beework.config import settings
 from beework.db import get_db
 from beework.entitlements import change_subscription, create_subscription, portal_grant, seat_usage
 from beework.glossary import ensure_industry
 from beework.governance.tenant_glossary import preset_for_tenant
+from beework.mail import MailRateLimited, mask_email, normalize_locale, send_mail
 from beework.models import (
     AuditEvent,
     AuthSession,
+    MemberInvitation,
     Membership,
     Organization,
     PlatformOperationRequest,
@@ -48,6 +54,67 @@ from beework.tenant_lifecycle import (
 )
 
 router = APIRouter()
+
+ADMIN_INVITATION_TTL_DAYS = 7
+
+
+def _send_admin_invitation_mail(
+    db: Session,
+    *,
+    tenant: Tenant,
+    to: str,
+    admin_name: str | None,
+    invitation_url: str,
+    expires_at: datetime,
+    locale: str,
+) -> None:
+    """PLT-022 / T-008b: one template and one context shape for the first send and every resend."""
+    try:
+        send_mail(
+            db,
+            tenant_id=tenant.id,
+            to=to,
+            template="tenant_admin_invitation",
+            context={
+                "tenant_name": tenant.name,
+                "admin_name": admin_name or to.split("@", 1)[0],
+                "invitation_url": invitation_url,
+                "expires_at": expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC"),
+            },
+            locale=locale,
+        )
+    except MailRateLimited as exc:
+        raise ApiError(429, "mail.rate_limited", "邀请邮件发送过于频繁，请一分钟后再试") from exc
+
+
+def _latest_admin_invitations(db: Session, tenant_ids: list[UUID]) -> dict[UUID, MemberInvitation]:
+    """Newest provisioning invitation per tenant, in one query for the whole list."""
+    if not tenant_ids:
+        return {}
+    latest: dict[UUID, MemberInvitation] = {}
+    rows = db.scalars(
+        select(MemberInvitation)
+        .where(
+            MemberInvitation.tenant_id.in_(tenant_ids),
+            MemberInvitation.role == "tenant_admin",
+        )
+        .order_by(MemberInvitation.created_at.desc(), MemberInvitation.id)
+    )
+    for invitation in rows:
+        latest.setdefault(invitation.tenant_id, invitation)
+    return latest
+
+
+def _invitation_status(invitation: MemberInvitation | None) -> str | None:
+    """A pending invitation past its expiry reads as expired; other stored states are kept."""
+    if invitation is None:
+        return None
+    if invitation.status != "pending":
+        return invitation.status
+    expires_at = invitation.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return "expired" if expires_at <= datetime.now(UTC) else "pending"
 
 
 @router.post(
@@ -91,34 +158,76 @@ def create_tenant(
         db, tenant, seats=payload.seat_limit,
         portal_mode=payload.portal_mode, portal_seats=payload.portal_seats, portal_overage=payload.portal_overage,
     )
-    tenant_admin = User(
-        email=admin_email,
-        display_name=payload.admin_name,
-        password_hash=hash_password(payload.admin_password),
-        is_platform_admin=False,
-    )
-    db.add(tenant_admin)
-    db.flush()
-    db.add(
-        Membership(
+    invitation_id: str | None = None
+    if payload.send_admin_invitation:
+        # PLT-022 / T-008: no password is set here; the admin picks one when accepting the invitation mail.
+        invitation_token = secrets.token_urlsafe(32)
+        invitation_expires = datetime.now(UTC) + timedelta(days=ADMIN_INVITATION_TTL_DAYS)
+        admin_invitation = MemberInvitation(
             tenant_id=tenant.id,
-            user_id=tenant_admin.id,
-            organization_id=root_organization.id,
+            email=admin_email,
+            invitee_name=payload.admin_name,
             role="tenant_admin",
+            organization_id=root_organization.id,
+            token_hash=hashlib.sha256(invitation_token.encode()).hexdigest(),
+            status="pending",
+            invited_by=user.id,
+            expires_at=invitation_expires,
         )
-    )
-    db.add(
-        AuditEvent(
-            tenant_id=tenant.id,
-            actor_user_id=user.id,
-            action="tenant.created",
-            details={
-                "slug": tenant.slug,
-                "tenant_admin_user_id": str(tenant_admin.id),
-                "tenant_admin_email": tenant_admin.email,
-            },
+        db.add(admin_invitation)
+        db.flush()
+        invitation_id = str(admin_invitation.id)
+        invitation_url = f"{settings.app_origin}/invite?token={invitation_token}"
+        _send_admin_invitation_mail(
+            db,
+            tenant=tenant,
+            to=admin_email,
+            admin_name=payload.admin_name,
+            invitation_url=invitation_url,
+            expires_at=invitation_expires,
+            locale=normalize_locale(user.locale),
         )
-    )
+        db.add(
+            AuditEvent(
+                tenant_id=tenant.id,
+                actor_user_id=user.id,
+                action="tenant.created",
+                details={
+                    "slug": tenant.slug,
+                    "tenant_admin_invitation_id": invitation_id,
+                    "tenant_admin_email": admin_email,
+                },
+            )
+        )
+    else:
+        tenant_admin = User(
+            email=admin_email,
+            display_name=payload.admin_name,
+            password_hash=hash_password(str(payload.admin_password)),
+            is_platform_admin=False,
+        )
+        db.add(tenant_admin)
+        db.flush()
+        db.add(
+            Membership(
+                tenant_id=tenant.id,
+                user_id=tenant_admin.id,
+                organization_id=root_organization.id,
+                role="tenant_admin",
+            )
+        )
+        db.add(
+            AuditEvent(
+                tenant_id=tenant.id,
+                actor_user_id=user.id,
+                action="tenant.created",
+                details={
+                    "slug": tenant.slug,
+                    "tenant_admin_user_id": str(tenant_admin.id),
+                    "tenant_admin_email": tenant_admin.email,
+                },
+            )
+        )
     db.add(
         AuditEvent(
             tenant_id=None,
@@ -131,6 +240,7 @@ def create_tenant(
                 "plan": tenant.plan,
                 "region": tenant.region,
                 "provisioning": payload.provisioning,
+                **({"admin_invited": True} if payload.send_admin_invitation else {}),
                 **({"trial_days": str(payload.trial_days)} if payload.provisioning == "trial" else {}),
             },
         )
@@ -213,7 +323,7 @@ def update_tenant(
             .limit(1)
         )
         if admin is None:
-            raise HTTPException(status_code=409, detail="该企业没有可编辑的企业管理员")
+            raise HTTPException(status_code=409, detail="该企业还没有企业管理员（开通邀请尚未被接受），接受邀请后才能编辑管理员信息")
         if payload.admin_name and payload.admin_name != admin.display_name:
             changes["admin_name"] = f"{admin.display_name} → {payload.admin_name}"
             admin.display_name = payload.admin_name
@@ -242,8 +352,78 @@ def list_platform_tenants(
     user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ) -> list[PlatformTenantResponse]:
-    tenants = db.scalars(select(Tenant).order_by(Tenant.created_at.desc()))
-    return [_tenant_response(db, tenant) for tenant in tenants]
+    tenants = list(db.scalars(select(Tenant).order_by(Tenant.created_at.desc())))
+    invitations = _latest_admin_invitations(db, [tenant.id for tenant in tenants])
+    return [_tenant_response(db, tenant, invitations) for tenant in tenants]
+
+
+@router.post(
+    "/platform/tenants/{tenant_id}/admin-invitations/{invitation_id}/resend",
+    response_model=PlatformTenantResponse,
+)
+def resend_admin_invitation(
+    tenant_id: UUID,
+    invitation_id: UUID,
+    user: User = Depends(require_platform_admin),
+    _: None = Depends(require_csrf),
+    db: Session = Depends(get_db),
+) -> PlatformTenantResponse:
+    """T-008b / PLT-022: rotate the token of an expired (or still pending) provisioning
+    invitation, extend it by 7 days and mail it again.  The old link stops working at once.
+    """
+    tenant = lock_tenant(db, tenant_id)
+    if tenant.status == "deleted":
+        raise ApiError(409, "tenant.deleted", "已删除的企业不能重发开通邀请")
+    invitation = db.scalar(
+        select(MemberInvitation)
+        .where(
+            MemberInvitation.id == invitation_id,
+            MemberInvitation.tenant_id == tenant.id,
+            MemberInvitation.role == "tenant_admin",
+        )
+        .with_for_update()
+    )
+    if invitation is None:
+        raise ApiError(404, "not_found", "未找到开通邀请")
+    if invitation.status not in {"pending", "expired"}:
+        raise ApiError(409, "invitation.not_resendable", "该开通邀请已接受或已撤销，不能重发")
+    if db.scalar(
+        select(Membership.id).where(
+            Membership.tenant_id == tenant.id, Membership.role == "tenant_admin"
+        )
+    ):
+        raise ApiError(409, "invitation.not_resendable", "该企业已有企业管理员，不能重发开通邀请")
+    token = secrets.token_urlsafe(32)
+    invitation.token_hash = hashlib.sha256(token.encode()).hexdigest()
+    invitation.status = "pending"
+    invitation.expires_at = datetime.now(UTC) + timedelta(days=ADMIN_INVITATION_TTL_DAYS)
+    invitation.invited_by = user.id
+    _send_admin_invitation_mail(
+        db,
+        tenant=tenant,
+        to=invitation.email,
+        admin_name=invitation.invitee_name,
+        invitation_url=f"{settings.app_origin}/invite?token={token}",
+        expires_at=invitation.expires_at,
+        locale=normalize_locale(user.locale),
+    )
+    details = {
+        "target_tenant_id": str(tenant.id),
+        "invitation_id": str(invitation.id),
+        "email": mask_email(invitation.email),
+    }
+    # Platform actions on a tenant belong to both audit chains (architecture 3.3).
+    db.add(AuditEvent(
+        tenant_id=tenant.id, actor_user_id=user.id,
+        action="tenant.admin_invitation_resent", details=details,
+    ))
+    db.add(AuditEvent(
+        tenant_id=None, actor_user_id=user.id,
+        action="tenant.admin_invitation_resent", details={**details, "tenant_name": tenant.name},
+    ))
+    db.commit()
+    db.refresh(tenant)
+    return _tenant_response(db, tenant)
 
 
 @router.get("/platform/overview", response_model=PlatformOverviewResponse)
@@ -279,7 +459,16 @@ def get_platform_overview(
     )
 
 
-def _tenant_response(db: Session, tenant: Tenant) -> PlatformTenantResponse:
+def _tenant_response(
+    db: Session, tenant: Tenant, admin_invitations: dict[UUID, MemberInvitation] | None = None
+) -> PlatformTenantResponse:
+    invitations = (
+        admin_invitations if admin_invitations is not None
+        else _latest_admin_invitations(db, [tenant.id])
+    )
+    invitation = invitations.get(tenant.id)
+    state = _invitation_status(invitation)
+    pending_invitation = invitation if state in {"pending", "expired"} else None
     member_count = db.scalar(
         select(func.count()).select_from(Membership).where(Membership.tenant_id == tenant.id)
     ) or 0
@@ -310,6 +499,11 @@ def _tenant_response(db: Session, tenant: Tenant) -> PlatformTenantResponse:
         portal_overage=grant.overage,
         admin_email=admin.email if admin else None,
         admin_name=admin.display_name if admin else None,
+        admin_invitation_id=pending_invitation.id if pending_invitation else None,
+        admin_invitation_status=state if pending_invitation else None,
+        admin_invitation_email=pending_invitation.email if pending_invitation else None,
+        admin_invitation_name=pending_invitation.invitee_name if pending_invitation else None,
+        admin_invitation_expires_at=pending_invitation.expires_at if pending_invitation else None,
         trial_ends_at=tenant.trial_ends_at,
         status_note=DATA_NOT_PURGED_NOTE if tenant.status == "deleted" else None,
         available_actions=[

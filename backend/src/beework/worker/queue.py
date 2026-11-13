@@ -123,6 +123,10 @@ def claim_jobs(
     return jobs
 
 
+class PermanentJobError(Exception):
+    """A failure that retrying cannot fix: the job goes dead at once instead of backing off through every attempt."""
+
+
 def retry_delay(attempts: int) -> timedelta:
     return timedelta(seconds=min(30 * (2 ** max(attempts - 1, 0)), 3600))
 
@@ -150,18 +154,18 @@ def execute_job(db: Session, job_id: UUID, *, now: datetime | None = None) -> Jo
     except Exception as exc:
         db.rollback()  # first: a handler that died on a database error leaves the session unusable until this
         logger.exception("Job %s (%s) failed", job_id, kind)
-        _record_failure(db, job_id, str(exc), current_time)
+        _record_failure(db, job_id, str(exc), current_time, permanent=isinstance(exc, PermanentJobError))
         return db.get(Job, job_id)
 
 
-def _record_failure(db: Session, job_id: UUID, error: str, current_time: datetime) -> None:
+def _record_failure(db: Session, job_id: UUID, error: str, current_time: datetime, *, permanent: bool = False) -> None:
     job = db.get(Job, job_id)
     if job is None:
         return
     job.last_error = error[:2000]
     job.locked_by = None
     job.locked_at = None
-    if job.attempts >= job.max_attempts:
+    if permanent or job.attempts >= job.max_attempts:
         job.status = "dead"
         job.finished_at = current_time
     else:

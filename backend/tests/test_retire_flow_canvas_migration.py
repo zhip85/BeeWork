@@ -115,7 +115,7 @@ class RetireFlowCanvasMigrationTests(unittest.TestCase):
         down = self.alembic("downgrade", BEFORE)
         self.assertEqual(down.returncode, 0, down.stderr)
         self.assertEqual((self.scalar("SELECT to_regclass('agents')") is not None, self.scalar("SELECT to_regclass('flow_versions')") is not None), (True, True))
-        self.assertEqual(self.alembic("upgrade", AFTER).returncode, 0)
+        self.assertEqual(self.alembic("upgrade", "head").returncode, 0)  # head may be past AFTER (e.g. 0052+); `check` compares the models against a head database only
         self.assertEqual(self.alembic("check").returncode, 0)  # the models and the migrated schema agree
 
 

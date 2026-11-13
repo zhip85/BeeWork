@@ -22,13 +22,24 @@ class CreateTenantRequest(BaseModel):
     industry: str = Field(default="general_office", max_length=32)  # a code of the industry dictionary (T-051)
     admin_email: EmailStr
     admin_name: str = Field(min_length=1, max_length=120)
-    admin_password: str = Field(min_length=12, max_length=256)
+    # Either set an initial password here (delivered out of band) or set send_admin_invitation (T-008 / PLT-022)
+    # and the admin sets their own password from the invitation mail.
+    admin_password: str | None = Field(default=None, min_length=12, max_length=256)
+    send_admin_invitation: bool = False
     # "trial" starts the workspace in trial status; it is suspended automatically when the trial ends (T-005).
     provisioning: Literal["formal", "trial"] = "formal"
     trial_days: int = Field(default=14, ge=1, le=90)
     portal_mode: Literal["named", "active", "unlimited"] | None = None  # AI portal seats (T-149); the plan's default when omitted
     portal_seats: int | None = Field(default=None, ge=1, le=10000000)
     portal_overage: Literal["hard", "grace_5", "grace_10"] | None = None
+
+    @model_validator(mode="after")
+    def password_or_invitation(self) -> "CreateTenantRequest":
+        if self.send_admin_invitation and self.admin_password:
+            raise ValueError("发送开通邀请时不需要设置初始密码")
+        if not self.send_admin_invitation and not self.admin_password:
+            raise ValueError("请设置企业管理员初始密码，或改为发送开通邀请邮件")
+        return self
 
     @field_validator("admin_name")
     @classmethod
@@ -140,6 +151,13 @@ class PlatformTenantResponse(BaseModel):
     portal_overage: str | None = None
     admin_email: EmailStr | None = None
     admin_name: str | None = None
+    # PLT-022 / T-008b: while the first admin has not accepted, the platform sees the pending
+    # or expired invitation so it can resend it. "expired" is derived from expires_at.
+    admin_invitation_id: UUID | None = None
+    admin_invitation_status: str | None = None
+    admin_invitation_email: str | None = None
+    admin_invitation_name: str | None = None
+    admin_invitation_expires_at: datetime | None = None
     trial_ends_at: datetime | None = None
     # Shown next to the status when something is not yet true, e.g. a deleted tenant whose data is not yet purged.
     status_note: str | None = None

@@ -1,0 +1,12 @@
+Hello,
+
+{{ inviter_name }} has invited you to the "{{ tenant_name }}" workspace on BeeWork.
+
+Invitation link (valid until {{ expires_at }}):
+{{ invitation_url }}
+
+Open the link to set your name and password and join. If the link has expired, ask a workspace administrator to resend the invitation.
+
+If you were not expecting this mail or do not know this workspace, simply ignore it.
+
+— BeeWork

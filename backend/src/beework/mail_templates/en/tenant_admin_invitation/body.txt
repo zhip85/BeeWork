@@ -1,0 +1,12 @@
+Hello {{ admin_name }},
+
+The BeeWork workspace for "{{ tenant_name }}" has been provisioned by the platform, and you have been named its workspace administrator.
+
+Use the link below to set up your account (name and password); it is valid until {{ expires_at }}:
+{{ invitation_url }}
+
+Open the link to set your name and password, then sign in to manage the workspace. If the link has expired, contact the platform to resend it.
+
+If you were not expecting this mail, simply ignore it.
+
+— BeeWork Platform

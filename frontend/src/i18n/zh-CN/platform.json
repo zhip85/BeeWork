@@ -8,6 +8,7 @@
   "opsData": "运营数据",
   "tenants": "租户管理",
   "jobs": "后台任务",
+  "mail": "邮件投递",
   "definitions": "平台定义",
   "models": "模型目录",
   "auditSection": "审计",
@@ -107,5 +108,38 @@
   "piiRules": "PII 规则",
   "baseline": "安全基线",
   "glossaries": "行业术语表",
-  "skills": "内置 Skill"
+  "skills": "内置 Skill",
+  "mailPage": {
+    "kicker": "运维",
+    "title": "邮件投递记录",
+    "intro": "查看系统发出的邀请与通知邮件的投递状态；收件人仅显示掩码。失败后任务会自动退避重试，重试耗尽后可在「后台任务」页重试。",
+    "refresh": "刷新",
+    "status": "状态",
+    "statusAll": "全部",
+    "statuses": {
+      "queued": "排队中",
+      "sent": "已发送",
+      "failed": "失败"
+    },
+    "truncated": "仅显示最近 {{shown}} 条，共 {{total}} 条；请用状态筛选缩小范围",
+    "loading": "正在加载投递记录…",
+    "loadFailed": "无法加载投递记录",
+    "empty": "暂无投递记录",
+    "columns": {
+      "recipient": "收件人",
+      "template": "模板",
+      "locale": "语言",
+      "status": "状态",
+      "attempts": "尝试",
+      "error": "失败原因",
+      "sentAt": "发送时间",
+      "createdAt": "创建时间"
+    },
+    "failures": {
+      "recipient_refused": "收件人被邮件服务拒绝",
+      "smtp_auth_failed": "邮件服务认证失败",
+      "smtp_unreachable": "无法连接邮件服务",
+      "invalid_message": "邮件内容无效（不会重试）"
+    }
+  }
 }

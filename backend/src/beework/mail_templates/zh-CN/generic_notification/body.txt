@@ -1,0 +1,7 @@
+您好，
+
+{{ message }}
+
+{% if link %}详情请见：{{ link }}
+{% endif %}
+—— BeeWork
