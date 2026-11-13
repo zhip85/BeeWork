@@ -380,6 +380,38 @@ class MemoryTests(unittest.TestCase):
         self.extract(conversation_id, _Sequence([script[0], json.dumps({"ops": [{"op": "none", "candidate": 1}]})]))  # the retry finds it already there
         self.assertEqual([r.content for r in self.rows(file="memory")], ["用户改用邮件联系"])
 
+    def test_entry_types_follow_the_candidates_when_an_empty_one_comes_first(self) -> None:
+        self.add_memory(text="已有的一条")
+        llm = _Sequence([
+            json.dumps({"user_memory": [{"type": "preference", "text": ""}, {"type": "history", "text": "项目周五上线"}]}, ensure_ascii=False),
+            json.dumps({"ops": [{"op": "add", "candidate": 1}]}),
+        ])
+        self.extract(self.ended_conversation(), llm)
+        added = [r for r in self.rows(file="memory") if r.content == "项目周五上线"]
+        self.assertEqual([r.type for r in added], ["history"])
+
+    def test_loose_ids_and_a_second_operation_on_the_same_entry_are_ignored(self) -> None:
+        self.add_memory(text="用户用微信联系")
+        llm = _Sequence([
+            json.dumps({"user_memory": [{"type": "preference", "text": "用户改用邮件"}]}, ensure_ascii=False),
+            json.dumps({"ops": [{"op": "delete", "id": True}, {"op": "update", "candidate": "1", "id": 1, "text": "x"},
+                                {"op": "update", "candidate": 1, "id": 1, "text": "用户改用邮件"}, {"op": "delete", "id": 1}]}, ensure_ascii=False),
+        ])
+        self.extract(self.ended_conversation(), llm)
+        self.assertEqual([r.content for r in self.rows(file="memory")], ["用户改用邮件"])
+
+    def test_a_merged_entry_survives_re_extracting_the_conversation_that_first_wrote_it(self) -> None:
+        first = self.ended_conversation()
+        self.extract(first, reply(user_memory=[{"type": "preference", "text": "用户住在北京"}]))
+        second = self.ended_conversation()
+        llm = _Sequence([
+            json.dumps({"user_memory": [{"type": "history", "text": "用户搬到上海"}]}, ensure_ascii=False),
+            json.dumps({"ops": [{"op": "update", "candidate": 1, "id": 1, "text": "用户住在上海（原先在北京）"}]}, ensure_ascii=False),
+        ])
+        self.extract(second, llm)
+        self.extract(first, reply(user_memory=[{"type": "preference", "text": "用户住在北京"}]))
+        self.assertIn("用户住在上海（原先在北京）", [r.content for r in self.rows(file="memory")])
+
     # -- the plan decides what long-term memory does (PLT-081) ---------------------------------------
 
     def test_the_standard_plan_has_the_conversation_window_only(self) -> None:

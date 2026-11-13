@@ -152,6 +152,8 @@ def _routing_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
 
 
 register_summary("routing", _routing_summary)
+
+
 def _memory_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
     from beework.memory import memory_tier
 

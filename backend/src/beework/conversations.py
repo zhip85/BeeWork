@@ -114,12 +114,12 @@ def append_message(
     return message
 
 
-_CJK_CHAR = re.compile(r"[぀-ヿ㐀-鿿가-힯]")
+_CJK_CHAR = re.compile(r"[぀-ヿ㐀-鿿가-힯\u3000-\u303f\uff00-\uffef]")
 
 
 def estimate_tokens(text: str) -> int:
-    """A cheap, model-independent estimate of how many tokens a text takes (OC-020): CJK characters count about 0.7, anything else a
-    quarter of a character. Slightly generous on purpose — the window must hold when the real tokenizer is less kind."""
+    """A cheap, model-independent estimate of how many tokens a text takes (OC-020): CJK characters (and full-width punctuation) count about 0.7, anything else
+    about 0.29 of a character (one token per 3.5). Slightly generous on purpose — the window must hold when the real tokenizer is less kind."""
     cjk = len(_CJK_CHAR.findall(text))
     return math.ceil(cjk * 0.7 + (len(text) - cjk) / 3.5)
 

@@ -212,19 +212,7 @@ def _replace_entries(
     for entry_type, text in entries[:MAX_ENTRIES_PER_FILE]:
         if not text:
             continue
-        db.add(
-            EndUserMemory(
-                tenant_id=conversation.tenant_id,
-                end_user_id=conversation.end_user_id,
-                assistant_id=assistant_id,
-                file=file,
-                type=entry_type,
-                content=text,
-                source_conversation_id=conversation.id,
-                expires_at=now + timedelta(days=retention_days),
-                created_at=now,
-            )
-        )
+        _append_entry(db, conversation, file, entry_type, text, assistant_id=assistant_id, retention_days=retention_days, now=now)
         written += 1
     return written
 
@@ -288,7 +276,8 @@ def _write_with_reconcile(
     statement of the same thing replaces the old entry, a contradicted entry is removed. Re-running for the same conversation gives the
     same result: its own earlier additions are removed first, and an update or delete already applied finds nothing left to change.
     If the comparison itself fails, the candidates are written as they are (the T-056a behaviour)."""
-    texts = [text for _, text in candidates[:MAX_ENTRIES_PER_FILE] if text]
+    kept = [(kind, text) for kind, text in candidates[:MAX_ENTRIES_PER_FILE] if text]  # numbered 1..n in the prompt, so types must follow this list
+    texts = [text for _, text in kept]
     db.execute(
         delete(EndUserMemory).where(
             EndUserMemory.tenant_id == conversation.tenant_id, EndUserMemory.source_conversation_id == conversation.id, EndUserMemory.file == file,
@@ -298,7 +287,7 @@ def _write_with_reconcile(
         return 0
     existing = _existing_for_reconcile(db, conversation, file, texts, assistant_id=assistant_id, now=now)
     if not existing:
-        return _replace_entries(db, conversation, file, [c for c in candidates if c[1]], assistant_id=assistant_id, retention_days=retention_days, now=now)
+        return _replace_entries(db, conversation, file, kept, assistant_id=assistant_id, retention_days=retention_days, now=now)
     listing = "\n".join(f"{i}. {row.content}" for i, row in enumerate(existing, start=1))
     wanted = "\n".join(f"{i}. {text}" for i, text in enumerate(texts, start=1))
     try:
@@ -306,37 +295,47 @@ def _write_with_reconcile(
         ops = _parse_ops(answer.content if isinstance(answer.content, str) else "")
     except Exception:  # noqa: BLE001 — an unusable answer must not lose what was extracted
         logger.warning("Memory reconcile failed; writing the candidates as they are", exc_info=True)
-        return _replace_entries(db, conversation, file, [c for c in candidates if c[1]], assistant_id=assistant_id, retention_days=retention_days, now=now)
+        return _replace_entries(db, conversation, file, kept, assistant_id=assistant_id, retention_days=retention_days, now=now)
+
+    def index(value: Any, size: int) -> int | None:
+        return value if type(value) is int and 1 <= value <= size else None
 
     handled: set[int] = set()
+    touched: set[int] = set()  # an existing row is changed at most once per comparison
     written = 0
-    for op in ops[: MAX_ENTRIES_PER_FILE * 3]:
-        kind = op.get("op")
-        number = op.get("candidate")
-        target = op.get("id")
-        row = existing[target - 1] if isinstance(target, int) and 1 <= target <= len(existing) else None
-        if kind == "delete" and row is not None:
-            db.delete(row)
-        elif kind == "update" and row is not None and isinstance(number, int) and 1 <= number <= len(texts):
-            text = _clean(op.get("text") or texts[number - 1])
-            if text:
-                row.content = text
-                row.expires_at = now + timedelta(days=retention_days)  # said again: the retention clock restarts
-                handled.add(number)
-        elif kind == "add" and isinstance(number, int) and 1 <= number <= len(texts) and number not in handled:
-            entry_type = candidates[number - 1][0] if number - 1 < len(candidates) else None
-            written += _replace_entries_append(db, conversation, file, entry_type, texts[number - 1], assistant_id=assistant_id, retention_days=retention_days, now=now)
-            handled.add(number)
-        elif kind == "none" and isinstance(number, int):
-            handled.add(number)
-    for number, text in enumerate(texts, start=1):  # a candidate the model did not mention is kept rather than lost
-        if number not in handled:
-            entry_type = candidates[number - 1][0] if number - 1 < len(candidates) else None
-            written += _replace_entries_append(db, conversation, file, entry_type, text, assistant_id=assistant_id, retention_days=retention_days, now=now)
+    try:
+        with db.begin_nested():  # a savepoint: a failure undoes only this comparison, not the other files of the extraction
+            for op in ops[: MAX_ENTRIES_PER_FILE * 3]:
+                kind = op.get("op")
+                number = index(op.get("candidate"), len(texts))
+                target = index(op.get("id"), len(existing))
+                row = existing[target - 1] if target is not None and target not in touched else None
+                if kind == "delete" and row is not None:
+                    db.delete(row)
+                    touched.add(target)
+                elif kind == "update" and row is not None and number is not None and number not in handled:
+                    text = _clean(op.get("text") or texts[number - 1])
+                    if text:
+                        row.content = text
+                        row.expires_at = now + timedelta(days=retention_days)  # said again: the retention clock restarts
+                        row.source_conversation_id = None  # merged from several conversations: re-extracting one of them must not delete it
+                        touched.add(target)
+                        handled.add(number)
+                elif kind == "add" and number is not None and number not in handled:
+                    written += _append_entry(db, conversation, file, kept[number - 1][0], texts[number - 1], assistant_id=assistant_id, retention_days=retention_days, now=now)
+                    handled.add(number)
+                elif kind == "none" and number is not None:
+                    handled.add(number)
+            for number, (entry_type, text) in enumerate(kept, start=1):  # a candidate the model did not mention is kept rather than lost
+                if number not in handled:
+                    written += _append_entry(db, conversation, file, entry_type, text, assistant_id=assistant_id, retention_days=retention_days, now=now)
+    except Exception:  # noqa: BLE001 — a half-applied comparison falls back to the plain write
+        logger.warning("Memory reconcile could not be applied; writing the candidates as they are", exc_info=True)
+        return _replace_entries(db, conversation, file, kept, assistant_id=assistant_id, retention_days=retention_days, now=now)
     return written
 
 
-def _replace_entries_append(
+def _append_entry(
     db: Session, conversation: Conversation, file: str, entry_type: str | None, text: str, *, assistant_id: UUID | None, retention_days: int, now: datetime
 ) -> int:
     db.add(
@@ -401,6 +400,7 @@ def extract_conversation_memory(
         return {}  # the administrator or the employee switched personal memory off: nothing is written (T-145)
     tier = memory_tier(db, conversation.tenant_id)
     if tier == "short":
+        logger.info("Long-term memory skipped: the tenant's plan has no long-term memory (tenant %s)", conversation.tenant_id)
         return {}  # long-term memory is not part of the tenant's plan
     run = db.scalar(
         select(Run).where(Run.conversation_id == conversation.id).order_by(Run.created_at.desc()).limit(1)
@@ -476,13 +476,13 @@ def _write_tool_memory(db: Session, conversation: Conversation, *, assistant_id:
         existing = db.scalar(
             select(EndUserMemory).where(
                 EndUserMemory.tenant_id == conversation.tenant_id, EndUserMemory.end_user_id == conversation.end_user_id,
-                EndUserMemory.assistant_id == assistant_id, EndUserMemory.file == "tools", EndUserMemory.content.like(f"用过工具“{label}”%"),
+                EndUserMemory.assistant_id == assistant_id, EndUserMemory.file == "tools", EndUserMemory.content.startswith(f"用过工具“{label}”", autoescape=True),
             )
         )
         if existing is not None:
             existing.content, existing.expires_at, existing.source_conversation_id = text, now + timedelta(days=retention_days), conversation.id
         else:
-            written += _replace_entries_append(db, conversation, "tools", None, text, assistant_id=assistant_id, retention_days=retention_days, now=now)
+            written += _append_entry(db, conversation, "tools", None, text, assistant_id=assistant_id, retention_days=retention_days, now=now)
     return written
 
 
