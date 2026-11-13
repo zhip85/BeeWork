@@ -151,6 +151,13 @@ class PlatformTenantResponse(BaseModel):
     portal_overage: str | None = None
     admin_email: EmailStr | None = None
     admin_name: str | None = None
+    # PLT-022 / T-008b: while the first admin has not accepted, the platform sees the pending
+    # or expired invitation so it can resend it. "expired" is derived from expires_at.
+    admin_invitation_id: UUID | None = None
+    admin_invitation_status: str | None = None
+    admin_invitation_email: str | None = None
+    admin_invitation_name: str | None = None
+    admin_invitation_expires_at: datetime | None = None
     trial_ends_at: datetime | None = None
     # Shown next to the status when something is not yet true, e.g. a deleted tenant whose data is not yet purged.
     status_note: str | None = None

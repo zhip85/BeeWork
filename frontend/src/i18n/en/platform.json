@@ -108,5 +108,38 @@
   "piiRules": "PII rules",
   "baseline": "Security baseline",
   "glossaries": "Industry glossaries",
-  "skills": "Built-in skills"
+  "skills": "Built-in skills",
+  "mailPage": {
+    "kicker": "Operations",
+    "title": "Mail deliveries",
+    "intro": "Delivery status of the invitation and notification mails the system sends; recipients are shown masked. A failed job backs off and retries on its own; once retries are used up, retry it on the Background jobs page.",
+    "refresh": "Refresh",
+    "status": "Status",
+    "statusAll": "All",
+    "statuses": {
+      "queued": "Queued",
+      "sent": "Sent",
+      "failed": "Failed"
+    },
+    "truncated": "Showing the latest {{shown}} of {{total}}; narrow the list with the status filter",
+    "loading": "Loading deliveries…",
+    "loadFailed": "Could not load deliveries",
+    "empty": "No deliveries yet",
+    "columns": {
+      "recipient": "Recipient",
+      "template": "Template",
+      "locale": "Language",
+      "status": "Status",
+      "attempts": "Attempts",
+      "error": "Failure reason",
+      "sentAt": "Sent at",
+      "createdAt": "Created at"
+    },
+    "failures": {
+      "recipient_refused": "Recipient refused by the mail service",
+      "smtp_auth_failed": "Mail service authentication failed",
+      "smtp_unreachable": "Cannot reach the mail service",
+      "invalid_message": "Invalid message (not retried)"
+    }
+  }
 }

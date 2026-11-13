@@ -112,6 +112,7 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
   const [editError, setEditError] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [resending, setResending] = useState('')
 
   useEffect(() => {
     let active = true
@@ -272,6 +273,25 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
     }
   }
 
+  async function resendAdminInvitation(tenant: PlatformTenant) {
+    if (!tenant.admin_invitation_id) return
+    setResending(tenant.id)
+    setError('')
+    setNotice('')
+    try {
+      const updated = await apiRequest<PlatformTenant>(
+        `/api/v1/platform/tenants/${tenant.id}/admin-invitations/${tenant.admin_invitation_id}/resend`,
+        { method: 'POST', body: JSON.stringify({}) },
+      )
+      setTenants((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      setNotice(`已重新发送开通邀请到 ${tenant.admin_invitation_email}，旧链接已失效。`)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : '重发开通邀请失败')
+    } finally {
+      setResending('')
+    }
+  }
+
   async function reviewOperation(operation: PlatformOperation, decision: 'approve' | 'reject') {
     setReviewingOperation(operation.id)
     setError('')
@@ -357,7 +377,17 @@ export function PlatformTenantsPage({ currentUserId }: { currentUserId: string }
               <tbody>{tenants.map((tenant) => (
                 <tr key={tenant.id}>
                   <td><strong className="tenant-name-cell">{tenant.name}</strong><small className="platform-tenant-slug">{tenant.slug}</small></td>
-                  <td>{tenant.admin_name ? <span className="platform-admin-cell"><strong>{tenant.admin_name}</strong><small>{tenant.admin_email}</small></span> : <span className="role-text">未设置</span>}</td>
+                  <td>{tenant.admin_name ? <span className="platform-admin-cell"><strong>{tenant.admin_name}</strong><small>{tenant.admin_email}</small></span> : tenant.admin_invitation_id ? (
+                    <span className="platform-admin-cell">
+                      <strong>{tenant.admin_invitation_name ?? tenant.admin_invitation_email}</strong>
+                      <small>{tenant.admin_invitation_email}</small>
+                      <small className={tenant.admin_invitation_status === 'expired' ? 'form-error' : 'role-text'}>
+                        {tenant.admin_invitation_status === 'expired' ? '邀请已过期' : '邀请待接受'}
+                        {tenant.admin_invitation_expires_at ? `（${tenant.admin_invitation_status === 'expired' ? '过期于' : '有效至'} ${new Date(tenant.admin_invitation_expires_at).toLocaleDateString()}）` : ''}
+                      </small>
+                      {tenant.status !== 'deleted' && <button className="tenant-status-action" disabled={resending === tenant.id} onClick={() => void resendAdminInvitation(tenant)} type="button">{resending === tenant.id ? '发送中…' : '重发邀请'}</button>}
+                    </span>
+                  ) : <span className="role-text">未设置</span>}</td>
                   <td><span className="platform-admin-cell"><strong>{enumLabel('plan', tenant.plan)}</strong><small>{enumLabel('region', tenant.region)}</small></span></td>
                   <td>{tenant.seat_limit}</td>
                   <td><span className="platform-admin-cell"><strong>{tenant.portal_mode === 'unlimited' ? '全员不限' : (tenant.portal_seats ?? 0).toLocaleString()}</strong><small>{PORTAL_MODES.find(([value]) => value === tenant.portal_mode)?.[1]}</small></span></td>

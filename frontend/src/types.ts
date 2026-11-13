@@ -117,6 +117,11 @@ export type PlatformTenant = {
   portal_overage: string | null
   admin_email: string | null
   admin_name: string | null
+  admin_invitation_id: string | null
+  admin_invitation_status: 'pending' | 'expired' | null
+  admin_invitation_email: string | null
+  admin_invitation_name: string | null
+  admin_invitation_expires_at: string | null
   trial_ends_at: string | null
   status_note: string | null
   available_actions: TenantLifecycleActionOption[]

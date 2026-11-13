@@ -63,3 +63,12 @@
 - 成员邀请仍把 `invitation_url` 一并返回给前端（保持既有兼容），但真实投递已走邮件；平台租户邀请模式下，管理员接受邀请前租户列表的 `admin_email` 为空（尚无成员账号）。
 - 前端页面未做浏览器目视验收（与近期任务口径一致）；`check_mail_e2e.py` 在开发库留下 3 个一次性租户与管理员账号。
 - 修复了既有测试 `test_retire_flow_canvas_migration.py`：T-160 加入 0052 后，该测试停留在 `0051_retire_flow_canvas` 就跑 `alembic check`，会因“Target database is not up to date”失败；现改为 check 前先 `upgrade head`（不改迁移本身）。
+
+## 补充：重发开通邀请与邮件页 i18n（2026-11-13，分支 `task/T-008b-admin-invitation-resend`）
+
+首版遗留的两项在这里补齐。
+
+- **重发开通邀请**：`POST /platform/tenants/{id}/admin-invitations/{invitation_id}/resend`（平台管理员 + CSRF + 租户行锁）。把待接受或已过期的开通邀请换一个新 token、有效期延长 7 天并重发邮件，旧链接立即失效；首位管理员已加入、邀请已接受或已撤销、租户已删除时 409；一分钟内重发过多返回 429 且不换 token；邮件语言跟随操作的平台管理员；租户审计链与平台审计链各写一条 `tenant.admin_invitation_resent`（邮箱掩码，不含 token）。`GET /platform/tenants` 为每个租户返回最近一次开通邀请的状态（`pending` / `expired`，由 `expires_at` 推出）。迁移 `0056_admin_invitation_name` 给 `member_invitations` 加 `invitee_name`，重发时还原邮件称呼（此前创建的邀请没有称呼，用邮箱前缀代替）。
+- **前端**：租户列表“首位企业管理员”一列在管理员尚未接受时显示被邀请人、邀请状态与“重发邀请”按钮。该页其他文案仍是写死的中文，这里保持一致，没有单独国际化。
+- **邮件投递页 i18n**：`PlatformMailPage` 的文案移入 `platform` 命名空间的 `mailPage.*`（中英文）。
+- **验证**：`test_admin_invitation_resend` 10 项（含 PostgreSQL 并发，需 `TEST_DATABASE_URL`，本次跳过）；与 `test_platform_governance`、`test_tenant_auth`、`test_tenant_lifecycle`、`test_mail`、`test_worker` 合计 153 项通过；ruff、`tsc`、lint（无错误）、`i18n:check`、`style:check` 通过。页面未目视验收；PostgreSQL 并发用例与全量后端未在本次运行。

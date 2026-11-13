@@ -55,6 +55,7 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "membership.invitation_accepted": "接受成员邀请",
     "membership.invitation_resent": "重新发送成员邀请",
     "membership.invitation_revoked": "撤销成员邀请",
+    "tenant.admin_invitation_resent": "重新发送租户开通邀请",
     "membership.removed": "移除成员",
     "membership.role_changed": "变更成员角色",
     "membership.organization_changed": "变更成员所属组织",
@@ -555,6 +556,9 @@ class MemberInvitation(Base):
         index=True,
     )
     email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    # Set for a tenant's provisioning invitation (PLT-022): a resend rebuilds the mail and
+    # needs the original greeting. Null for member invitations and rows created before T-008b.
+    invitee_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     custom_role_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
     organization_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
