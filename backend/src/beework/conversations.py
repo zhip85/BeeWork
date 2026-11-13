@@ -1,6 +1,8 @@
 """Conversation and message storage shared by the runtime, the API and the Worker (T-026)."""
 
 import logging
+import math
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -112,7 +114,30 @@ def append_message(
     return message
 
 
-def history_for_run(db: Session, run: Run, limit: int) -> list[dict[str, str]]:
+_CJK_CHAR = re.compile(r"[぀-ヿ㐀-鿿가-힯]")
+
+
+def estimate_tokens(text: str) -> int:
+    """A cheap, model-independent estimate of how many tokens a text takes (OC-020): CJK characters count about 0.7, anything else a
+    quarter of a character. Slightly generous on purpose — the window must hold when the real tokenizer is less kind."""
+    cjk = len(_CJK_CHAR.findall(text))
+    return math.ceil(cjk * 0.7 + (len(text) - cjk) / 3.5)
+
+
+def trim_to_token_budget(history: list[dict[str, str]], max_tokens: int) -> list[dict[str, str]]:
+    """The newest messages that fit ``max_tokens``; older ones are dropped first. The newest message is always kept."""
+    kept: list[dict[str, str]] = []
+    used = 0
+    for message in reversed(history):
+        cost = estimate_tokens(message["content"]) + 4  # a few tokens of role framing per message
+        if kept and used + cost > max_tokens:
+            break
+        kept.append(message)
+        used += cost
+    return list(reversed(kept))
+
+
+def history_for_run(db: Session, run: Run, limit: int, *, max_tokens: int | None = None) -> list[dict[str, str]]:
     """The most recent ``limit`` user/assistant messages before this run's own user message."""
     if run.conversation_id is None or limit <= 0:
         return []
@@ -128,10 +153,11 @@ def history_for_run(db: Session, run: Run, limit: int) -> list[dict[str, str]]:
     if own is not None:
         statement = statement.where(Message.seq < own)
     rows = list(db.scalars(statement.order_by(Message.seq.desc()).limit(limit)))
-    return [
+    history = [
         {"role": "user" if message.role == "user" else "assistant", "content": message.content}
         for message in reversed(rows)
     ]
+    return trim_to_token_budget(history, max_tokens) if max_tokens else history
 
 
 def end_conversation(db: Session, conversation: Conversation, now: datetime) -> None:

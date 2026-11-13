@@ -44,6 +44,18 @@ def reply(**payload) -> ScriptedChat:
     return ScriptedChat(chunks=[json.dumps(payload, ensure_ascii=False)])
 
 
+class _Sequence:
+    """A model that answers one scripted reply per call (the extraction, then the comparison)."""
+
+    def __init__(self, answers: list[str]) -> None:
+        self.answers, self.calls = list(answers), 0
+
+    def invoke(self, messages, config=None):
+        answer = self.answers[min(self.calls, len(self.answers) - 1)]
+        self.calls += 1
+        return type("Answer", (), {"content": answer})()
+
+
 class MemoryTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -267,7 +279,7 @@ class MemoryTests(unittest.TestCase):
             profile=[{"text": "travel agent, call me Ada"}],
             session_summary="Short refund chat.",
         )
-        self.assertEqual(self.extract(conversation_id, llm), {"memory": 2, "profile": 1, "session": 1})
+        self.assertEqual(self.extract(conversation_id, llm), {"memory": 2, "profile": 1, "tools": 0, "session": 1})
         by_file = {f: self.rows(file=f) for f in ("memory", "profile", "session")}
         self.assertEqual([r.content for r in by_file["memory"]], ["asked about refunds twice", "prefers short answers, phone [手机号]"])
         self.assertEqual({r.type for r in by_file["memory"]}, {"preference", "history"})
@@ -296,7 +308,7 @@ class MemoryTests(unittest.TestCase):
     def test_oc_settings_gate_what_extraction_writes(self) -> None:
         payload = dict(user_memory=[{"type": "preference", "text": "p"}], profile=[{"text": "who"}], session_summary="s")
         off = self.ended_conversation(oc={"memory": {"long_term": {"user_profile": {"write_enabled": False}}}})
-        self.assertEqual(self.extract(off, reply(**payload)), {"memory": 1, "session": 1})  # no "profile" key: not written
+        self.assertEqual(self.extract(off, reply(**payload)), {"memory": 1, "tools": 0, "session": 1})  # no "profile" key: not written
         self.assertEqual(self.rows(file="profile"), [])
         no_short = self.ended_conversation(oc={"memory": {"short_term": {"enabled": False}}})
         self.assertNotIn("memory", self.extract(no_short, reply(**payload)))  # short-term memory off: nothing written to UserMemory
@@ -306,6 +318,110 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(len(self.rows()), before)
         facts = self.ended_conversation(oc={"memory": {"short_term": {"type_whitelist": ["fact"]}}})
         self.assertEqual(self.extract(facts, reply(user_memory=[{"type": "fact", "text": "f"}, {"type": "preference", "text": "p"}]))["memory"], 1)
+
+    # -- reconciling with what the user already has (T-056) ------------------------------------
+
+    def test_a_repeated_preference_is_not_stored_twice(self) -> None:
+        self.add_memory(text="用户喜欢简短的回答", age_days=3)
+        llm = _Sequence([
+            json.dumps({"user_memory": [{"type": "preference", "text": "用户喜欢简短一点的回答"}]}, ensure_ascii=False),
+            json.dumps({"ops": [{"op": "none", "candidate": 1}]}),
+        ])
+        written = self.extract(self.ended_conversation(), llm)
+        self.assertEqual(written["memory"], 0)
+        self.assertEqual([r.content for r in self.rows(file="memory")], ["用户喜欢简短的回答"])
+
+    def test_a_newer_statement_replaces_the_old_entry_and_restarts_its_retention(self) -> None:
+        old = self.add_memory(text="用户用微信联系", age_days=40, expires_in_days=10)
+        llm = _Sequence([
+            json.dumps({"user_memory": [{"type": "preference", "text": "用户改用邮件联系"}]}, ensure_ascii=False),
+            json.dumps({"ops": [{"op": "update", "candidate": 1, "id": 1, "text": "用户改用邮件联系，不再用微信"}]}, ensure_ascii=False),
+        ])
+        self.extract(self.ended_conversation(), llm)
+        rows = self.rows(file="memory")
+        self.assertEqual([(r.id, r.content) for r in rows], [(old, "用户改用邮件联系，不再用微信")])  # the same entry, new words
+        self.assertEqual(rows[0].expires_at.replace(tzinfo=UTC), NOW + timedelta(days=180))
+
+    def test_a_contradicted_entry_can_be_deleted_and_new_information_is_added(self) -> None:
+        self.add_memory(text="用户住在北京", age_days=30)
+        llm = _Sequence([
+            json.dumps({"user_memory": [{"type": "preference", "text": "喜欢喝茶"}]}, ensure_ascii=False),
+            json.dumps({"ops": [{"op": "add", "candidate": 1}, {"op": "delete", "id": 1}]}),
+        ])
+        self.extract(self.ended_conversation(), llm)
+        self.assertEqual([r.content for r in self.rows(file="memory")], ["喜欢喝茶"])
+
+    def test_the_model_cannot_touch_an_entry_it_was_not_shown_or_of_another_user(self) -> None:
+        other = self.add_memory(text="别人的记忆", end_user="user_b")
+        self.add_memory(text="用户的记忆")
+        llm = _Sequence([
+            json.dumps({"user_memory": [{"type": "preference", "text": "新偏好"}]}, ensure_ascii=False),
+            json.dumps({"ops": [{"op": "delete", "id": 99}, {"op": "delete", "id": 0}, {"op": "update", "candidate": 1, "id": 7, "text": "x"}, {"op": "add", "candidate": 1}]}),
+        ])
+        self.extract(self.ended_conversation(), llm)
+        self.assertIn(other, [r.id for r in self.rows(file="memory")])
+        self.assertEqual(sorted(r.content for r in self.rows(file="memory", end_user_id=self.ids["user_a"])), ["新偏好", "用户的记忆"])
+
+    def test_an_unusable_comparison_keeps_what_was_extracted(self) -> None:
+        self.add_memory(text="已有的一条")
+        llm = _Sequence([json.dumps({"user_memory": [{"type": "preference", "text": "新的一条"}]}, ensure_ascii=False), "不是 JSON"])
+        written = self.extract(self.ended_conversation(), llm)
+        self.assertEqual(written["memory"], 1)
+        self.assertEqual(sorted(r.content for r in self.rows(file="memory")), ["已有的一条", "新的一条"])
+
+    def test_comparing_again_after_a_retry_gives_the_same_result(self) -> None:
+        self.add_memory(text="用户用微信联系")
+        conversation_id = self.ended_conversation()
+        script = [
+            json.dumps({"user_memory": [{"type": "preference", "text": "用户改用邮件联系"}]}, ensure_ascii=False),
+            json.dumps({"ops": [{"op": "update", "candidate": 1, "id": 1, "text": "用户改用邮件联系"}]}, ensure_ascii=False),
+        ]
+        self.extract(conversation_id, _Sequence(script))
+        self.extract(conversation_id, _Sequence([script[0], json.dumps({"ops": [{"op": "none", "candidate": 1}]})]))  # the retry finds it already there
+        self.assertEqual([r.content for r in self.rows(file="memory")], ["用户改用邮件联系"])
+
+    # -- the plan decides what long-term memory does (PLT-081) ---------------------------------------
+
+    def test_the_standard_plan_has_the_conversation_window_only(self) -> None:
+        self.add_memory(text="likes tea")
+        with mock.patch.object(mem, "memory_tier", lambda *_: "short"):
+            self.assertEqual(self.load("tea"), [])
+            before = len(self.rows())
+            self.assertEqual(self.extract(self.ended_conversation(), reply(user_memory=[{"type": "preference", "text": "p"}])), {})
+            self.assertEqual(len(self.rows()), before)
+
+    def test_the_profile_is_shared_across_assistants_only_on_the_enterprise_plan(self) -> None:
+        with mock.patch.object(mem, "memory_tier", lambda *_: "short_long"):
+            self.extract(self.ended_conversation(), reply(profile=[{"text": "销售经理"}]))
+            profile = self.rows(file="profile")[0]
+            self.assertEqual(profile.assistant_id, self.ids["assistant"])  # the professional plan: this assistant's own
+            self.assertEqual([m["text"] for m in self.load("销售", assistant="assistant")], ["销售经理"])
+            self.assertEqual([m["text"] for m in self.load("销售", assistant="assistant2") if m["file"] == "UserProfile"], [])
+        with mock.patch.object(mem, "memory_tier", lambda *_: "all_cross_assistant"):
+            self.add_memory(file="profile", text="跨助理画像")
+            self.assertEqual([m["text"] for m in self.load("画像", assistant="assistant2") if m["file"] == "UserProfile"], ["跨助理画像"])
+        with mock.patch.object(mem, "memory_tier", lambda *_: "short_long"):  # downgraded: the shared profile stops being read
+            self.assertEqual([m["text"] for m in self.load("画像", assistant="assistant2") if m["file"] == "UserProfile"], [])
+
+    # -- the Tools file -------------------------------------------------------------------------------
+
+    def test_the_tools_file_records_which_tools_were_used_without_arguments(self) -> None:
+        from beework.models.tools import ToolInvocation
+
+        conversation_id = self.ended_conversation()
+        with self.session_factory.begin() as db:
+            run = db.scalar(select(Run).where(Run.conversation_id == conversation_id))
+            for _ in range(2):
+                db.add(ToolInvocation(tenant_id=self.ids["tenant"], run_id=run.id, tool_name="mcp:00000000-0000-0000-0000-000000000001:search_orders", source="mcp", status="ok", duration_ms=5))
+            db.add(ToolInvocation(tenant_id=self.ids["tenant"], run_id=run.id, tool_name="mcp:00000000-0000-0000-0000-000000000001:boom", source="mcp", status="error", duration_ms=5))
+        written = self.extract(conversation_id, reply(session_summary="s"))
+        self.assertEqual(written["tools"], 1)  # only the successful tool
+        rows = self.rows(file="tools")
+        self.assertIn("2 次", rows[0].content)
+        self.assertEqual(rows[0].assistant_id, self.ids["assistant"])
+        self.assertEqual([m["file"] for m in self.load("search_orders")].count("Tools"), 1)  # injected like the other files
+        self.extract(conversation_id, reply(session_summary="s"))
+        self.assertEqual(len(self.rows(file="tools")), 1)  # refreshed, not duplicated
 
     def test_extraction_skips_when_there_is_nothing_to_learn_from(self) -> None:
         llm = reply(session_summary="x")

@@ -152,5 +152,19 @@ def _routing_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
 
 
 register_summary("routing", _routing_summary)
+def _memory_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
+    from beework.memory import memory_tier
+
+    short, long = oc.memory.short_term, oc.memory.long_term
+    window = f"短期 {short.window_rounds} 轮 / {short.max_tokens} Token" if short.enabled else "短期记忆关闭"
+    if memory_tier(db, assistant.tenant_id) == "short":
+        return f"{window} · 长期记忆需专业版及以上"
+    if not long.enabled:
+        return f"{window} · 长期记忆关闭"
+    files = [name for name, file in (("画像", long.user_profile), ("用户记忆", long.user_memory), ("工具", long.tools), ("会话", long.session)) if file.enabled]
+    return f"{window} · 长期记忆：{'、'.join(files) or '全部关闭'}"
+
+
+register_summary("memory", _memory_summary)
 register_summary("glossary", _glossary_summary)
 register_summary("rewrite", _rewrite_summary)

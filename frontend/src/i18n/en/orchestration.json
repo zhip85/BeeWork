@@ -223,5 +223,94 @@
       "cancel": "Cancel",
       "save": "Save rule"
     }
+  },
+  "memory": {
+    "hint": "Short-term memory is the context in the conversation window; long-term memory is extracted after a conversation ends, kept per end user, redacted before it is stored, and can be deleted per user at any time.",
+    "tier": {
+      "short": "Your plan (Standard) has short-term memory only; long-term memory needs Professional or above.",
+      "short_long": "Your plan (Professional) includes long-term memory; the user profile belongs to a single agent.",
+      "all_cross_assistant": "Your plan (Enterprise) includes long-term memory and a user profile shared across agents."
+    },
+    "short": {
+      "title": "Short-term memory",
+      "enable": "Enable short-term memory",
+      "enableHint": "When off, every message goes without the earlier conversation.",
+      "rounds": "History window (rounds)",
+      "tokens": "Window token limit",
+      "tokensHint": "When exceeded the oldest messages are dropped first; the newest is always kept. Tokens are estimated.",
+      "types": "Types allowed into long-term memory"
+    },
+    "type": {
+      "preference": "Preference",
+      "preferenceHint": "Stable likes and habits",
+      "history": "History",
+      "historyHint": "Behaviour in a scenario",
+      "fact": "Fact",
+      "factHint": "Temporary facts that go stale quickly"
+    },
+    "long": {
+      "title": "Long-term memory",
+      "enable": "Enable long-term memory",
+      "enableHint": "When off nothing is written or injected.",
+      "locked": "Your plan has no long-term memory; these settings are saved but have no effect."
+    },
+    "file": {
+      "summary": "{{k}} injected · kept {{days}} days",
+      "configure": "Configure",
+      "enabled": "Enable {{name}}",
+      "profilePrivate": "On this plan the profile is not shared across agents",
+      "user_profile": {
+        "name": "User profile",
+        "scope": "User (Enterprise: across agents)",
+        "source": "Identity, role and industry mentioned in conversations",
+        "access": "Written by the system; employees can view and delete it",
+        "help": "Form of address, role, industry — no contact details."
+      },
+      "user_memory": {
+        "name": "User memory",
+        "scope": "User + this agent",
+        "source": "Preferences and history extracted from conversations",
+        "access": "Written by the system; employees can switch it off or delete it",
+        "help": "Stable preferences and behaviour. New items are compared with what is already stored: repeats are not written twice and newer statements replace older ones."
+      },
+      "tools": {
+        "name": "Tools",
+        "scope": "User + this agent",
+        "source": "Tool call records (tool name and count only)",
+        "access": "Recorded by the system, never arguments or results",
+        "help": "Which tools the user used — name and count only."
+      },
+      "session": {
+        "name": "Session summaries",
+        "scope": "User + this agent",
+        "source": "A summary when the conversation ends",
+        "access": "Written by the system; cleared when it expires",
+        "help": "One or two sentences per conversation."
+      }
+    },
+    "classes": {
+      "title": "Memory classes and policy",
+      "hint": "Scope, source, who reads and writes, and retention of each class.",
+      "class": "Class",
+      "scope": "Scope",
+      "source": "Source",
+      "access": "Access and deletion",
+      "retention": "Retention",
+      "retentionValue": "{{days}} days",
+      "privacy": "Sensitive data (phone numbers, e-mail addresses…) is always redacted before it is stored; nothing is written once the administrator or the employee switches personal memory off; everything of one end user can be deleted at once."
+    },
+    "dialog": {
+      "title": "Configure {{name}}",
+      "topK": "Items injected (Top-K)",
+      "topKHint": "The most items one answer brings in, ranked by relevance and recency.",
+      "retention": "Retention (days)",
+      "retentionHint": "1–3650 days, cleared when it expires; mentioning it again restarts the clock.",
+      "write": "Allow writing",
+      "writeHint": "When off the profile is no longer extracted.",
+      "subscribe": "Allow injection",
+      "subscribeHint": "When off the profile stays out of the answer's context.",
+      "cancel": "Cancel",
+      "save": "OK"
+    }
   }
 }
