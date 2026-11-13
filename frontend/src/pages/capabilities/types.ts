@@ -147,5 +147,8 @@ export type RegistryEntry = {
   meta: Record<string, unknown>
   row_version: number
   updated_at: string
+  unstable: boolean
 }
 export type RegistryList = { items: RegistryEntry[]; total: number }
+
+export type ToolStat = { tool: string; entry_id: string | null; name: string; calls: number; ok: number; success_rate: number; avg_ms: number; retries: number; circuit_opened: number; refused: number }

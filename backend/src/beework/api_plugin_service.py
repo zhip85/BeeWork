@@ -21,7 +21,7 @@ from beework.capabilities import CANDIDATE_LISTERS, MOUNT_RESOLVERS, MountItem
 from beework.capability_service import _live_caps, decrypt, encrypt, host_of
 from beework.models.capabilities import ApiPlugin, Capability
 from beework.tools.executor import PROVIDERS, ToolContext, ToolError, ToolOutput, ToolSpec
-from beework.tools.http import ToolHttpError, safe_request
+from beework.tools.http import ToolHttpError, retry_after_of, safe_request
 
 # Test seams (like ``mcp_client``): a mock HTTP transport and a DNS resolver; production leaves both ``None``.
 TRANSPORT = None
@@ -208,7 +208,10 @@ def call_tool(plugin: ApiPlugin, tool: dict[str, Any], ctx: ToolContext | None, 
     if result.status in (401, 403):
         raise ToolError("tool.auth_failed", "接口拒绝了凭据，请检查认证配置")
     if not 200 <= result.status < 300:
-        raise ToolError("tool.api_error", f"接口返回 {result.status}：{_error_text(result.body)}".rstrip("："))
+        raise ToolError(
+            "tool.api_error", f"接口返回 {result.status}：{_error_text(result.body)}".rstrip("："), status=result.status,
+            retry_after=retry_after_of(result.headers),
+        )
     text = result.body.decode("utf-8", "replace")
     if binding.get("type") == "graphql":
         try:
@@ -239,6 +242,7 @@ def _spec(cap: Capability, tool: dict[str, Any]) -> ToolSpec:
     return ToolSpec(
         name=tool_name(cap.id, tool["name"]), source="api", capability_id=cap.id, parameters=tool.get("input_schema") or {},
         writes=bool(tool.get("writes")), description=(tool.get("description") or tool["name"])[:300],
+        idempotent=bool(tool.get("idempotent")) or str((tool.get("binding") or {}).get("method") or "").upper() in ("PUT", "DELETE"),
     )
 
 

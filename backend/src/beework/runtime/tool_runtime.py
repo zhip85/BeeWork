@@ -53,7 +53,7 @@ class ToolRuntime:
         end_user: str | None = None, guard_output: Callable[[str], str] = lambda text: text,
         span: Callable[[str], AbstractContextManager] = lambda name: nullcontext(),
         depth: int = 1, allow_agents: bool = True, environment: str = "production",
-        check_stop: Callable[[], None] = lambda: None, clock: Any = None, max_calls: int = 20,
+        check_stop: Callable[[], None] = lambda: None, clock: Any = None, max_calls: int = 20, deadline: float | None = None,
     ) -> None:
         self.bind, self.dsl, self.tenant_id = bind, dsl, tenant_id
         self._guard, self._span, self._allow_agents, self._clock = guard_output, span, allow_agents, clock
@@ -66,7 +66,7 @@ class ToolRuntime:
         self.ctx = ToolContext(
             tenant_id=tenant_id, allowed=frozenset(tool.spec.name for tool in self.offered), run_id=run_id,
             assistant_id=assistant_id, end_user=end_user, depth=depth, guard_output=guard_output, span=span,
-            environment=environment, check_stop=check_stop,
+            environment=environment, check_stop=check_stop, deadline=deadline,
         )
 
     # -- what is offered ------------------------------------------------------------------------------

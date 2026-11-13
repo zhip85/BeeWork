@@ -22,13 +22,24 @@ from beework.schemas.capability_registry import (
     EntryUpdate,
     RecallEntry,
     RecallResponse,
+    ToolStat,
+    ToolStatList,
 )
 
 router = APIRouter()
 
 
+def _unstable(entry: CapabilityEntry) -> bool:
+    from beework.intent_service import tool_name_for
+    from beework.tools import policy
+
+    name = tool_name_for(entry)
+    return bool(name) and policy.BREAKER.is_open(policy.breaker_key(entry.tenant_id, name))
+
+
 def _response(entry: CapabilityEntry, status: str, *, with_schema: bool = False) -> EntryResponse:
     return EntryResponse(
+        unstable=_unstable(entry),
         id=entry.id, kind=entry.kind, identifier=entry.identifier, name=entry.name, description=entry.description,  # type: ignore[arg-type]
         intent_description=entry.intent_description, intent_examples=list(entry.intent_examples or []), writes=entry.writes,
         direct_enabled=entry.direct_enabled, direct_output=entry.direct_output, timeout_ms=entry.timeout_ms, retry=entry.retry,
@@ -72,6 +83,51 @@ def list_entries(
     items = [_response(e, statuses[e.id]) for e in entries if status is None or statuses[e.id] == status]
     db.commit()  # a first read may have backfilled
     return EntryList(items=items[:limit], total=len(items))
+
+
+@router.get("/registry/stats", response_model=ToolStatList)
+def tool_stats(
+    days: int = Query(default=7, ge=1, le=90),
+    membership: Membership = Depends(require_tenant_permission("capabilities:view")),
+    db: Session = Depends(get_db),
+) -> ToolStatList:
+    """Success rate, average time, retries and circuit openings per tool over the last ``days`` days (T-165), from the call records."""
+    from datetime import timedelta
+
+    from sqlalchemy import case
+
+    from beework.intent_service import tool_name_for
+    from beework.models.tools import ToolInvocation
+
+    since = utc_now() - timedelta(days=days)
+    ran = ToolInvocation.error_code.is_distinct_from("tool.circuit_open")
+    rows = db.execute(
+        select(
+            ToolInvocation.tool_name,
+            func.count().label("calls"),
+            func.sum(case((ToolInvocation.status == "ok", 1), else_=0)).label("ok"),
+            func.sum(case((ran & (ToolInvocation.status != "denied"), 1), else_=0)).label("ran"),
+            func.avg(case((ToolInvocation.status == "ok", ToolInvocation.duration_ms))).label("avg_ms"),
+            func.sum(ToolInvocation.attempts - 1).label("retries"),
+            func.sum(case((ToolInvocation.breaker_state == "opened", 1), else_=0)).label("opened"),
+            func.sum(case((ToolInvocation.error_code == "tool.circuit_open", 1), else_=0)).label("refused"),
+        )
+        .where(ToolInvocation.tenant_id == membership.tenant_id, ToolInvocation.created_at >= since)
+        .group_by(ToolInvocation.tool_name)
+        .order_by(func.count().desc())
+        .limit(200)
+    ).all()
+    entries = {tool_name_for(e): e for e in db.scalars(select(CapabilityEntry).where(CapabilityEntry.tenant_id == membership.tenant_id, CapabilityEntry.removed_at.is_(None)))}
+    items = []
+    for row in rows:
+        entry = entries.get(row.tool_name)
+        ran_count = int(row.ran or 0)
+        items.append(ToolStat(
+            tool=row.tool_name, entry_id=entry.id if entry else None, name=entry.name if entry else row.tool_name, calls=int(row.calls),
+            ok=int(row.ok or 0), success_rate=round(int(row.ok or 0) / ran_count, 4) if ran_count else 0.0, avg_ms=int(row.avg_ms or 0),
+            retries=int(row.retries or 0), circuit_opened=int(row.opened or 0), refused=int(row.refused or 0),
+        ))
+    return ToolStatList(days=days, items=items)
 
 
 @router.get("/registry/entries/{entry_id}", response_model=EntryResponse)

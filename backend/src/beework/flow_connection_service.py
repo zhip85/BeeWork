@@ -27,7 +27,7 @@ from beework.model_secrets import decrypt_model_api_key
 from beework.models.flow_connections import DifyConversation, FlowConnection
 from beework.models.runtime import Run
 from beework.tools.executor import PROVIDERS, ToolContext, ToolError, ToolOutput, ToolSpec
-from beework.tools.http import ToolHttpError, safe_request
+from beework.tools.http import ToolHttpError, retry_after_of, safe_request
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ def _headers(conn: FlowConnection, ctx: ToolContext | None) -> dict[str, str]:
     return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
 
 
-def _dify_error(status: int, body: bytes) -> ToolError:
+def _dify_error(status: int, body: bytes, retry_after: float | None = None) -> ToolError:
     try:
         message = str(json.loads(body.decode("utf-8", "replace")).get("message") or "")[:200]
     except (ValueError, AttributeError):
@@ -94,10 +94,10 @@ def _dify_error(status: int, body: bytes) -> ToolError:
     if status == 404:
         return ToolError("tool.not_found", "Dify 找不到该应用，请检查 Base URL 与应用类型（Chatflow / Workflow）是否匹配")
     if status == 429:
-        return ToolError("tool.rate_limited", "Dify 限流，请稍后重试")
+        return ToolError("tool.rate_limited", "Dify 限流，请稍后重试", status=429, retry_after=retry_after)
     if status == 400:
         return ToolError("tool.invalid_arguments", f"Dify 拒绝了输入：{message or '参数不符合应用的输入定义'}")
-    return ToolError("tool.upstream_error", f"Dify 返回 {status}" + (f"：{message}" if message else ""))
+    return ToolError("tool.upstream_error", f"Dify 返回 {status}" + (f"：{message}" if message else ""), status=status, retry_after=retry_after)
 
 
 def _dify_request(conn: FlowConnection, ctx: ToolContext | None, path: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -111,7 +111,7 @@ def _dify_request(conn: FlowConnection, ctx: ToolContext | None, path: str, payl
     except ToolHttpError as exc:
         raise ToolError(exc.code, exc.message) from exc
     if not 200 <= result.status < 300:
-        raise _dify_error(result.status, result.body)
+        raise _dify_error(result.status, result.body, retry_after_of(result.headers))
     try:
         data = json.loads(result.body.decode("utf-8"))
     except ValueError as exc:

@@ -365,13 +365,17 @@
         "5xx": "5xx",
         "429": "429 rate limit"
       },
-      "retryHint": "Only read-only calls are retried, applied by the execution layer",
+      "retryHint": "Only read-only calls and writes declared idempotent are retried; repeated failures pause the tool for a while (circuit breaker)",
       "save": "Save",
       "saving": "Saving…",
       "cancel": "Cancel",
       "saved": "Saved",
       "source": "Name, description and input parameters come from the source and cannot be changed here.",
-      "open": "Manage"
-    }
+      "open": "Manage",
+      "stats": "Last 7 days: {{calls}} calls, {{rate}}% succeeded, {{ms}} ms on average, {{retries}} retries, {{opened}} circuit openings",
+      "noStats": "No calls in the last 7 days"
+    },
+    "unstable": "Unstable",
+    "unstableHint": "Calls kept failing, so calls are paused for now; recovery is probed automatically."
   }
 }

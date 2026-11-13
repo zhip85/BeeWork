@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-from beework.tools.http import ToolHttpError, safe_request
+from beework.tools.http import ToolHttpError, retry_after_of, safe_request
 
 PROTOCOL_VERSION = "2025-03-26"
 CLIENT_INFO = {"name": "beework", "version": "1.0"}
@@ -27,6 +27,10 @@ RESOLVER: Callable[[str], list[str]] | None = None
 
 class McpError(ToolHttpError):
     """A failure talking to an MCP server; ``code`` is stable (``mcp.auth_failed``, ``mcp.protocol``, ...)."""
+
+    def __init__(self, code: str, message: str, *, status: int | None = None, retry_after: float | None = None) -> None:
+        super().__init__(code, message)
+        self.status, self.retry_after = status, retry_after
 
 
 @dataclass
@@ -55,7 +59,7 @@ def _sse_messages(body: str) -> list[dict[str, Any]]:
 
 
 class McpClient:
-    def __init__(self, url: str, headers: dict[str, str] | None = None, *, timeout: float = 30.0) -> None:
+    def __init__(self, url: str, headers: dict[str, str] | None = None, *, timeout: float | None = None) -> None:
         self.url = url
         self.headers = dict(headers or {})
         self.timeout = timeout
@@ -85,7 +89,7 @@ class McpClient:
         if result.status == 404 and self.session_id:
             raise McpError("mcp.session_expired", "MCP 会话已失效")
         if result.status >= 400:
-            raise McpError("mcp.http_error", f"服务返回 HTTP {result.status}")
+            raise McpError("mcp.http_error", f"服务返回 HTTP {result.status}", status=result.status, retry_after=retry_after_of(result.headers))
         self.session_id = result.headers.get("mcp-session-id") or self.session_id
         if not expect_response:
             return None
