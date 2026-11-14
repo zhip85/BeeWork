@@ -290,3 +290,8 @@ def trial_runs(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def now_iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
+
+
+def build_component_prompt(items: list[dict[str, Any]], config: Any, locale: str, channel_name: str) -> str:
+    """The prompt for a channel's frozen components under an assistant's OC settings (OC-073). The publish dialog and the run both call it."""
+    return injection_prompt(channel_name, items, lang="en" if locale.startswith("en") else "zh", limit=config.max_per_turn)

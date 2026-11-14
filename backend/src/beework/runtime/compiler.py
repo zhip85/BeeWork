@@ -73,6 +73,9 @@ class RuntimeState(TypedDict, total=False):
     l3_hints: dict[str, Any]
     sub_questions: list[str]
     sub_results: list[dict[str, str]]
+    # Components (T-059): the widgets the channel's SDK renders / the open API returns, and the per-block record for the trace.
+    widgets: list[dict[str, Any]]
+    component_info: dict[str, Any]
 
 
 class StageClock:
@@ -124,6 +127,10 @@ class RuntimeDeps:
     # The L2 intent runtime (``route_stage.IntentRuntime``): the agent's scope, the classifier, argument extraction, the calls of path A and
     # FAQ answers. ``None`` when intent judgement is off.
     routing: Any = None
+    # The channel's frozen components (``components_stage.ComponentRuntime``) or ``None``; ``retry_components(state, previous_text, problems)`` asks the
+    # model once more when the OC says so and returns ``(new_text, usage)``.
+    components: Any = None
+    retry_components: Callable[[RuntimeState, str, list[str]], tuple[str | None, dict[str, int | None]]] | None = None
 
 
 Node = Callable[[RuntimeState], RuntimeState]
@@ -171,7 +178,7 @@ def _route(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
 STYLE_HINTS = {"concise": "回答尽量简洁，直奔重点，不展开无关内容。", "detailed": "回答尽量详细，必要时分步骤并说明理由。"}
 
 
-def _system_prompt(dsl: AssistantDSLv1, state: RuntimeState, *, tools: bool = False) -> str:
+def _system_prompt(dsl: AssistantDSLv1, state: RuntimeState, *, tools: bool = False, components: str | None = None) -> str:
     parts = [dsl.prompt]
     if dsl.role:
         parts.append(f"# 角色\n{dsl.role}")
@@ -219,6 +226,8 @@ def _system_prompt(dsl: AssistantDSLv1, state: RuntimeState, *, tools: bool = Fa
         )
         intro = "以下是知识库的标准答案，请优先依据它回答。\n\n" if any(c.get("kind") == "faq" for c in context) else ""
         parts.append(f"# 参考资料\n{intro}{snippets}")
+    if components:
+        parts.append(components)  # the channel's components and how to emit them (OC-073)
     return "\n\n".join(parts)
 
 
@@ -244,7 +253,7 @@ def run_agent(dsl: AssistantDSLv1, deps: RuntimeDeps, state: RuntimeState, write
     if deps.tools is not None:  # too many tools to offer at once: start with L2's candidates (T-162)
         deps.tools.disclose([str(c.get("name") or "") for c in (state.get("l3_hints") or {}).get("candidates", [])])
     offered = deps.tools.schemas() if deps.tools is not None else []
-    messages: list[BaseMessage] = [SystemMessage(content=_system_prompt(dsl, {**state, **update}, tools=bool(offered)))]
+    messages: list[BaseMessage] = [SystemMessage(content=_system_prompt(dsl, {**state, **update}, tools=bool(offered), components=deps.components.prompt(dsl.oc.components) if deps.components is not None and dsl.oc.components.enabled else None))]
     for turn in state.get("history", []):
         role = turn.get("role")
         if role == "user":
@@ -401,6 +410,8 @@ def _instrumented(name: str, node: Node, deps: RuntimeDeps) -> Node:
             data.update({key: value for key, value in result["pii_last"].items() if value})
         if name == "glossary_rewrite" and result.get("stage_info"):
             data.update(result["stage_info"])
+        if name == "components" and result.get("component_info"):
+            data["components"] = result["component_info"]  # tags, modes and problems only; shown in the trace (OC-074)
         if name == "route" and result.get("route_info"):
             data["route"] = result["route_info"]  # the console shows “路由 → 路径 A · {能力} · {耗时}” (AST-054)
         writer(data)

@@ -312,5 +312,28 @@
       "cancel": "取消",
       "save": "确定"
     }
+  },
+  "components": {
+    "hint": "按渠道已发布的组件清单自动注入系统提示词，校验模型输出的 JSON，并按渠道兼容矩阵降级。",
+    "enable": "启用组件编排",
+    "enableHint": "关闭后不注入任何组件，智能体以纯文本回复。",
+    "max": "每轮最多组件数",
+    "maxHint": "1–5，超出范围会自动收敛。",
+    "onInvalid": "JSON 校验失败时",
+    "policy": {
+      "text": "降级为文本（默认）",
+      "retry": "重试一次",
+      "drop": "丢弃组件"
+    },
+    "template": "文本降级模板",
+    "templateHint": "渠道以文本方式展示组件时使用。变量：{{title}} {{fields}}",
+    "previewTitle": "各渠道注入预览（{{count}} 个渠道）",
+    "previewHint": "只读，取各渠道已发布的快照；如需调整，请在渠道中修改并重新发布。",
+    "noChannels": "该智能体尚未绑定渠道。",
+    "published": "已发布 {{version}}",
+    "unpublished": "未发布",
+    "notPublished": "尚未发布，当前不注入任何组件。",
+    "nothingInjected": "已发布，但没有可注入的组件（或组件编排已关闭）。",
+    "goChannel": "前往渠道修改"
   }
 }

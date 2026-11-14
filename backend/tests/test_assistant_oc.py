@@ -52,7 +52,7 @@ class OCTests(test_versions.VersionTests):
         self.assertEqual((state["has_changes"], state["diff"]), (False, []))
         self.assertEqual([s["stage"] for s in state["stages"]], ["pii", "memory", "glossary", "rewrite", "routing", "components"])
         self.assertEqual([s["index"] for s in state["stages"]], [1, 2, 3, 4, 5, 6])
-        self.assertEqual({s["stage"] for s in state["stages"] if s["available"]}, {"pii", "glossary", "rewrite", "routing", "memory"})  # components have not landed yet
+        self.assertEqual({s["stage"] for s in state["stages"] if s["available"]}, {"pii", "glossary", "rewrite", "routing", "memory", "components"})
         self.assertEqual((state["assistant"]["name"], state["assistant"]["live_version"], state["assistant"]["can_edit"]), ("Helper", None, True))
         self.assertEqual(state["approval"]["approver_role"], "security_officer")  # default of “智能体规则变更”
 
@@ -250,19 +250,19 @@ class OCTests(test_versions.VersionTests):
     def test_rejection_keeps_the_draft_and_the_live_oc(self) -> None:
         self.publish("v1")
         self.policy(True)
-        self.save_oc({"components": {"enabled": True}})
+        self.save_oc({"components": {"enabled": False}})
         approval_id = self.submit().json()["approval_id"]
         self.assertEqual(self.decide(approval_id, action="reject", comment="no").status_code, 200)
         self.assertEqual(self.drain(), 0)
         state = self.get_oc().json()
-        self.assertEqual((state["oc"]["components"]["enabled"], state["live_oc"]["components"]["enabled"]), (True, False))
+        self.assertEqual((state["oc"]["components"]["enabled"], state["live_oc"]["components"]["enabled"]), (False, True))  # components are on by default (OC-070)
         self.assertIsNone(state["pending_approval_id"])
         self.assertEqual(self.refresh()["status"], "published")
 
     def test_a_second_submission_needs_replace(self) -> None:
         self.publish("v1")
         self.policy(True)
-        self.save_oc({"components": {"enabled": True}})
+        self.save_oc({"components": {"enabled": False}})
         first = self.submit().json()["approval_id"]
         again = self.submit()
         self.assertEqual((again.status_code, again.json()["code"]), (409, "approval.pending_exists"))
@@ -273,7 +273,7 @@ class OCTests(test_versions.VersionTests):
     def test_applying_is_refused_for_a_disabled_assistant(self) -> None:
         self.publish("v1")
         self.policy(True)
-        self.save_oc({"components": {"enabled": True}})
+        self.save_oc({"components": {"enabled": False}})
         approval_id = self.submit().json()["approval_id"]
         with self.session_factory.begin() as db:
             db.get(Assistant, self.assistant_uuid()).status = "disabled"
@@ -291,7 +291,7 @@ class OCTests(test_versions.VersionTests):
     def test_a_disabled_assistant_cannot_submit(self) -> None:
         self.publish("v1")
         self.policy(False)
-        self.save_oc({"components": {"enabled": True}})
+        self.save_oc({"components": {"enabled": False}})
         with self.session_factory.begin() as db:
             db.get(Assistant, self.assistant_uuid()).status = "disabled"
         self.assertEqual(self.submit().json()["code"], "assistant.invalid_transition")

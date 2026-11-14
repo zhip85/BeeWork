@@ -121,7 +121,7 @@
 | [T-044](./T-044-h5-channel.md) | H5 渠道 | T-041、T-042、T-043 | — | 待开发 | | |
 | [T-045](./T-045-whatsapp-channel.md) | WhatsApp 渠道 | T-041、T-043 | Meta WhatsApp Cloud API 测试账号 | 暂缓 | | 2026-11-12 运行时架构 v2 的渠道里没有 WhatsApp，暂不做 |
 | [T-046](./T-046-wechat-channel.md) | 微信公众号渠道 | T-041、T-043 | 公众号或测试号 | 待开发 | | |
-| [T-059](./T-059-oc-components.md) | OC · 组件编排 | T-054、T-041、T-043 | — | 待开发 | | |
+| [T-059](./T-059-oc-components.md) | OC · 组件编排 | T-054、T-041、T-043 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-059-oc-components`；带组件的渠道回复不再流式（整段解析后一次发出）；未用真实模型验证“模型是否按提示词输出标签”；页面与 widget.js 未在真实浏览器验证 |
 | [T-080](./T-080-live-conversations.md) | 实时会话、会话详情、反馈与质量分 | T-026、T-054、T-084 | — | 待开发 | | 质量分算法暂定 |
 | [T-081](./T-081-handoff.md) | 转人工与坐席工作台 | T-080、T-041、T-087 | — | 待开发 | | |
 | [T-082](./T-082-annotations.md) | 会话标注 | T-080、T-032、T-027 | — | 待开发 | | |

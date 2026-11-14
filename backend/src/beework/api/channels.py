@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from beework import component_service
+from beework import assistant_oc, component_service
 from beework.api import assistants as assistants_api
 from beework.api.assistants import _load as load_assistant
 from beework.api.conventions import ApiError, check_row_version, require_platform_admin
@@ -422,7 +422,6 @@ def publish_preview(
     problems.extend(component_problems)
     frozen = component_service.snapshot_components(channel, selected)
     live = (channel.published_snapshot or {}).get("components", [])
-    kind = get_type(db, channel.type)
     if assistant is None:
         problems.append("绑定的智能体已被删除，请改绑其他智能体")
     else:
@@ -437,7 +436,7 @@ def publish_preview(
         first_publish=channel.published_snapshot is None, changes=changes, problems=problems,
         components=[{k: c[k] for k in ("id", "name_zh", "trigger_tag", "version", "mode", "type")} for c in frozen],
         components_diff=component_service.components_diff(live, frozen), components_note="未选择组件，智能体将以纯文本回复。",
-        injection_prompt=component_service.injection_prompt(kind.name if kind else channel.type, frozen) if frozen else None,
+        injection_prompt=component_service.build_component_prompt(frozen, assistant_oc.draft_oc(assistant).components, "zh", channel.name) if frozen and assistant is not None else None,
         trial=component_service.trial_runs(frozen), trial_note="暂无可试跑组件。",
     )
 

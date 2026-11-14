@@ -234,7 +234,7 @@ def wait_for_reply(bind, run_id: UUID, *, timeout_seconds: int) -> dict:
                 if event["type"] == "token":
                     text += event["data"].get("text", "")
                 elif event["type"] == "done":
-                    return {"content": event["data"].get("text", text), "usage": _usage(event["data"]), "citations": _citations(event["data"])}
+                    return {"content": event["data"].get("text", text), "usage": _usage(event["data"]), "citations": _citations(event["data"]), "widgets": event["data"].get("widgets") or []}
                 elif event["type"] == "error":
                     raise ApiError(502, "run_failed", event["data"].get("message", "智能体运行失败"))
                 elif event["type"] == "cancelled":
@@ -270,7 +270,7 @@ def relay_events(bind, run_id: UUID, conversation_id: UUID, *, timeout_seconds: 
             elif event["type"] == "token":
                 yield frame("delta", {"text": event["data"].get("text", "")})
             elif event["type"] == "done":
-                yield frame("done", {"message": {"role": "assistant", "content": event["data"].get("text", "")}, "usage": _usage(event["data"]), "citations": _citations(event["data"])})
+                yield frame("done", {"message": {"role": "assistant", "content": event["data"].get("text", "")}, "usage": _usage(event["data"]), "citations": _citations(event["data"]), "widgets": event["data"].get("widgets") or []})
                 return
             elif event["type"] in ("error", "cancelled"):
                 yield frame("error", {"code": event["data"].get("code", event["type"]), "message": event["data"].get("message", "智能体运行失败")})

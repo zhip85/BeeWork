@@ -38,10 +38,12 @@ from beework.intent_service import (
 from beework.knowledge_mounts import resolve_knowledge_bases
 from beework.memory import load_memory_context
 from beework.models import Tenant, TenantModelEnvironment
+from beework.models.channels import ChannelInstance
 from beework.models.conversations import Conversation
 from beework.models.jobs import RunEvent
 from beework.models.runtime import Run
 from beework.pii import make_redactor, redact_for_tenant
+from beework.runtime import components_stage  # noqa: F401  (registers the components stage)
 from beework.runtime import (
     glossary_stage as _glossary_stage,  # noqa: F401  (registers the glossary_rewrite stage)
 )
@@ -51,7 +53,8 @@ from beework.runtime import (
 from beework.runtime import (
     pii_stage as _pii_stage,  # noqa: F401  (registers the pii_input / pii_output stages)
 )
-from beework.runtime.compiler import RuntimeDeps, StageClock, compile_assistant
+from beework.runtime.compiler import RuntimeDeps, StageClock, _system_prompt, compile_assistant
+from beework.runtime.components_stage import ComponentRuntime, active
 from beework.runtime.dsl import AssistantDSLv1, KnowledgeBaseRef
 from beework.runtime.errors import RunCancelled, RunTimedOut, RuntimeFailure
 from beework.runtime.intent import (
@@ -178,6 +181,19 @@ def _intent_model(bind: Any, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:
     """Build the classifier model from a session of its own (the graph thread must not use the run's session)."""
     with Session(bind=bind) as side:
         return gateway_intent_llm(side, run, dsl)
+
+
+def _component_runtime(bind, run: Run) -> ComponentRuntime | None:
+    """The components of the channel this conversation came through, as its *published snapshot* froze them (OC-074, CHN-025)."""
+    if run.conversation_id is None:
+        return None
+    with Session(bind=bind) as side:
+        channel_id = side.scalar(select(Conversation.channel_instance_id).where(Conversation.id == run.conversation_id))
+        channel = side.scalar(select(ChannelInstance).where(ChannelInstance.id == channel_id, ChannelInstance.tenant_id == run.tenant_id)) if channel_id else None
+        snapshot = channel.published_snapshot if channel is not None and channel.status in ("active", "error") else None
+        if not snapshot or not snapshot.get("components"):
+            return None
+        return ComponentRuntime(components=list(snapshot["components"]), channel_name=str(snapshot.get("name") or channel.name))
 
 
 def _intent_runtime(
@@ -509,6 +525,27 @@ def _execute_run(
                     end_user=str(end_user_id) if end_user_id else None, llm_factory=intent_llm_factory, retriever=retriever or EngineRetriever(),
                     deadline=started + dsl.limits.timeout_seconds,
                 )
+            component_runtime = _component_runtime(bind, run) if dsl.oc.components.enabled else None
+            components_on = active(dsl.oc.components, component_runtime)
+            retry_components = None
+            if components_on and dsl.oc.components.on_invalid == "retry":
+                def retry_components(state, previous: str, problems: list[str]):
+                    """OC-071 “重试一次”: the model sees what was wrong and answers again; the answer is judged like the first."""
+                    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+                    messages = [
+                        SystemMessage(content=_system_prompt(dsl, state, components=component_runtime.prompt(dsl.oc.components))),
+                        HumanMessage(content=state["input"]), AIMessage(content=previous),
+                        HumanMessage(content="上一条回复里的组件 JSON 不符合要求：" + "；".join(problems) + "。请重新给出完整回复，组件 JSON 必须严格符合 schema。"),
+                    ]
+                    try:
+                        reply = llm.invoke(messages, config={"callbacks": trace.callbacks})
+                    except Exception:  # noqa: BLE001 — a failed retry only means the first answer is degraded
+                        logger.warning("Component retry failed", exc_info=True)
+                        return None, {"input": None, "output": None}
+                    meta = getattr(reply, "usage_metadata", None) or {}
+                    return str(reply.content or ""), {"input": meta.get("input_tokens"), "output": meta.get("output_tokens")}
+
             graph = compile_assistant(
                 dsl,
                 RuntimeDeps(
@@ -522,7 +559,9 @@ def _execute_run(
                     clock=clock,
                     memory=memory_context,
                     pii_rules=pii_rules,
-                    hold_output=holds_output(pii_rules),
+                    hold_output=holds_output(pii_rules) or components_on,  # a reply with component blocks is sent once they are resolved
+                    components=component_runtime,
+                    retry_components=retry_components,
                     dictionary=entries,
                     rewrite=rewrite_fn,
                     tools=tool_runtime,
@@ -571,6 +610,7 @@ def _execute_run(
     pii = {"hits": final.get("pii_hits", []), "failures": final.get("pii_failures", []), "blocked": bool(final.get("blocked"))}
     glossary = final.get("stage_info") or {}
     route = final.get("route_info") or {}
+    widgets = final.get("widgets") or []
     faq_documents = [c.get("document_id", "") for c in final.get("context", []) if c.get("kind") == "faq"]
     run.tokens_in, run.tokens_out = usage.get("input"), usage.get("output")
     run.retrieval_mode = retrieval["mode"]
@@ -590,7 +630,7 @@ def _execute_run(
         record_faq_hits(db, run.tenant_id, run.id, faq_documents)
     _finish(
         db, run, "succeeded", "done",
-        {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url, "pii": pii, "query": glossary, "route": route},
-        started=started, output={"text": text, "usage": usage, "retrieval": retrieval, "pii": pii, "query": glossary, "route": route}, trace_url=trace_url,
+        {"text": text, "usage": usage, "retrieval": retrieval, "latency_ms": latency_ms, "trace_url": trace_url, "pii": pii, "query": glossary, "route": route, "widgets": widgets},
+        started=started, output={"text": text, "usage": usage, "retrieval": retrieval, "pii": pii, "query": glossary, "route": route, "widgets": widgets, "components": (final.get("component_info") or {}).get("blocks", [])}, trace_url=trace_url,
         timings=clock,
     )

@@ -23,6 +23,7 @@ from beework.channel_chat import (
 )
 from beework.db import get_db
 from beework.errors import ApiError
+from beework.models.channels import ChannelInstance
 from beework.models.conversations import Conversation, Message
 from beework.schemas.open_api import ChatRequest, ChatResponse, MessageOut, MessagesResponse
 
@@ -33,6 +34,18 @@ OPEN_API_DESCRIPTION = (
     "生产环境的密钥调用智能体的已发布版本，开发/预发环境的密钥调用最新草稿。超过套餐 QPS 返回 429 与 `Retry-After`。"
     "错误统一为 `{\"error\": {\"code\": \"...\", \"message\": \"...\"}}`。"
 )
+
+
+
+def _open_api_channel(db: Session, tenant_id: UUID, assistant_id: UUID, environment: str, channel_id: UUID | None) -> UUID | None:
+    """An API caller may name one of the tenant's published open-API channels to get that channel's components (T-059)."""
+    if channel_id is None:
+        return None
+    channel = db.scalar(select(ChannelInstance).where(ChannelInstance.id == channel_id, ChannelInstance.tenant_id == tenant_id, ChannelInstance.type == "open-api"))
+    snapshot = channel.published_snapshot if channel is not None else None
+    if channel is None or not snapshot or channel.status not in ("active", "error") or snapshot.get("assistant_id") != str(assistant_id) or snapshot.get("environment") != environment:
+        raise ApiError(404, "channel_not_found", "未找到该渠道，或它没有发布、没有绑定这个智能体与环境")
+    return channel.id
 
 
 @router.post(
@@ -50,9 +63,10 @@ def chat(
     key, tenant = authenticate(db, authorization)
     require_scope(key, "chat")
     enforce_qps(db, tenant)
+    channel_id = _open_api_channel(db, tenant.id, assistant_id, key.environment, payload.channel_id)
     target = resolve_target(db, tenant, assistant_id, key.environment, payload.message)
     run, conversation = start_chat(
-        db, target, source="api", channel_type="open-api", channel_instance_id=None, external_id=payload.end_user.id,
+        db, target, source="api", channel_type="open-api", channel_instance_id=channel_id, external_id=payload.end_user.id,
         end_user_name=payload.end_user.name, message=payload.message, conversation_id=payload.conversation_id,
     )
     timeout = target.dsl.limits.timeout_seconds
@@ -64,7 +78,7 @@ def chat(
         )
     reply = wait_for_reply(db.get_bind(), run.id, timeout_seconds=timeout)
     return ChatResponse(
-        conversation_id=conversation.id, run_id=run.id, message={"role": "assistant", "content": reply["content"]}, usage=reply["usage"]
+        conversation_id=conversation.id, run_id=run.id, message={"role": "assistant", "content": reply["content"]}, usage=reply["usage"], widgets=reply["widgets"]
     )
 
 

@@ -170,7 +170,7 @@ def widget_chat(
         )
     reply = wait_for_reply(db.get_bind(), run.id, timeout_seconds=timeout)
     return ChatResponse(
-        conversation_id=conversation.id, run_id=run.id, message={"role": "assistant", "content": reply["content"]}, usage=reply["usage"]
+        conversation_id=conversation.id, run_id=run.id, message={"role": "assistant", "content": reply["content"]}, usage=reply["usage"], widgets=reply["widgets"]
     )
 
 

@@ -170,3 +170,21 @@ def _memory_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
 register_summary("memory", _memory_summary)
 register_summary("glossary", _glossary_summary)
 register_summary("rewrite", _rewrite_summary)
+
+
+def _components_summary(db: Session, assistant: Assistant, oc: OCConfig) -> str:
+    """OC overview line (item 6 of T-059): the switch, the per-turn limit and how many bound channels have published components."""
+    from beework.models.channels import ChannelInstance
+
+    config = oc.components
+    if not config.enabled:
+        return "已关闭 · 以纯文本回复"
+    channels = db.scalars(select(ChannelInstance).where(
+        ChannelInstance.tenant_id == assistant.tenant_id, ChannelInstance.assistant_id == assistant.id, ChannelInstance.published_snapshot.is_not(None)
+    ))
+    with_components = sum(1 for c in channels if (c.published_snapshot or {}).get("components"))
+    policy = {"text": "失败降级为文本", "retry": "失败重试一次", "drop": "失败丢弃组件"}[config.on_invalid]
+    return f"已启用 · 每轮最多 {config.max_per_turn} 个 · {policy} · {with_components} 个渠道已发布组件"
+
+
+register_summary("components", _components_summary)

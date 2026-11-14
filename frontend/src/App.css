@@ -4512,3 +4512,6 @@ textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .channel-prompt { margin: 4px 0; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface); font-size: var(--fs-sm); white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; }
 .channel-trial { display: grid; gap: 4px; margin-bottom: 10px; }
 .channel-trial-ok { margin: 0; color: var(--ok); }
+.oc-injection-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.oc-injection-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 1.2fr) auto; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.oc-injection-body { padding: 8px 10px; }

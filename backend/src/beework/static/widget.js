@@ -43,18 +43,18 @@
   }
 
   // Reads the server-sent events of a streamed reply and reports them through the callbacks.
-  async function streamChat(message, handlers, retried) {
+  async function streamChat(request, handlers, retried) {
     var current = await ensureSession()
     var response = await fetch(apiBase + '/v1/widget/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + current.token },
-      body: JSON.stringify({ message: message, conversation_id: conversationId || undefined, stream: true }),
+      body: JSON.stringify(Object.assign({ conversation_id: conversationId || undefined, stream: true }, request)),
     })
     if (!response.ok) {
       var failure = await response.json().catch(function () { return {} })
       var code = failure.error && failure.error.code
-      if (!retried && code === 'expired_token') { session = null; return streamChat(message, handlers, true) }
-      if (code === 'conversation_not_found') { conversationId = null; write(STORE.conversation, null); return streamChat(message, handlers, true) }
+      if (!retried && code === 'expired_token') { session = null; return streamChat(request, handlers, true) }
+      if (code === 'conversation_not_found') { conversationId = null; write(STORE.conversation, null); return streamChat(request, handlers, true) }
       throw new Error(response.status === 429 ? '消息发送太频繁，请稍后再试' : (failure.error && failure.error.message) || '发送失败')
     }
     var reader = response.body.getReader()
@@ -78,7 +78,7 @@
         var payload = JSON.parse(data)
         if (name === 'start') { conversationId = payload.conversation_id; write(STORE.conversation, conversationId) }
         else if (name === 'delta') handlers.delta(payload.text)
-        else if (name === 'done') { handlers.done(payload.message.content); return }
+        else if (name === 'done') { handlers.done(payload.message.content, payload.widgets || []); return }
         else if (name === 'error') throw new Error(payload.message || '智能体暂时无法回答')
       }
     }
@@ -115,6 +115,14 @@
     '.bw-input{flex:1;resize:none;border:1px solid #cfd8d3;border-radius:8px;padding:8px;font:inherit;max-height:90px}',
     '.bw-send{border:0;border-radius:8px;padding:0 14px;color:#fff;cursor:pointer;font:inherit}',
     '.bw-send[disabled]{opacity:.5;cursor:default}',
+    '.bw-widget{align-self:flex-start;max-width:92%;background:#fff;border:1px solid #e3e8e5;border-radius:10px;padding:10px;display:grid;gap:6px;font-size:13px}',
+    '.bw-widget strong{font-size:14px}.bw-widget small{color:#667}.bw-w-tags span{display:inline-block;margin-right:4px;padding:0 6px;border-radius:99px;background:#eef}',
+    '.bw-w-price{font-weight:700;color:#d33}.bw-w-price del{margin-left:6px;color:#889;font-weight:400}',
+    '.bw-w-btn{justify-self:start;border:0;border-radius:6px;padding:4px 12px;color:#fff;cursor:pointer;font:inherit}',
+    '.bw-w-grid{display:flex;flex-wrap:wrap;gap:4px}.bw-w-grid button{border:1px solid #cfd8d3;border-radius:6px;background:#fff;padding:3px 8px;cursor:pointer;font:inherit}',
+    '.bw-w-grid button[disabled]{opacity:.4;cursor:default}.bw-w-grid button.sel{border-color:#6558d9;background:#eef}',
+    '.bw-widget table{border-collapse:collapse;width:100%}.bw-widget th,.bw-widget td{padding:3px 6px;border-bottom:1px solid #e3e8e5;text-align:left;font-weight:400}',
+    '.bw-widget .rec{background:#eef}.bw-widget ol{margin:0;padding-left:16px}.bw-widget li.done{color:#222}.bw-widget li{color:#889}.bw-widget li.cur{color:#6558d9;font-weight:600}',
   ].join('')
 
   var fab = el('button', 'bw-fab', '💬')
@@ -158,6 +166,102 @@
     return node
   }
 
+  // -- Components (T-059): rendered from the widgets of a reply. Every value is set with textContent, never as markup. --------------------
+
+  function safeUrl(value) {
+    try { var url = new URL(String(value)); return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null } catch (e) { return null }
+  }
+  function str(value) { return value === null || value === undefined ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value) }
+  function arr(value) { return Array.isArray(value) ? value : [] }
+  function obj(value) { return value && typeof value === 'object' && !Array.isArray(value) ? value : {} }
+
+  function renderWidget(widget, onEvent) {
+    var data = obj(widget.data)
+    var box = el('div', 'bw-widget')
+    box.setAttribute('data-component', str(widget.tag))
+    function button(label, className, handler) {
+      var b = el('button', className, str(label))
+      b.type = 'button'
+      b.addEventListener('click', handler)
+      return b
+    }
+    if (widget.type === 'card') {
+      var tags = el('div', 'bw-w-tags')
+      arr(data.tags).forEach(function (tag) { tags.appendChild(el('span', '', str(tag))) })
+      box.appendChild(tags)
+      box.appendChild(el('strong', '', str(data.name)))
+      box.appendChild(el('small', '', str(data.subtitle)))
+      var price = el('div', 'bw-w-price', str(data.price))
+      if (data.originalPrice !== undefined) price.appendChild(el('del', '', str(data.originalPrice)))
+      box.appendChild(price)
+      box.appendChild(el('small', '', '★ ' + str(data.rating) + ' · ' + str(data.stock)))
+      var action = obj(data.action)
+      if (action.label !== undefined) {
+        var go = button(action.label, 'bw-w-btn', function () {
+          var url = safeUrl(action.url)
+          if (url) window.open(url, '_blank', 'noopener')
+          onEvent(widget.tag, 'open', { url: url }, str(action.label))
+        })
+        go.style.background = color
+        box.appendChild(go)
+      }
+    } else if (widget.type === 'comparison') {
+      box.appendChild(el('strong', '', str(data.title)))
+      var table = el('table')
+      var products = arr(data.products).map(obj)
+      var headRow = el('tr')
+      headRow.appendChild(el('th'))
+      products.forEach(function (p) { var th = el('th', p.recommended ? 'rec' : '', str(p.name) + (p.recommended ? ' ★' : '')); headRow.appendChild(th) })
+      table.appendChild(headRow)
+      arr(data.features).forEach(function (feature, row) {
+        var tr = el('tr')
+        tr.appendChild(el('th', '', str(feature)))
+        products.forEach(function (p) { tr.appendChild(el('td', p.recommended ? 'rec' : '', str(arr(p.values)[row]))) })
+        table.appendChild(tr)
+      })
+      box.appendChild(table)
+    } else if (widget.type === 'timeline') {
+      box.appendChild(el('strong', '', str(data.orderNo) + ' · ' + str(data.status)))
+      box.appendChild(el('small', '', str(data.carrier) + ' ' + str(data.trackingNo) + ' · ' + str(data.eta)))
+      var steps = arr(data.steps).map(obj)
+      var current = steps.findIndex(function (s) { return s.done !== true })
+      var ol = el('ol')
+      steps.forEach(function (step, index) {
+        ol.appendChild(el('li', step.done === true ? 'done' : index === current ? 'cur' : '', str(step.label) + ' ' + str(step.time) + (step.location ? ' · ' + str(step.location) : '')))
+      })
+      box.appendChild(ol)
+    } else if (widget.type === 'form') {
+      var chosen = { date: data.selectedDate, time: data.selectedSlot }
+      box.appendChild(el('strong', '', str(data.title)))
+      box.appendChild(el('small', '', str(data.service)))
+      var dates = el('div', 'bw-w-grid')
+      var slots = el('div', 'bw-w-grid')
+      function pick(group, key, value, node) {
+        Array.prototype.forEach.call(group.children, function (c) { c.classList.remove('sel') })
+        node.classList.add('sel')
+        chosen[key] = value
+      }
+      arr(data.dates).map(obj).forEach(function (d) {
+        var b = button(str(d.weekday) + ' ' + str(d.date), d.date === chosen.date ? 'sel' : '', function () { pick(dates, 'date', d.date, b) })
+        b.disabled = d.available !== true
+        dates.appendChild(b)
+      })
+      arr(data.slots).map(obj).forEach(function (sl) {
+        var b = button(str(sl.time), sl.time === chosen.time ? 'sel' : '', function () { pick(slots, 'time', sl.time, b) })
+        b.disabled = sl.available !== true
+        slots.appendChild(b)
+      })
+      box.appendChild(dates)
+      box.appendChild(slots)
+      var confirm = button(data.confirmLabel || '确认', 'bw-w-btn', function () { onEvent(widget.tag, 'confirm', { date: chosen.date, time: chosen.time }, str(data.confirmLabel || '确认')) })
+      confirm.style.background = color
+      box.appendChild(confirm)
+    } else {
+      box.appendChild(el('strong', '', str(data.title || widget.name)))
+    }
+    return box
+  }
+
   var started = false
   async function open() {
     panel.classList.add('open')
@@ -182,20 +286,25 @@
   input.addEventListener('keydown', function (event) {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true })) }
   })
-  form.addEventListener('submit', async function (event) {
-    event.preventDefault()
-    var text = input.value.trim()
-    if (!text || busy) return
+  // One turn: ``request`` is {message} or {event}; ``label`` is what the visitor sees as their own bubble.
+  async function converse(label, request) {
+    if (busy) return
     busy = true
     send.disabled = true
-    input.value = ''
-    addMessage('user', text)
+    addMessage('user', label)
     var reply = addMessage('bot', '…')
     var received = ''
     try {
-      await streamChat(text, {
+      await streamChat(request, {
         delta: function (piece) { received += piece; reply.textContent = received; list.scrollTop = list.scrollHeight },
-        done: function (full) { reply.textContent = full || received },
+        done: function (full, widgets) {
+          var shown = full || received
+          if (shown) reply.textContent = shown; else if (widgets.length) reply.remove()
+          widgets.forEach(function (widget) {
+            list.appendChild(renderWidget(widget, function (tag, action, data, text) { converse(text, { event: { tag: tag, action: action, data: data } }) }))
+          })
+          list.scrollTop = list.scrollHeight
+        },
       })
     } catch (error) {
       reply.remove()
@@ -205,8 +314,16 @@
       send.disabled = false
       input.focus()
     }
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault()
+    var text = input.value.trim()
+    if (!text || busy) return
+    input.value = ''
+    converse(text, { message: text })
   })
 
   document.body.appendChild(host)
-  window.BeeWorkWidget = { open: open, close: hide, version: 1 }
+  window.BeeWorkWidget = { open: open, close: hide, version: 2 }
 })()

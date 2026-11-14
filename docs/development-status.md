@@ -507,6 +507,11 @@
 - **迁移 `0058_widget_components`**。简化 / 标准 JSON Schema 的解析与校验（供 T-059 与试跑）、4 个预置平台模板、租户组件库（复制、同步、版本、标签唯一、被已发布快照使用不可删）、渠道所选组件冻结进快照（改库后显示“有未发布修改”）、发布预览的组件差异 / 注入提示词 / 真实试跑；前端：组件库页签、共用的组件编辑器、内置渲染器（转义 + 链接限制）、向导选组件、平台“Widget 模板”页。
 - 验证：ruff；`test_components` 25 项；前端 tsc / lint / i18n / style / build / `test:renderer`（XSS）；PostgreSQL 迁移升降级与 `alembic check`。**页面未目视验收；渲染器未打进网站 / H5 SDK，运行时解析、校验与降级属 T-059。**
 
+### T-059 OC · 组件编排（已完成，待验收）
+
+- **无迁移**。`oc.components`（开关缺省开、每轮 1–5、失败策略 文本 / 重试 / 丢弃、文本降级模板）；提示词函数与发布弹窗共用；运行时 `components` 阶段按会话所属渠道的**已发布快照**解析 `<标签>JSON</标签>`、校验、按 native / json / text / off 输出，超限与失败按策略处理，追踪只记标签 / 模式 / 问题；`widgets` 进入 `runs.output`、`done` 事件、开放 API 响应与 SSE；终端用户的组件操作以 `event` 回传为下一轮输入；OC 面板与注入预览；网站挂件渲染四种组件。
+- 验证：ruff；`test_oc_components` 17 项；前端 tsc / lint / i18n / style / build；`scripts/check_widget_components.mjs`（jsdom）。**带组件的渠道不再逐字流式；没有用真实模型验证标签输出；未目视验收。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

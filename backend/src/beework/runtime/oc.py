@@ -246,7 +246,25 @@ class IntentConfig(_Section):
 
 
 class ComponentsConfig(_Section):
-    enabled: bool = False
+    """OC-070/071: whether the agent may answer with components, how many per turn, and what happens when a component's JSON does not fit."""
+
+    enabled: bool = True
+    max_per_turn: int = Field(default=2, ge=1, le=5)
+    on_invalid: Literal["text", "retry", "drop"] = "text"  # degrade to text (default) / ask the model once more / drop the component
+    text_template: str = Field(default="{{title}}\n{{fields}}", max_length=500)  # variables: {{title}} {{fields}}
+
+    @model_validator(mode="before")
+    @classmethod
+    def clamp(cls, data: object) -> object:
+        """OC-071: a number outside 1–5 is pulled into range instead of refused."""
+        if isinstance(data, dict) and isinstance(data.get("max_per_turn"), int) and not isinstance(data["max_per_turn"], bool):
+            data = {**data, "max_per_turn": max(1, min(5, data["max_per_turn"]))}
+        return data
+
+    @model_validator(mode="after")
+    def check_template(self) -> "ComponentsConfig":
+        self.text_template = self.text_template.strip() or "{{title}}\n{{fields}}"
+        return self
 
 
 class OCConfig(_Section):

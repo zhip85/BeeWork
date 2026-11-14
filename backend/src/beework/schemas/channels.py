@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from beework.channel_publish import COLOR_PATTERN, MAX_ORIGINS, normalize_origins
+from beework.schemas.open_api import ComponentEvent
 
 Environment = Literal["development", "staging", "production"]
 
@@ -166,6 +167,15 @@ class WidgetSession(BaseModel):
 
 
 class WidgetChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=4000)
+    message: str = Field(default="", max_length=4000)
+    event: ComponentEvent | None = None  # what the visitor did on a component; replaces the message (T-059)
     conversation_id: UUID | None = None
     stream: bool = False
+
+    @model_validator(mode="after")
+    def message_or_event(self) -> "WidgetChatRequest":
+        if self.event is not None:
+            self.message = self.event.as_message()
+        elif not self.message.strip():
+            raise ValueError("message 与 event 至少填写一个")
+        return self

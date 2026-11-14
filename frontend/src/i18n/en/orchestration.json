@@ -312,5 +312,28 @@
       "cancel": "Cancel",
       "save": "OK"
     }
+  },
+  "components": {
+    "hint": "Injects the channel's published components into the system prompt, validates the model's JSON and falls back per the channel's compatibility matrix.",
+    "enable": "Enable component orchestration",
+    "enableHint": "When off, no component is injected and the agent replies in plain text.",
+    "max": "Max components per turn",
+    "maxHint": "1–5; values outside the range are pulled in.",
+    "onInvalid": "When the JSON is invalid",
+    "policy": {
+      "text": "Degrade to text (default)",
+      "retry": "Retry once",
+      "drop": "Drop the component"
+    },
+    "template": "Text fallback template",
+    "templateHint": "Used when a channel shows components as text. Variables: {{title}} {{fields}}",
+    "previewTitle": "Injection preview per channel ({{count}})",
+    "previewHint": "Read-only, from each channel's published snapshot; to change it, edit the channel and publish again.",
+    "noChannels": "No channel is bound to this agent yet.",
+    "published": "Published {{version}}",
+    "unpublished": "Not published",
+    "notPublished": "Not published yet; nothing is injected.",
+    "nothingInjected": "Published, but there is nothing to inject (or component orchestration is off).",
+    "goChannel": "Edit in channels"
   }
 }
