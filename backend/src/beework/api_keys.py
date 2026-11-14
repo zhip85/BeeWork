@@ -68,3 +68,25 @@ def authenticate(db: Session, authorization: str | None) -> tuple[TenantApiKey, 
 def require_scope(key: TenantApiKey, scope: str) -> None:
     if scope not in (key.scopes or []):
         raise ApiError(403, "insufficient_scope", f"该 API 密钥没有“{scope}”权限范围")
+
+
+EXPIRY_NOTICE_DAYS = 7
+
+
+def announce_expiring_keys(db: Session, now: datetime | None = None) -> int:
+    """T-088: a key that expires within a week is announced once (``key.expiring``); the bus decides who hears of it. Returns how many were announced."""
+    from beework.events import emit_event
+    from beework.models.webhooks import DomainEvent
+
+    current = now or datetime.now(UTC)
+    count = 0
+    horizon = current + timedelta(days=EXPIRY_NOTICE_DAYS)
+    for key in db.scalars(select(TenantApiKey).where(TenantApiKey.revoked_at.is_(None), TenantApiKey.expires_at.is_not(None), TenantApiKey.expires_at > current, TenantApiKey.expires_at <= horizon)):
+        already = db.scalars(select(DomainEvent).where(DomainEvent.tenant_id == key.tenant_id, DomainEvent.type == "key.expiring"))
+        if any(e.payload.get("key_id") == str(key.id) for e in already):
+            continue  # said once per key
+        expires = key.expires_at if key.expires_at.tzinfo else key.expires_at.replace(tzinfo=UTC)
+        emit_event(db, key.tenant_id, "key.expiring", {"key_id": str(key.id), "name": key.name, "days": max(0, (expires - current).days), "expires_at": expires.isoformat()})
+        count += 1
+    db.commit()
+    return count

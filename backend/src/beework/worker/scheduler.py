@@ -44,6 +44,13 @@ def channels_health(db: Session, payload: dict) -> None:
     channel_health_job(db, payload)
 
 
+@job_handler("keys.expiry_notice")
+def keys_expiry_notice(db: Session, payload: dict) -> None:
+    from beework.api_keys import announce_expiring_keys
+
+    announce_expiring_keys(db)
+
+
 @job_handler("portal.reclaim_idle_seats")
 def portal_reclaim_idle_seats(db: Session, _payload: dict) -> None:
     from beework.portal_seat_service import reclaim_idle_for_all_tenants
@@ -77,4 +84,6 @@ def enqueue_scheduled_jobs(db: Session, *, now: datetime | None = None) -> None:
     enqueue(db, "usage.sync", {}, idempotency_key=f"usage.sync:{five_minutes}")
     enqueue(db, "capabilities.mcp_health", {}, idempotency_key=f"capabilities.mcp_health:{five_minutes}")
     enqueue(db, "channels.health", {}, idempotency_key=f"channels.health:{five_minutes}")
+    enqueue(db, "notifications.digest", {}, idempotency_key=f"notifications.digest:{hour}")
+    enqueue(db, "keys.expiry_notice", {}, idempotency_key=f"keys.expiry_notice:{window}")
     enqueue(db, "usage.month_rollover", {}, idempotency_key=f"usage.month_rollover:{hour}")

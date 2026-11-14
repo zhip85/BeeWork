@@ -19,6 +19,7 @@ import beework.skill_service  # noqa: F401  (registers the skill load tool and t
 from beework import model_catalog
 from beework.compliance import get_policy
 from beework.conversations import append_message, history_for_run
+from beework.events import emit_event
 from beework.faqs import record_hits as record_faq_hits
 from beework.gateway_sync import tenant_gateway_key
 from beework.governance.glossary_runtime import dictionary as glossary_dictionary
@@ -612,6 +613,8 @@ def _execute_run(
     route = final.get("route_info") or {}
     widgets = final.get("widgets") or []
     faq_documents = [c.get("document_id", "") for c in final.get("context", []) if c.get("kind") == "faq"]
+    for action in sorted({str(h.get("action")) for h in final.get("pii_hits", []) if h.get("action") in ("block", "flag")}):  # T-088: a guardrail that stopped or flagged something
+        emit_event(db, run.tenant_id, "guardrail.triggered", {"run_id": str(run.id), "assistant_id": str(run.assistant_id), "action": action})
     run.tokens_in, run.tokens_out = usage.get("input"), usage.get("output")
     run.retrieval_mode = retrieval["mode"]
     text = final.get("text", "")

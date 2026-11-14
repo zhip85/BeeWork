@@ -290,6 +290,7 @@ PROVIDERS["mcp"] = McpToolProvider()
 def check_health(db: Session, conn: McpConnection, cap: Capability) -> None:
     """One probe. After ``UNHEALTHY_AFTER`` failures in a row the connection is flagged “连接异常” and the tenant's
     administrators are told once; the capability itself is never disabled automatically."""
+    from beework.events import emit_event
     from beework.notifications import notify  # late: notifications imports the approvals module
 
     now = datetime.now(UTC)
@@ -300,6 +301,7 @@ def check_health(db: Session, conn: McpConnection, cap: Capability) -> None:
         conn.health_failures += 1
         if conn.health_failures >= UNHEALTHY_AFTER and conn.health != "error":
             conn.health = "error"
+            emit_event(db, cap.tenant_id, "mcp.unhealthy", {"capability_id": str(cap.id), "name": cap.name, "failures": conn.health_failures})
             notify(
                 db, tenant_id=cap.tenant_id, type="mcp.unhealthy", title=f"MCP 连接异常：{cap.name}",
                 body=f"最近 {conn.health_failures} 次健康检查失败：{exc.message[:200]}", link=f"/capabilities/mcp/{cap.id}",

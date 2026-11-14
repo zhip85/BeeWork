@@ -133,8 +133,11 @@ def _audit(db: Session, user: User, action: str, result: str) -> None:
 
 
 def _notify_admins(db: Session, user: User) -> None:
+    from beework.events import emit_event
+
     tenant_ids = list(db.scalars(select(Membership.tenant_id).where(Membership.user_id == user.id, Membership.status == "active")))
     for tenant_id in tenant_ids:
+        emit_event(db, tenant_id, "security.event", {"kind": "login_locked", "user_id": str(user.id)})  # who is told is up to the tenant's notification rules
         notify(
             db, tenant_id=tenant_id, role="tenant_admin", type="security.account_locked",
             title=f"账号 {user.email} 因连续登录失败被锁定 15 分钟", link="/members",

@@ -13,3 +13,29 @@
 ## 验收标准
 
 - [ ] 测试：汇总频率把同一小时内的多条事件合并为一封；停用规则不发送；接收人为角色时按当前成员解析；跨租户事件不会发给其他租户成员。
+
+## 完成记录
+
+分支 `task/T-088-notification-rules`。**迁移 `0061_notification_rules`**（`notification_rules`、`notification_queue`）。已在开发库执行；升降级与 `alembic check` 在一次性 PostgreSQL 库通过；开发栈 Worker 已重启。
+
+**事件与文案**（`notification_catalog.py`）：12 个通知事件（发起审批、审批结果、护栏触发、转人工请求、转人工超时、预算阈值、配额阈值、评测完成、渠道异常、MCP 连接异常、密钥即将过期、安全事件），每个有中英文名称与消息文案和跳转链接；文案只说发生了什么与去哪看，只含 ID、名称、数字，不含会话正文、规则内容或密钥。总线事件到通知事件的映射：`approval.updated` 的 `submitted / level_approved` → 发起审批，`approved / rejected / withdrawn` → 审批结果；`usage.threshold` → 预算阈值；其余同名。总线上新增只给通知用的事件类型（`guardrail.triggered`、`handoff.timeout`、`quota.threshold`、`evaluation.completed`、`channel.unhealthy`、`mcp.unhealthy`、`key.expiring`、`security.event`）；Webhook 仍只能订阅原来的 5 种。
+
+**规则与分发**（`notify_rules.py`、`api/notification_rules.py`）
+- 规则：事件、通道（邮件 / Slack / 短信 / Webhook）、接收人、频率（实时 / 每小时汇总 / 每日汇总）、启用开关；每租户最多 100 条；权限沿用“设置”（查看 / 编辑）；审计。接收人按通道校验：邮件——成员必须属于本租户、角色必须是内置角色、邮箱格式；Slack——Incoming Webhook 地址须是公网 https（拒绝内网 / 回环 / http），**加密存储，之后只显示掩码，编辑时留空保持原地址**；短信——手机号 7–15 位；Webhook 通道——只能选本租户自己的端点。
+- 订阅总线（T-087 的 `subscribe`，带“有没有人关心”的判断，没有规则的事件不排任何任务）：实时规则排 `notifications.send`；汇总规则把事件放进 `notification_queue`。**接收人在发送时才解析**：角色指发送时持有该角色的人（规则建好之后加入的也会收到），成员 / 角色都限定在规则所在租户内，不会发给别的租户的人。邮件按每位接收人的语言发（用户语言偏好；输入的邮箱用中文），经 T-008 的 `generic_notification` 模板与邮件限流；Slack 经 T-071 的安全出站客户端；Webhook 通道把通知作为一次独立投递（事件名 `notification`）发给所选端点。
+- 汇总：`notifications.digest` 每小时跑一次——每小时规则每次都发队列里的事件，每日规则在配置的 UTC 小时（`NOTIFICATION_DAILY_HOUR_UTC`，默认 1，即北京时间 9 点）发；同一规则的事件合并成一条（最多列 20 行，其余写“另有 N 条”）；发送失败时事件留在队列，下次再试；规则被停用后队列被静默清空；已发送的队列行保留 7 天。
+- 站内通知（SET-102）：审批待办与预算告警原本就进通知中心，保持；评测完成等 T-083 产生时补。
+- 事件来源：**已补上发出点**——`channel.unhealthy`（渠道连续健康检查失败，T-041）、`mcp.unhealthy`（MCP 连续探测失败，T-165 之前的健康任务）、`security.event`（账号被锁定，登录安全）、`guardrail.triggered`（一次运行里有拦截或标记的 PII 护栏命中，只带动作与 ID）、`key.expiring`（新的每日任务 `keys.expiry_notice`：7 天内过期的未吊销 API 密钥，每个只通知一次）。`handoff.requested / timeout`（T-081）、`quota.threshold`（配额）、`evaluation.completed`（T-083）由各自任务调用 `emit_event`；本任务只把类型、文案和规则接好。
+- 短信：`sms.py` 只有适配器接口与“未配置”状态；没有选服务商（规格要求开发负责人在开工时确认，我没有替你选），所以短信通道在页面上显示“未配置”且不可选，API 创建短信规则返回 409。接入时实现 `SmsProvider.send(phone, text)` 并 `register_provider(...)` 即可。
+
+**页面**：设置 → 通知规则（新页签）：规则列表（事件、通道、接收人摘要、频率、状态；搜索）、新建 / 编辑弹窗（事件、通道——短信显示“未配置”并禁用、按通道的接收人输入、频率及说明、启用）、删除确认。
+
+**验证**：ruff；`test_notification_rules` 23 项（12 个事件两种语言都有文案且互不相同；总线事件到通知事件的映射；目录只含本租户成员 / 端点；各通道的接收人校验含跨租户成员被拒；Slack 地址的公网 https 校验、加密存储、掩码、留空保持；短信未配置 409、配置后可建；权限、跨租户 404、搜索、删除、乐观锁；实时邮件发给成员 + 当前持有角色的人 + 输入的邮箱且不会发给其他租户；角色在发送时解析；只有对应事件与对应租户的规则触发（“发起审批”与“审批结果”分开）；停用的规则不发、排队后被停用也不发；没人关心的事件不产生任务；每小时汇总把同一小时的 3 条事件合成 1 封且不重复发送；每日汇总只在配置的小时发；停用后静默清队列；Slack 一条消息、失败保留队列下次再发；短信走服务商、Webhook 通道成为一次投递；邮件语言跟随接收人；渠道异常、密钥即将过期（只通知一次、不含密钥哈希）、账号锁定三个发出点）；全量后端（sqlite）1547 项，其中 1545 项通过、2 项是 `test_worker` 里写死的每日任务清单（新增了 `notifications.digest` 与 `keys.expiry_notice`），已更新预期后重跑 `test_worker` 通过，未再整体重跑；前端 tsc / lint（仍是原有 9 条警告）/ i18n / style / build；**真实 PostgreSQL 与真实 Worker**：在开发栈建一条规则并发出事件，`events.dispatch → notifications.send → mail.send` 都成功、邮件记录为已发送、渲染出“BeeWork · 审批结果”（然后删掉了这条规则）。
+
+**没做或要注意**
+1. **短信没有服务商**（见上），需要你选一个并提供账号。
+2. **开发栈的 Worker 没有 SMTP 配置**，用的是 console 邮件通道（只在日志里打印），所以邮件没有真的进 Mailpit；这是开发编排里 Worker 缺少与 API 相同的 `MAIL_*` / `SMTP_*` 环境变量，不是本任务引入的，需要在 `docker-compose.yml` 里给 Worker 补上才能在 Mailpit 里看到真实邮件。
+3. 规则里的“角色”目前只支持内置角色（租户管理员、构建者、运营、查看者、审计员、员工），自定义角色没有接。
+4. 配额阈值（`quota.threshold`）、评测完成、转人工相关事件在对应功能产生前不会触发；MCP 异常的发出点只靠代码阅读与既有健康检查测试覆盖，没有单独的新测试。
+5. 汇总邮件按中文发出（按规则里最早一条事件的内容，不按每位接收人语言再分组时已按接收人语言渲染；每日 9 点按 UTC+8 固定，租户时区暂不支持）。
+6. 页面没有目视验收。

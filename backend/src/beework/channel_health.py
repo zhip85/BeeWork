@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from beework.channel_adapters import adapter_for
+from beework.events import emit_event
 from beework.models import AuditEvent, utc_now
 from beework.models.channels import ChannelInstance
 from beework.notifications import notify
@@ -47,6 +48,7 @@ def check_channel(db: Session, channel: ChannelInstance, now: datetime | None = 
         channel.status = "error"
         channel.row_version += 1
         db.add(AuditEvent(tenant_id=channel.tenant_id, action="channel.health_failed", details={"channel_id": str(channel.id), "name": channel.name, "error": channel.health_error}))
+        emit_event(db, channel.tenant_id, "channel.unhealthy", {"channel_id": str(channel.id), "name": channel.name, "type": channel.type})
         notify(
             db, tenant_id=channel.tenant_id, role="tenant_admin", type="channel.unhealthy", title=f"渠道“{channel.name}”连续检查失败，已标为异常",
             body=channel.health_error, link="/channels", params={"name": channel.name},

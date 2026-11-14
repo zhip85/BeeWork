@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     trace_slow_ms: int = 5000  # a run slower than this is marked "slow" in the call-trace list (T-084)
+    notification_daily_hour_utc: int = 1  # the hour (UTC) at which daily notification digests go out; 01:00 UTC is 09:00 in China
     # Outbound mail (T-008). Transport "smtp" delivers via SMTP (Mailpit in development); "console"
     # only logs a masked line (handy for tests and bare local runs). Empty SMTP_USER = no auth.
     mail_transport: str = "console"  # "smtp" or "console"

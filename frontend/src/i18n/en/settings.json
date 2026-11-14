@@ -7,7 +7,8 @@
     "api": "API keys",
     "rules": "Rule library",
     "glossary": "Glossary",
-    "webhooks": "Webhooks"
+    "webhooks": "Webhooks",
+    "notifications": "Notifications"
   },
   "privacy": {
     "title": "Data & privacy",
@@ -129,5 +130,56 @@
       "dead": "Gave up",
       "cancelled": "Cancelled"
     }
+  },
+  "rules": {
+    "title": "Notification rules",
+    "subtitle": "Choose which events are told to whom, over which channel and how often. Approval to-dos, finished evaluations and budget alerts always reach the notification centre in the top bar, rule or not.",
+    "new": "New rule",
+    "edit": "Edit",
+    "delete": "Delete",
+    "search": "Search rules…",
+    "empty": "No notification rules",
+    "event": "Event",
+    "channel": "Channel",
+    "recipients": "Recipients",
+    "frequency": "Frequency",
+    "status": "Status",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "unconfigured": "not configured",
+    "channels": {
+      "email": "Email",
+      "slack": "Slack",
+      "sms": "SMS",
+      "webhook": "Webhook"
+    },
+    "frequencies": {
+      "realtime": "Real time",
+      "hourly": "Hourly digest",
+      "daily": "Daily digest"
+    },
+    "frequencyHint": {
+      "realtime": "Tell them as soon as it happens.",
+      "hourly": "Every hour, merge the events of that hour into one message.",
+      "daily": "Every morning at 09:00 (China time), merge the previous day's events into one message."
+    },
+    "members": "Members",
+    "roles": "Roles",
+    "rolesHint": "Resolved when the message is sent: people who join the role later are told too.",
+    "emails": "Email addresses (one per line)",
+    "slackUrl": "Slack Incoming Webhook URL",
+    "slackHint": "Must be a public https address; only a mask is shown afterwards.",
+    "slackKeep": "Leave empty to keep the stored address.",
+    "phones": "Phone numbers (one per line)",
+    "webhooks": "Webhook endpoints",
+    "noWebhooks": "No Webhook endpoints yet; add one on the Webhooks page first.",
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Rule saved",
+    "deleted": "Rule deleted",
+    "deleteBody": "Delete the rule for “{{event}}”? Messages waiting for a digest are discarded.",
+    "failed": "Action failed"
   }
 }

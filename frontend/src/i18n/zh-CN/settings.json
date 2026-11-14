@@ -7,7 +7,8 @@
     "api": "API 密钥",
     "rules": "规则库",
     "glossary": "术语表",
-    "webhooks": "Webhook"
+    "webhooks": "Webhook",
+    "notifications": "通知规则"
   },
   "privacy": {
     "title": "数据与隐私",
@@ -129,5 +130,56 @@
       "dead": "已放弃",
       "cancelled": "已取消"
     }
+  },
+  "rules": {
+    "title": "通知规则",
+    "subtitle": "选择哪些事件通知谁、走哪个通道、多久发一次。审批待办、评测完成、预算告警无论是否配置规则都会进入顶栏的通知中心。",
+    "new": "新建规则",
+    "edit": "编辑",
+    "delete": "删除",
+    "search": "搜索通知规则…",
+    "empty": "暂无通知规则",
+    "event": "事件",
+    "channel": "通道",
+    "recipients": "接收人",
+    "frequency": "频率",
+    "status": "状态",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "unconfigured": "未配置",
+    "channels": {
+      "email": "邮件",
+      "slack": "Slack",
+      "sms": "短信",
+      "webhook": "Webhook"
+    },
+    "frequencies": {
+      "realtime": "实时",
+      "hourly": "每小时汇总",
+      "daily": "每日汇总"
+    },
+    "frequencyHint": {
+      "realtime": "事件发生时马上通知。",
+      "hourly": "每小时把这一小时内的同类事件合并成一条。",
+      "daily": "每天早上 9 点把前一天的同类事件合并成一条。"
+    },
+    "members": "成员",
+    "roles": "角色",
+    "rolesHint": "按发送时的角色成员解析：之后加入该角色的人也会收到。",
+    "emails": "邮箱（每行一个）",
+    "slackUrl": "Slack Incoming Webhook 地址",
+    "slackHint": "须是公网 https 地址；保存后只显示掩码。",
+    "slackKeep": "留空则保持原地址不变。",
+    "phones": "手机号（每行一个）",
+    "webhooks": "Webhook 端点",
+    "noWebhooks": "还没有 Webhook 端点，请先在“Webhook”页添加。",
+    "close": "关闭",
+    "cancel": "取消",
+    "save": "保存",
+    "saving": "保存中…",
+    "saved": "通知规则已保存",
+    "deleted": "通知规则已删除",
+    "deleteBody": "删除“{{event}}”这条规则？已排队等待汇总的消息也会清除。",
+    "failed": "操作失败"
   }
 }

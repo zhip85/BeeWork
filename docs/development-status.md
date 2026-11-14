@@ -527,6 +527,11 @@
 - **迁移 `0060_webhooks`**。`emit_event` outbox 与 Worker 分发（订阅者接口留给 T-088）；已接入 `conversation.completed`、`approval.updated`、`assistant.published`、`usage.threshold`；Webhook 端点（公网 https、签名密钥加密且只显示一次）、HMAC-SHA256 签名投递、1 / 5 / 30 分钟再每小时的重试（24 小时）、投递 ID 不变、连续 24 小时失败自动停用并通知、最近 100 次记录、测试 / 重发 / 轮换；设置 → Webhook 页；`docs/webhooks.md` 的验签示例。
 - 验证：ruff；`test_webhooks` 26 项（含直接运行文档里的验签代码）；前端 tsc / lint / i18n / style / build；PostgreSQL 迁移升降级；真实 Worker 分发。**没有向真实公网端点投递过；`handoff.requested` 等 T-081；页面未目视验收。**
 
+### T-088 通知规则（已完成，待验收）
+
+- **迁移 `0061_notification_rules`**。12 个通知事件（中英文文案）与总线事件映射；规则（邮件 / Slack / 短信 / Webhook × 实时 / 每小时 / 每日汇总）；发送时才解析接收人（角色指当前持有者，限本租户）；汇总合并同一规则的事件；Slack 地址加密且只显示掩码；新增发出点：渠道异常、MCP 异常、账号锁定、护栏命中、密钥即将过期（新每日任务）；设置 → 通知规则页。
+- 验证：ruff；`test_notification_rules` 23 项；前端 tsc / lint / i18n / style / build；PostgreSQL 迁移升降级；真实 Worker 走完 `dispatch → send → mail`。**短信只有接口（没选服务商）；开发栈 Worker 缺 SMTP 配置，邮件只在日志里；页面未目视验收。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

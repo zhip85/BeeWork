@@ -17,7 +17,11 @@ from beework.worker.queue import enqueue, job_handler
 
 logger = logging.getLogger(__name__)
 
+# What a Webhook endpoint can subscribe to (SET-091).
 EVENT_TYPES = ("conversation.completed", "handoff.requested", "approval.updated", "usage.threshold", "assistant.published")
+# Events only notification rules (T-088) read: other modules call ``emit_event`` with these when their feature produces them.
+NOTIFICATION_ONLY_EVENTS = ("guardrail.triggered", "handoff.timeout", "quota.threshold", "evaluation.completed", "channel.unhealthy", "mcp.unhealthy", "key.expiring", "security.event")
+ALL_EVENT_TYPES = EVENT_TYPES + NOTIFICATION_ONLY_EVENTS
 Subscriber = Callable[[Session, DomainEvent], None]
 Interest = Callable[[Session, UUID, str], bool]
 SUBSCRIBERS: list[Subscriber] = []
@@ -45,7 +49,7 @@ def _anyone_listening(db: Session, tenant_id: UUID, event_type: str) -> bool:
 
 def emit_event(db: Session, tenant_id: UUID, event_type: str, payload: dict[str, Any]) -> DomainEvent:
     """Record that something happened. Joins the caller's transaction: if it rolls back, the event never existed."""
-    if event_type not in EVENT_TYPES:
+    if event_type not in ALL_EVENT_TYPES:
         raise ValueError(f"Unknown event type: {event_type}")
     event = DomainEvent(tenant_id=tenant_id, type=event_type, payload=payload)
     db.add(event)

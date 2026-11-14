@@ -130,7 +130,7 @@
 | [T-085](./T-085-dashboard-reports.md) | 工作台真实指标与助理表现报告 | T-080、T-011、T-082 | — | 待开发 | | |
 | [T-086](./T-086-privacy-exports.md) | 数据导出审批、终端用户数据导出/删除、训练开关 | T-022、T-056、T-080、T-084 | — | 待开发 | | |
 | [T-087](./T-087-webhooks.md) | 领域事件总线与 Webhook | T-002、T-071 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-087-webhooks`；`handoff.requested` 等 T-081 接入；没有向真实公网端点投递过（只用模拟传输与真实库 / Worker 验证了分发） |
-| [T-088](./T-088-notification-rules.md) | 通知规则与外部通道 | T-087、T-008、T-023 | 短信服务商（可选） | 待开发 | | |
+| [T-088](./T-088-notification-rules.md) | 通知规则与外部通道 | T-087、T-008、T-023 | 短信服务商（可选） | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-088-notification-rules`；**短信只有适配器接口（未选服务商，通道显示“未配置”）**；配额阈值 / 评测完成 / 转人工事件等各自任务产生；开发栈 Worker 用 console 邮件通道 |
 
 ## V0.4 任务（AI 门户，2026-11-10 新增）
 
