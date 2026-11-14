@@ -138,7 +138,17 @@
       "prompt": "Agent prompt",
       "chars": "Characters: {{count}} / {{max}}",
       "aiSuggest": "AI suggestion",
-      "aiSuggestSoon": "Coming soon",
+      "suggestion": {
+        "working": "Generating…",
+        "needsInput": "Fill in the name and use case first",
+        "confirmTitle": "Overwrite the current prompt?",
+        "confirmBody": "The AI suggestion replaces the current prompt; unsaved edits will be lost.",
+        "confirm": "Generate and overwrite",
+        "filled": "Suggestion placed in the form; it is saved only when you click Save.",
+        "truncated": "The suggestion was capped at 8000 characters; it is saved only when you click Save.",
+        "failed": "Could not generate a suggestion, please try again",
+        "optimized": "AI optimized"
+      },
       "model": "LLM model",
       "modelDefault": " (default)",
       "noModels": "No chat model is enabled in this environment yet. Enable one in Settings first.",

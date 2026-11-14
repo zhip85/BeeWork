@@ -4379,3 +4379,10 @@ textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .mount-write { color: var(--warn); font-style: normal; font-size: var(--fs-xs); }
 
 .team-toggle { padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--canvas); }
+
+/* AI prompt suggestion (T-029) */
+.assistants-prompt-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.assistants-prompt-meta { display: flex; align-items: center; gap: 10px; }
+.assistants-ai-optimized { padding: 2px 8px; border-radius: 999px; background: var(--brand-soft); color: var(--ok); font-size: var(--fs-xs); }
+.assistant-prompt-summary { display: grid; gap: 6px; font-size: var(--fs-sm); }
+.assistant-prompt-summary p { margin: 0; color: var(--ink-soft); white-space: pre-wrap; }

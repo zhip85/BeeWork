@@ -86,7 +86,7 @@
 | [T-012](./T-012-byok.md) | BYOK 自有模型密钥 | T-010、T-022、T-002 | — | 待开发 | | |
 | [T-013](./T-013-environment-promotion.md) | 模型配置跨环境发布 | T-006、T-022 | — | 阻塞 | | 规格与 PRD 冲突（密钥方式是否随发布复制），等 T-012 BYOK 后再定，详见任务文件“问题”；分支 `task/T-013-environment-promotion` |
 | [T-014](./T-014-model-catalog-completion.md) | 模型目录补全：降级、停用影响、删除限制 | T-005、T-070 | — | 待验收 | Tencent Hunyuan Hy | 分支 `task/T-014-model-catalog-completion`；全量检查受共享栈影响，见完成记录 |
-| [T-029](./T-029-prompt-suggestion.md) | 助理提示词 AI 生成建议 | T-020、T-025 | 供应商 Key | 待开发 | | |
+| [T-029](./T-029-prompt-suggestion.md) | 助理提示词 AI 生成建议 | T-020、T-025 | 供应商 Key | 待验收 | Tencent Hunyuan Hy | 分支 `task/T-029-prompt-suggestion`；未连真实模型、网关 e2e 未实跑，全量套件有 1 项 main 基线既有失败，见完成记录 |
 | [T-050](./T-050-platform-pii-baseline.md) | 平台 PII 规则与安全基线 | T-001、T-010 | — | 已完成（有条件） | Claude Sonnet 5.5 | OC 前置；行业范围的下发等 T-051 提供租户行业；强制规则变更的双人复核可用 `PLATFORM_RULE_REVIEW=false` 关闭；前端未目视验收 |
 | [T-051](./T-051-industry-glossaries.md) | 统一行业字典与平台行业术语表 | T-001 | — | 已完成（有条件） | Claude Sonnet 5.5 | OC 前置；租户新增 `industry` 字段（T-050 的金融行业下发已接通）；“租户继承数”暂按同行业租户计，T-053 改为实际继承；前端未目视验收 |
 | [T-052](./T-052-tenant-pii-rules.md) | 继承覆盖引擎与租户规则库 | T-050、T-022 | — | 已完成（有条件） | Claude Sonnet 5.5 | 引擎是纯函数，T-053 / T-055 复用；租户变更受“助理规则变更”审批策略约束（默认开启，需安全员审批）；前端未目视验收 |
