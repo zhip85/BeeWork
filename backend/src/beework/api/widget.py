@@ -86,7 +86,7 @@ def _live_channel(db: Session, channel: ChannelInstance | None, origin: str, req
     if channel is None:
         raise ApiError(404, "site_not_found", "未找到该站点")
     snapshot = channel.published_snapshot
-    if channel.status != "active" or not snapshot:
+    if channel.status not in ("active", "error") or not snapshot:  # "error": a failed health check does not stop serving
         raise ApiError(403, "channel_unavailable", "该渠道当前未启用")
     if origin not in (snapshot.get("allowed_origins") or []):
         raise ApiError(403, "origin_not_allowed", "该网站不在渠道的允许域名中")

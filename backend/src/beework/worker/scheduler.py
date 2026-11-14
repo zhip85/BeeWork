@@ -37,6 +37,13 @@ def capabilities_mcp_health(db: Session, payload: dict) -> None:
     mcp_health_job(db, payload)
 
 
+@job_handler("channels.health")
+def channels_health(db: Session, payload: dict) -> None:
+    from beework.channel_health import channel_health_job
+
+    channel_health_job(db, payload)
+
+
 @job_handler("portal.reclaim_idle_seats")
 def portal_reclaim_idle_seats(db: Session, _payload: dict) -> None:
     from beework.portal_seat_service import reclaim_idle_for_all_tenants
@@ -69,4 +76,5 @@ def enqueue_scheduled_jobs(db: Session, *, now: datetime | None = None) -> None:
     enqueue(db, "knowledge.sweep_documents", {}, idempotency_key=f"knowledge.sweep_documents:{five_minutes}")
     enqueue(db, "usage.sync", {}, idempotency_key=f"usage.sync:{five_minutes}")
     enqueue(db, "capabilities.mcp_health", {}, idempotency_key=f"capabilities.mcp_health:{five_minutes}")
+    enqueue(db, "channels.health", {}, idempotency_key=f"channels.health:{five_minutes}")
     enqueue(db, "usage.month_rollover", {}, idempotency_key=f"usage.month_rollover:{hour}")

@@ -30,12 +30,23 @@ class ExperienceOverrides(BaseModel):
 
 
 class ChannelWrite(BaseModel):
+    type: str = Field(default="website", min_length=1, max_length=16)
     name: str = Field(min_length=1, max_length=50)
     assistant_id: UUID
     environment: Environment = "production"
     allowed_origins: list[str] = Field(default_factory=list, max_length=MAX_ORIGINS)
     experience: ExperienceOverrides = Field(default_factory=ExperienceOverrides)
+    # Connection parameters of the type (see ``GET /channel-types``). Secrets are write-only: omitted or blank keeps the stored value.
+    config: dict[str, str] = Field(default_factory=dict, max_length=20)
+    secrets: dict[str, str] = Field(default_factory=dict, max_length=20)
     row_version: int | None = None
+
+    @field_validator("config", "secrets")
+    @classmethod
+    def short_values(cls, value: dict[str, str]) -> dict[str, str]:
+        if any(len(k) > 40 or len(v) > 500 for k, v in value.items()):
+            raise ValueError("连接参数过长")
+        return {k: v.strip() for k, v in value.items()}
 
     @field_validator("name")
     @classmethod
@@ -65,7 +76,13 @@ class ChannelResponse(BaseModel):
     allowed_origins: list[str]
     experience: ExperienceOverrides
     effective_experience: dict[str, str]
-    status: Literal["draft", "active", "disabled"]
+    status: Literal["draft", "active", "error", "disabled"]
+    type_name: str
+    type_enabled: bool
+    config: dict[str, str]
+    secret_masks: dict[str, str]  # key -> masked value, only for secrets that are set
+    health_error: str | None
+    health_checked_at: datetime | None
     site_key: str
     published_version: str  # "—" until first published
     published_at: datetime | None
@@ -74,7 +91,44 @@ class ChannelResponse(BaseModel):
     row_version: int
     created_at: datetime
     updated_at: datetime
-    embed_code: str | None  # only once published
+    embed_code: str | None  # only once published (website: the script tag)
+    integration: dict[str, str] | None  # only once published: {kind, code} for the type (script / link / webhook / curl)
+
+
+class ChannelTypeResponse(BaseModel):
+    code: str
+    name: str
+    version: str
+    enabled: bool
+    available: bool  # enabled by the platform and included in the tenant's plan
+    unavailable_reason: Literal["disabled", "plan"] | None
+    connection_params: list[dict]
+    capabilities: list[str]
+    default_experience: dict
+
+
+class ChannelTypeList(BaseModel):
+    items: list[ChannelTypeResponse]
+
+
+class ChannelTypeWrite(BaseModel):
+    enabled: bool | None = None
+    version: str | None = Field(default=None, min_length=1, max_length=16, pattern=r"^[0-9][0-9A-Za-z.\-]*$")
+    capabilities: list[str] | None = Field(default=None, max_length=12)
+    default_experience: dict | None = None
+
+
+class PublishPreview(BaseModel):
+    version_from: str
+    version_to: str
+    first_publish: bool
+    changes: list[dict]
+    problems: list[str]  # why publishing would be refused right now
+    components: list[dict]
+    components_note: str
+    injection_prompt: str | None
+    trial: list[dict]
+    trial_note: str
 
 
 class ChannelList(BaseModel):

@@ -1,6 +1,7 @@
 import {
   Building2,
   Boxes,
+  Radio,
   FileText,
   Hexagon,
   Layers,
@@ -22,6 +23,7 @@ import { PlatformModelsPage } from './PlatformModelsPage'
 import { PlatformOverviewPage } from './PlatformOverviewPage'
 import { PlatformTenantsPage } from './PlatformTenantsPage'
 import { PlatformJobsPage } from './PlatformJobsPage'
+import { PlatformChannelTypesPage } from './PlatformChannelTypesPage'
 import { PlatformMailPage } from './PlatformMailPage'
 import { PlatformPlansPage } from './PlatformPlansPage'
 import { PlatformSkillsPage } from './PlatformSkillsPage'
@@ -49,6 +51,7 @@ export function PlatformConsole({
   const isPiiPage = location.pathname === '/platform/pii-rules'
   const isBaselinePage = location.pathname === '/platform/baseline'
   const isSkillsPage = location.pathname === '/platform/skills'
+  const isChannelTypesPage = location.pathname === '/platform/channel-types'
 
   return (
     <div className="platform-shell">
@@ -85,6 +88,9 @@ export function PlatformConsole({
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/plans">
           <Layers size={18} strokeWidth={1.8} /><span>{t('plans.nav')}</span>
         </NavLink>
+        <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/channel-types">
+          <Radio size={18} strokeWidth={1.8} /><span>{t('channelTypes.nav')}</span>
+        </NavLink>
         <NavLink className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} to="/platform/glossaries">
           <BookText size={18} strokeWidth={1.8} /><span>{t('glossaries')}</span>
         </NavLink>
@@ -114,7 +120,7 @@ export function PlatformConsole({
       </aside>
       <main className="main-area platform-main">
         <header className="topbar">
-          <div className="breadcrumbs"><span>{t('breadcrumbRoot')}</span><span className="crumb-slash">/</span><strong>{isTenantPage ? t('tenants') : isAuditPage ? t('auditPage') : isModelPage ? t('models') : isJobsPage ? t('jobs') : isMailPage ? t('mail') : isPlansPage ? t('plans.nav') : isGlossaryPage ? t('glossaries') : isPiiPage ? t('piiRules') : isBaselinePage ? t('baseline') : isSkillsPage ? t('skills') : t('overviewPage')}</strong></div>
+          <div className="breadcrumbs"><span>{t('breadcrumbRoot')}</span><span className="crumb-slash">/</span><strong>{isTenantPage ? t('tenants') : isAuditPage ? t('auditPage') : isModelPage ? t('models') : isJobsPage ? t('jobs') : isMailPage ? t('mail') : isPlansPage ? t('plans.nav') : isGlossaryPage ? t('glossaries') : isPiiPage ? t('piiRules') : isBaselinePage ? t('baseline') : isSkillsPage ? t('skills') : isChannelTypesPage ? t('channelTypes.nav') : t('overviewPage')}</strong></div>
           <div className="topbar-actions">
             <LanguageSwitch persist /><span className="platform-admin-badge"><i />{t('adminBadge')}</span>
             {user.memberships.length > 0 && <Link className="platform-tenant-link" to="/">{t('enterWorkspace')}</Link>}
@@ -135,6 +141,8 @@ export function PlatformConsole({
                 ? <PlatformBaselinePage currentUserId={user.id} />
               : isSkillsPage
                 ? <PlatformSkillsPage />
+              : isChannelTypesPage
+                ? <PlatformChannelTypesPage />
               : isJobsPage
                 ? <PlatformJobsPage />
               : isMailPage

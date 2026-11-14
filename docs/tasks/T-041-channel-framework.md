@@ -20,3 +20,28 @@
 
 - [ ] 测试：快照不可变（触发器）；组件被修改后已发布快照不变且列表显示“有未发布修改”（CHN-025）；停用类型后新建 403；套餐未开通 403。
 - [ ] T-040 的网站渠道迁移到新框架后原有验收测试仍通过。
+
+## 完成记录
+
+分支 `task/T-041-channel-framework`。**迁移 `0057_channel_framework`**（新表 `channel_types`、`channel_snapshots`；`channel_instances` 加 `config`、`secret_config`、`health_failures`、`health_error`、`health_checked_at`；T-040 已发布的快照回填为历史行；PostgreSQL 触发器拒绝更新快照）。已在开发库执行，升降级与 `alembic check` 通过。
+
+**后端**
+- `channel_types.py`：五种类型的目录（编码、名称、连接参数定义、渲染能力标签、平台默认体验）。`channel_types` 表只在平台改过东西时才有行，叠加在目录上，所以空表也等于全新安装；类型不能通过接口新建（PLT-102）。套餐 `channels` 权益决定可建类型：`widget_api` → 网站 / H5 / 开放 API，`im` 与 `all` → 全部五种（CHN-051）。
+- `channel_adapters.py`：`ChannelAdapter` 协议（`validate_connection`、`health_check`、`render`、`integration_snippet`）；网站、H5、开放 API 有各自实现，WhatsApp / 微信用 `GenericAdapter`（按参数定义校验必填、没有可调用的健康检查、接入代码是 Webhook 地址），T-044–T-046 用 `register_adapter` 替换。`render` 目前只实现“表格能力关闭时把 Markdown 表格转成列表”（CHN-035 的一例）。
+- `api/channels.py`：`GET /channel-types`（带“已停用 / 套餐未开通”）；`GET/PATCH /platform/channel-types[/{code}]`（启用 / 停用、版本号、能力标签、平台默认体验；审计 `channel_type.updated`）；创建与保存支持 `type`、`config`、`secrets`（密钥用 Fernet 加密、返回只给末四位、留空保持原值、只接受类型自己定义的参数）；已发布渠道改类型 409，草稿换类型会清空旧类型的密钥与体验；停用的类型 / 套餐外的类型新建 403，已有实例不受影响；列表可按类型筛选；`GET /channels/{id}/publish-preview`（与线上版本的差异、发布前阻塞原因）。
+- 发布：连接配置由适配器校验（缺什么提示什么，沿用 `channel.incomplete`）；快照增加 `type`、`config`；每次发布追加一行不可变的 `channel_snapshots`；连接参数改动也算“有未发布修改”；接入代码按类型返回（网站 script / H5 链接 / Webhook 地址 / 开放 API curl）。仍沿用 T-040 的“接入新的外部渠道”审批（首次发布与之后的修改都走审批策略）。
+- 健康检查：`channels.health` 每 5 分钟的 Worker 任务；连续 3 次失败置“异常”并通知租户管理员，恢复后置回启用；异常期间渠道**继续服务**（`widget` 接受 `active` 与 `error`）。网站适配器检查快照里仍有允许域名，开放 API / H5 只做本地检查，通用适配器返回“无法判断”（不置异常）。
+
+**前端**：渠道页分“渠道实例 / 渠道类型”两个页签；列表加类型名、类型筛选、“异常”状态；向导改成两步（基础信息含类型、连接配置动态表单；组件与体验含主色 / 欢迎语）并带实时预览；发布弹窗三个页签（组件清单与差异 / 注入提示词 / 试跑）；接入代码弹窗按类型显示；平台控制台新增“渠道类型”页。
+
+**验证**：ruff；`test_channel_framework` 17 项（目录与套餐、平台停用 / 启用且已有实例不受影响、仅平台管理员、密钥加密 / 掩码 / 留空保持、参数白名单、类型锁定与草稿换类型、按类型的发布校验与接入代码、历史行与未发布修改、预览、健康检查失败 3 次置异常与恢复及通知、通用适配器不置异常、表格转列表、删除渠道清理历史）；既有 `test_channels`（T-040 的 22 项）与 `test_worker`（新增 `channels.health`）通过；PostgreSQL 一次性库上迁移升降级、`alembic check`、`test_postgres_integration`（含新的快照触发器用例）通过；前端 tsc / lint（仍是原有 9 条警告）/ i18n:check / style:check / build；全量后端（sqlite）1408 项通过、跳过 26 项。
+
+**与规格不一致或没做的**
+1. **组件相关三项**（向导的组件选择、发布弹窗的“注入提示词”和“试跑”）依赖 T-043 / T-059，目前返回空并写明原因，没有做。
+2. **版本号**沿用 T-040 的 `v1.0、v1.1…`，没有改成规格里的 `v0.1 → v0.2`（改会影响 T-040 的既有测试与已发布数据，需要你定）。
+3. **开放 API 类型的 API Key**：没有为渠道另发密钥；开放 API 继续用 T-028 的租户 API 密钥，渠道里只记录入口与 base path，接入代码里写“租户 API Key”。需要渠道级密钥时再补。网站的 SDK Key 沿用 `site_key`（可重置）。
+4. **H5、WhatsApp、微信**只有通用适配器：可以建渠道、填连接参数并发布，但没有运行时（访客入口、Webhook 收发、真实健康检查），属 T-044–T-046。
+5. 平台“编辑平台默认”目前只能通过接口改 `default_experience`；平台页只有启用 / 停用与版本号，体验编辑器属 T-042。
+6. 体验“四级继承”只做到 渠道 → 智能体 → 平台默认（类型默认），没有租户样式默认值与助手级渠道配置（T-042）。
+7. 用量列（近 30 天会话数）、行点击进入编辑、“体验”按钮没有做。
+8. 页面没有目视验收；开发库里没有渠道数据，没有在真实栈里走一遍“新建 → 发布 → 接入代码”。

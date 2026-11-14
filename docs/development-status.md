@@ -492,6 +492,11 @@
 - 保留期：`traces.retention` 每日任务，保留天数 = min(套餐 `trace_retention_days`（缺省 标准 7 / 专业 30 / 企业 90），租户会话保留期)；先在 Langfuse 批量删除（`DELETE /api/public/traces`，实测可用）再清 `runs.trace_url` 并写审计，失败次日重试。
 - 验证：ruff；`test_traces` 12 项；前端 tsc / lint / i18n / style / build；用开发库里一次真实对话的 trace 读取并组装（17 个 span）。**页面未目视验收；删除接口只用不存在的 id 试过；路径 A / B、能力调用链、按路径成本归 T-168。**
 
+### T-041 渠道框架（已完成，待验收）
+
+- **迁移 `0057_channel_framework`**。五种渠道类型的目录与平台启用 / 停用（`channel_types` 只存平台改动）、套餐决定可建类型、`ChannelAdapter` 与网站 / H5 / 开放 API 适配器（WhatsApp / 微信为通用适配器）、连接配置与加密密钥（掩码、留空保持）、发布前适配器校验、每次发布追加不可变快照（PostgreSQL 触发器）、按类型的接入代码、发布预览接口、`channels.health` 健康检查（3 次失败置“异常”并通知，异常时继续服务）。前端：渠道页两个页签、两步向导与实时预览、发布弹窗三个页签、平台“渠道类型”页。
+- 验证：ruff；`test_channel_framework` 17 项；`test_channels`、`test_worker`；PostgreSQL 迁移升降级、`alembic check`、触发器用例；前端 tsc / lint / i18n / style / build。**页面未目视验收；组件选择、注入提示词、试跑（T-043 / T-059）、H5 / WhatsApp / 微信的运行时（T-044–T-046）未做；版本号沿用 v1.0 格式。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。
