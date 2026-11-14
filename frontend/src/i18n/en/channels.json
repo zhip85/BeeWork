@@ -103,7 +103,9 @@
     "copied": "Embed code copied",
     "origins": "Allowed websites: {{origins}}",
     "iframe": "To put it inside another page, use an iframe:",
-    "framedBy": "Only these sites may embed it: {{origins}}"
+    "framedBy": "Only these sites may embed it: {{origins}}",
+    "qr": "QR code of the link",
+    "qrHint": "Scan it with a phone to open the page."
   },
   "rotate": {
     "action": "Reset key",

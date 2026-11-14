@@ -129,7 +129,9 @@ class LiteLLMClient:
         try:
             self._request("POST", "/model/delete", json={"id": str(model_id)})
         except GatewayError as exc:
-            if exc.status_code != 404:  # a deployment that is already gone is fine; the status code, not the text (aliases are UUIDs)
+            # A deployment that is already gone is fine. LiteLLM answers 404 for some versions and 400 "Model with id=… not found in db" for
+            # others; the status decides, and for 400 only that exact message counts (the ids in it are UUIDs, so no “404” can hide in them).
+            if exc.status_code != 404 and not (exc.status_code == 400 and "not found in db" in str(exc)):
                 raise
 
     def set_fallback(self, model_name: str, fallback_models: list[str]) -> None:

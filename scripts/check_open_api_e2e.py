@@ -197,6 +197,29 @@ def main() -> None:
             deadline = time.time() + int(os.environ["E2E_WIDGET_HOLD"])
             while time.time() < deadline and not os.path.exists("/tmp/e2e_widget.done"):
                 time.sleep(1)
+        # ---- T-044: H5 channel ---------------------------------------------------------------------------------------
+        h5 = admin.post("/api/v1/channels", headers=headers, json={"type": "h5", "name": f"e2e-h5-{uuid.uuid4().hex[:6]}", "assistant_id": assistant_id, "environment": "production", "allowed_origins": [SITE], "config": {"h5_path": "/e2e"}, "experience": {"welcome": "H5 欢迎"}})
+        check("create H5 channel", h5.status_code == 201, h5.text[:200])
+        channel_ids.append(h5.json()["id"])
+        h5_live = admin.post(f"/api/v1/channels/{h5.json()['id']}/publish", headers=headers, json={})
+        check("publish H5 channel", h5_live.status_code == 200 and h5_live.json()["integration"]["kind"] == "link", h5_live.text[:200])
+        h5_path = "/h5/" + h5_live.json()["integration"]["code"].split("/h5/", 1)[1]
+        page = client.get(h5_path)
+        check("H5 page is served", page.status_code == 200 and "data-h5=" in page.text, page.text[:200])
+        check("only the allowed site may embed the page", page.headers.get("content-security-policy") == f"frame-ancestors 'self' {SITE}", page.headers.get("content-security-policy"))
+        h5_tenant, h5_route = h5_path[len("/h5/"):].split("/", 1)
+        h5_open = client.post("/v1/h5/session", json={"tenant": h5_tenant, "path": "/" + h5_route}, headers={"Origin": API})
+        check("H5 session from the page's own origin", h5_open.status_code == 200 and h5_open.json()["config"]["welcome"] == "H5 欢迎", h5_open.text[:200])
+        check("H5 session refused from another origin", client.post("/v1/h5/session", json={"tenant": h5_tenant, "path": "/" + h5_route}, headers={"Origin": SITE}).status_code == 403)
+        h5_chat = client.post("/v1/widget/chat", json={"message": "你好", "stream": True}, headers={"Authorization": f"Bearer {h5_open.json()['token']}", "Origin": API})
+        h5_frames = sse(h5_chat)
+        check("real visitor conversation through the H5 token (SSE)", h5_chat.status_code == 200 and h5_frames[-1][0] == "done" and h5_frames[-1][1]["message"]["content"] == MOCK_ANSWER, h5_frames[-1] if h5_frames else h5_chat.text[:200])
+        if os.environ.get("E2E_H5_HOLD"):
+            # Lets scripts/check_h5_mobile.mjs open the real page in a mobile viewport (see its header).
+            print("H5_FIXTURE " + json.dumps({"path": h5_path, "answer": MOCK_ANSWER, "welcome": "H5 欢迎"}), flush=True)
+            deadline = time.time() + int(os.environ["E2E_H5_HOLD"])
+            while time.time() < deadline and not os.path.exists("/tmp/e2e_h5.done"):
+                time.sleep(1)
         wrong_origin = client.post("/v1/widget/chat", json={"message": "hi"}, headers={**visitor, "Origin": "https://evil.example.com"})
         check("a stolen token does not work from another origin", wrong_origin.status_code == 403, wrong_origin.text[:120])
         off = admin.post(f"/api/v1/channels/{channel.json()['id']}/disable", headers=headers)

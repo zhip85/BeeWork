@@ -589,6 +589,15 @@ class ModelCatalogCompletionTests(unittest.TestCase):
             with self.assertRaises(GatewayError):
                 client.delete_model(UUID("12340404-0000-0000-0000-000000000000"))
 
+    def test_deleting_a_deployment_that_is_already_gone_is_fine_in_either_gateway_dialect(self) -> None:
+        model_id = UUID("12340404-0000-0000-0000-000000000000")
+        for response in (httpx.Response(404, json={"detail": "gone"}), httpx.Response(400, json={"error": f"Model with id={model_id} not found in db"})):
+            with LiteLLMClient("http://gateway", "sk-master", transport=httpx.MockTransport(lambda _request, r=response: r)) as client:
+                client.delete_model(model_id)  # does not raise
+        with LiteLLMClient("http://gateway", "sk-master", transport=httpx.MockTransport(lambda _request: httpx.Response(400, json={"error": "bad request"}))) as client:
+            with self.assertRaises(GatewayError):
+                client.delete_model(model_id)  # any other 400 is still a failure
+
     def test_a_degradation_target_outside_the_tenants_entitlement_stays_out_of_its_scope(self) -> None:
         primary = self.create_model("Entitled Primary")
         restricted = self.create_model("Restricted Target", availability="enterprise")

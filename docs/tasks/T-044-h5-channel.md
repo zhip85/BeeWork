@@ -34,3 +34,14 @@
 3. 子域名形式的访问地址、独立构建的 H5 包（规格写“独立轻量构建”）没做，H5 与挂件共用一个脚本。
 4. 快捷回复开关目前没有可显示的内容（还没有快捷回复的数据来源），只写进了快照与预览。
 5. 页面没有目视验收。
+
+## 补充完成记录（二维码与移动视口检查）
+
+分支 `task/T-044b-h5-qr-mobile-e2e`。新增前端依赖 `qrcode-generator@1.4.4`（MIT，经你同意）。
+
+- **二维码**：`pages/channels/QrCode.tsx` 在浏览器里用该库生成二维码矩阵，以 SVG 方块绘制（不用 innerHTML），白边 2 个模块，纠错级别 M；H5 渠道的接入代码弹窗在链接下显示二维码。**没有用真实手机扫过。**
+- **移动视口检查**：`scripts/check_h5_mobile.mjs`（Playwright，Chromium 的 iPhone 13 与 Pixel 5 设备配置：触摸、设备像素比、移动 UA）。`scripts/check_open_api_e2e.py` 增加 H5 一段（创建并发布 H5 渠道、页面与 `frame-ancestors`、本站 Origin 才能开会话、经 H5 令牌完成一次对话），设 `E2E_H5_HOLD` 时输出 `H5_FIXTURE` 供 Playwright 加载真实页面。Playwright 只装在临时目录里，不进产品依赖。
+
+**结果（真实栈）**：`scripts/check_open_api_e2e.py` 全部通过，包括新增的 H5 段（页面与 `frame-ancestors` 只有允许域名、本站 Origin 才能开会话、其他 Origin 403、经 H5 令牌完成一次 SSE 对话）；`scripts/check_h5_mobile.mjs` 在**真实 Chromium** 的 iPhone 13（390×664）与 Pixel 5（393×727）设备配置下通过：页面自动打开并显示欢迎语、整屏无悬浮按钮、无横向滚动、输入框字号 ≥ 16px、发送后出现真实的流式回复（LiteLLM mock_response → Worker → 页面）、无页面错误、刷新后可再次打开。**这是桌面 Chromium 的移动模拟，不是真机 iOS / Android；WebKit（Safari）与 Firefox 没有跑。**
+
+**顺带修复的一个真实缺陷**：跑这条真实栈检查时发现，**新建目录模型同步到 LiteLLM 会失败**——`LiteLLMClient.delete_model` 只把 404 当作“已不存在”，而当前的 LiteLLM 对不存在的模型返回 `400 “Model with id=… not found in db”`，而 `upsert_model` 先删后建，于是每个新模型都同步失败（`gateway_sync_status = failed`）。这是 T-014 把“忽略所有 400”收紧为“只忽略 404”时引入的，之前一直没被发现，因为开发栈的 Worker 容器 35 小时没重启、跑的是旧代码。现在 `delete_model` 也接受带 “not found in db” 的 400（其他 400 仍然报错），并加了测试。另外，**开发栈的 Worker 不会自动重载代码**，合并新代码后需要 `docker compose restart worker`（这次已重启）；留意这一点，否则 Worker 会按旧代码校验 API 写入的新字段（这次 `oc.components` 就因此让 e2e 的对话失败过一次）。

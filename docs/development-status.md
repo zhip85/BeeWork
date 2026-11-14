@@ -520,7 +520,7 @@
 ### T-044 H5 渠道（已完成，待验收）
 
 - **无迁移**。`/h5/{租户}/{路径}` 页面（与网站挂件共用 `widget.js` 的 H5 模式：全屏 / 底部抽屉，整页即对话）、`POST /v1/h5/session`（只接受本站 Origin）、`frame-ancestors` 只放行渠道的允许域名、路径租户内唯一（409）、接入代码为链接 + iframe；挂件开始消费 T-042 的体验项（圆角、主题、左下角、流式、表格、卡片 / 表单开关）。
-- 验证：ruff；`test_h5` 10 项；`scripts/check_h5_page.mjs`（jsdom）；前端 tsc / lint / i18n / style / build。**二维码与 Playwright 移动视口未做（需新增依赖，待确认）；未在真实手机浏览器验证；子域名地址未做。**
+- 验证：ruff；`test_h5` 10 项；`scripts/check_h5_page.mjs`（jsdom）；前端 tsc / lint / i18n / style / build。二维码（`qrcode-generator`）与 Playwright 移动视口检查已补（真实 Chromium 的 iPhone 13 / Pixel 5 配置通过）；**未在真机 / Safari / Firefox 验证；子域名地址未做。** 顺带修复了 `delete_model` 对 LiteLLM 400 “not found in db” 的处理（此前新模型同步会失败）。
 
 ## 4. 下一步
 

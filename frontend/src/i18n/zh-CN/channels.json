@@ -103,7 +103,9 @@
     "copied": "接入代码已复制",
     "origins": "允许的网站：{{origins}}",
     "iframe": "要嵌入到别的网页里，可以用 iframe：",
-    "framedBy": "只有这些网站可以嵌入：{{origins}}"
+    "framedBy": "只有这些网站可以嵌入：{{origins}}",
+    "qr": "访问链接的二维码",
+    "qrHint": "用手机扫码即可打开。"
   },
   "rotate": {
     "action": "重置 Key",

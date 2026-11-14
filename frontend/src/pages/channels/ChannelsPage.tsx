@@ -10,6 +10,7 @@ import type { AssistantOption, Channel, ChannelType } from './ChannelDialog'
 import { ExperienceEditor } from './ExperienceEditor'
 import type { Level } from './ExperienceEditor'
 import { PublishDialog } from './PublishDialog'
+import { QrCode } from './QrCode'
 import { ComponentLibrary } from '../components/ComponentLibrary'
 
 /** Channels (T-040/T-041): five types, list, wizard, publish dialog (through the approval policy), integration code, enable/disable, types tab. */
@@ -203,6 +204,12 @@ export function ChannelsPage({ tenant, assistantId, embedded = false }: { tenant
             <h2>{t('embed.title')}</h2>
             <p>{t(`embed.body.${embedFor.integration.kind}`)}</p>
             <textarea aria-label={t('embed.title')} className="embed-code" onFocus={(event) => event.target.select()} readOnly rows={4} value={embedFor.integration.code} />
+            {embedFor.integration.kind === 'link' && (
+              <div className="qr-box">
+                <QrCode label={t('embed.qr')} text={embedFor.integration.code} />
+                <small>{t('embed.qrHint')}</small>
+              </div>
+            )}
             {embedFor.integration.embed && (
               <>
                 <p>{t('embed.iframe')}</p>

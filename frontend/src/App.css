@@ -4529,3 +4529,5 @@ textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .experience-quick { display: flex; gap: 6px; margin: 0 10px; }
 .experience-quick span { padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: var(--fs-sm); }
 @media (max-width: 720px) { .experience-body { grid-template-columns: minmax(0, 1fr); } .experience-row { grid-template-columns: 90px 56px minmax(0, 1fr) auto; } }
+.qr-box { display: grid; justify-items: start; gap: 4px; margin: 8px 0; }
+.qr-code { border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff; }
