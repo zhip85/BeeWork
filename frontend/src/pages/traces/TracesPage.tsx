@@ -22,6 +22,18 @@ type Trace = {
   error_code: string | null
   trace_available: boolean
   created_at: string
+  path: 'A' | 'B' | null
+  route_target: string | null
+  handoff: string | null
+  capability_error: string | null
+  confidence: number | null
+}
+type ToolCall = { call_index: number; tool_name: string; source: string; status: string; error_code: string | null; attempts: number; breaker_state: string | null; duration_ms: number; attempt_ms: number[] }
+type Cost = { key: string; runs: number; tokens_in: number; tokens_out: number; tool_calls: number; avg_latency_ms: number | null }
+type Summary = {
+  days: number; runs: number; path_a: number; path_b: number; avg_confidence: number | null
+  handoff_reasons: { key: string; count: number }[]; failed_capabilities: { key: string; count: number }[]
+  by_path: Cost[]; by_capability: Cost[]; truncated: boolean
 }
 type Span = {
   id: string
@@ -44,12 +56,15 @@ type Detail = Trace & {
   spans_source: 'langfuse' | 'unavailable'
   notice: string | null
   timeline: { seq: number; type: string; offset_ms: number }[]
+  route: { path: 'A' | 'B'; source?: string; target?: { name: string; kind?: string }; confidence?: number; second?: number; classifier_ms?: number; failure?: string; handoff?: string; capability_error?: string; candidates?: { name: string; score: number; confidence?: number }[] } | null
+  tool_calls: ToolCall[]
 }
 type TracePage = { items: Trace[]; total: number; limit: number; offset: number }
-type Filters = { assistant: string; channel: string; status: string; origin: string; from: string; to: string; minLatency: string; q: string }
+type Filters = { assistant: string; channel: string; status: string; origin: string; from: string; to: string; minLatency: string; q: string; path: string; handoff: string; failed: boolean }
 
-const EMPTY: Filters = { assistant: '', channel: '', status: '', origin: '', from: '', to: '', minLatency: '', q: '' }
+const EMPTY: Filters = { assistant: '', channel: '', status: '', origin: '', from: '', to: '', minLatency: '', q: '', path: '', handoff: '', failed: false }
 const PAGE = 30
+const HANDOFFS = ['no_candidates', 'classifier_failed', 'low_confidence', 'ambiguous', 'not_direct', 'write', 'slots_missing', 'slots_invalid', 'slots_failed', 'capability_failed', 'disabled']
 const CHANNELS = ['website', 'api', 'wecom', 'h5', 'wechat']
 
 function query(filters: Filters, offset: number) {
@@ -62,6 +77,9 @@ function query(filters: Filters, offset: number) {
   if (filters.to) params.set('created_to', `${filters.to}T23:59:59Z`)
   if (filters.minLatency) params.set('min_latency_ms', String(Math.max(0, Number(filters.minLatency) * 1000)))
   if (filters.q.trim()) params.set('q', filters.q.trim())
+  if (filters.path) params.set('path', filters.path)
+  if (filters.handoff) params.set('handoff', filters.handoff)
+  if (filters.failed) params.set('capability_failed', 'true')
   return params
 }
 
@@ -114,6 +132,92 @@ function Waterfall({ spans }: { spans: Span[] }) {
   )
 }
 
+function RouteOverview({ tenantId, assistant }: { tenantId: string; assistant: string }) {
+  const { t } = useTranslation('traces')
+  const [summary, setSummary] = useState<Summary | null>(null)
+  useEffect(() => {
+    let active = true
+    const params = new URLSearchParams({ days: '7' })
+    if (assistant) params.set('assistant_id', assistant)
+    apiRequest<Summary>(`/api/v1/traces/route-summary?${params}`, {}, tenantId)
+      .then((value) => active && setSummary(value))
+      .catch(() => active && setSummary(null))
+    return () => {
+      active = false
+    }
+  }, [tenantId, assistant])
+  if (!summary || summary.runs === 0) return null
+  const share = (count: number) => `${Math.round((count / summary.runs) * 100)}%`
+  return (
+    <section className="trace-overview" aria-label={t('overview.title')}>
+      <h2>{t('overview.title')}</h2>
+      <div className="trace-overview-grid">
+        <div><span>{t('overview.pathA')}</span><strong>{share(summary.path_a)}</strong><small>{summary.path_a}</small></div>
+        <div><span>{t('overview.pathB')}</span><strong>{share(summary.path_b)}</strong><small>{summary.path_b}</small></div>
+        <div><span>{t('overview.confidence')}</span><strong>{summary.avg_confidence === null ? '—' : summary.avg_confidence.toFixed(2)}</strong></div>
+        <div>
+          <span>{t('overview.handoffs')}</span>
+          {summary.handoff_reasons.length ? <ul>{summary.handoff_reasons.slice(0, 3).map((item) => <li key={item.key}>{t(`handoff.${item.key}`, item.key)} · {item.count}</li>)}</ul> : <strong>—</strong>}
+        </div>
+        <div>
+          <span>{t('overview.failed')}</span>
+          {summary.failed_capabilities.length ? <ul>{summary.failed_capabilities.slice(0, 3).map((item) => <li key={item.key}>{item.key} · {item.count}</li>)}</ul> : <strong>—</strong>}
+        </div>
+      </div>
+      <table className="audit-table trace-costs">
+        <thead><tr><th>{t('overview.cost')}</th><th>{t('overview.runs')}</th><th>{t('columns.tokens')}</th><th>{t('overview.toolCalls')}</th><th>{t('columns.latency')}</th></tr></thead>
+        <tbody>
+          {summary.by_path.map((row) => <tr key={`p-${row.key}`}><td>{t(`path.${row.key}`)}</td><td>{row.runs}</td><td>{row.tokens_in} / {row.tokens_out}</td><td>{row.tool_calls}</td><td>{seconds(row.avg_latency_ms)}</td></tr>)}
+          {summary.by_capability.slice(0, 5).map((row) => <tr key={`c-${row.key}`}><td>{row.key}</td><td>{row.runs}</td><td>{row.tokens_in} / {row.tokens_out}</td><td>{row.tool_calls}</td><td>{seconds(row.avg_latency_ms)}</td></tr>)}
+        </tbody>
+      </table>
+      {summary.truncated && <small>{t('overview.truncated')}</small>}
+    </section>
+  )
+}
+
+function RouteDetail({ detail }: { detail: Detail }) {
+  const { t } = useTranslation('traces')
+  const route = detail.route
+  if (!route && detail.tool_calls.length === 0) return null
+  return (
+    <section className="trace-route">
+      {route && (
+        <>
+          <h3>{t('route.title')}</h3>
+          <p className="trace-ids">
+            <span>{t(`path.${route.path}`)}</span>
+            {route.target && <span>{route.target.name}</span>}
+            {route.source && <span>{t(`route.source.${route.source}`, route.source)}</span>}
+            {route.confidence !== undefined && <span>{t('route.confidence')} {route.confidence}</span>}
+            {route.classifier_ms !== undefined && <span>{t('route.classifier')} {route.classifier_ms} ms</span>}
+            {route.handoff && <span>{t('route.handoff')}：{t(`handoff.${route.handoff}`, route.handoff)}</span>}
+            {route.capability_error && <span>{t('route.failedWith')} {route.capability_error}</span>}
+          </p>
+          {route.candidates && route.candidates.length > 0 && (
+            <ul className="trace-timeline">{route.candidates.map((item) => <li key={item.name}>{item.name} · {t('route.recall')} {item.score}{item.confidence !== undefined ? ` · ${t('route.confidence')} ${item.confidence}` : ''}</li>)}</ul>
+          )}
+        </>
+      )}
+      {detail.tool_calls.length > 0 && (
+        <>
+          <h3>{t('route.calls')}</h3>
+          <table className="audit-table">
+            <thead><tr><th>#</th><th>{t('route.tool')}</th><th>{t('columns.status')}</th><th>{t('route.attempts')}</th><th>{t('columns.latency')}</th></tr></thead>
+            <tbody>{detail.tool_calls.map((call) => (
+              <tr key={`${call.call_index}-${call.tool_name}`}>
+                <td>{call.call_index}</td><td>{call.tool_name}</td>
+                <td>{call.status}{call.error_code ? ` · ${call.error_code}` : ''}{call.breaker_state && call.breaker_state !== 'closed' ? ` · ${t('route.circuit')} ${call.breaker_state}` : ''}</td>
+                <td>{call.attempts}</td><td>{seconds(call.duration_ms)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </>
+      )}
+    </section>
+  )
+}
+
 function TraceDetail({ runId, tenantId, onClose }: { runId: string; tenantId: string; onClose: () => void }) {
   const { t } = useTranslation('traces')
   const [detail, setDetail] = useState<Detail | null>(null)
@@ -145,6 +249,7 @@ function TraceDetail({ runId, tenantId, onClose }: { runId: string; tenantId: st
             <span>{detail.tokens_in ?? 0} / {detail.tokens_out ?? 0} tokens</span>
             {detail.conversation_id && <Link to={`/assistants/${detail.assistant_id}?tab=conversations&conversation=${detail.conversation_id}`}>{t('detail.conversation')}</Link>}
           </p>
+          <RouteDetail detail={detail} />
           {detail.notice && <div className="trace-notice" role="status">{detail.notice}</div>}
           {detail.spans.length > 0 && <Waterfall spans={detail.spans} />}
           {detail.spans_source === 'unavailable' && detail.timeline.length > 0 && (
@@ -241,19 +346,33 @@ export function TracesPage({ tenantId }: { tenantId: string }) {
             {['online', 'debug', 'trial', 'eval'].map((item) => <option key={item} value={item}>{t(`origin.${item}`)}</option>)}
           </select>
         </label>
+        <label>{t('filters.path')}
+          <select value={filters.path} onChange={(event) => update('path', event.target.value)}>
+            <option value="">{t('filters.all')}</option>
+            {['A', 'B'].map((item) => <option key={item} value={item}>{t(`path.${item}`)}</option>)}
+          </select>
+        </label>
+        <label>{t('filters.handoff')}
+          <select value={filters.handoff} onChange={(event) => update('handoff', event.target.value)}>
+            <option value="">{t('filters.all')}</option>
+            {HANDOFFS.map((item) => <option key={item} value={item}>{t(`handoff.${item}`)}</option>)}
+          </select>
+        </label>
+        <label className="trace-check"><input type="checkbox" checked={filters.failed} onChange={(event) => setFilters((current) => ({ ...current, failed: event.target.checked }))} />{t('filters.failed')}</label>
         <label>{t('filters.minLatency')}<input min="0" step="0.5" type="number" value={filters.minLatency} onChange={(event) => update('minLatency', event.target.value)} /></label>
         <label>{t('filters.from')}<input type="date" value={filters.from} onChange={(event) => update('from', event.target.value)} /></label>
         <label>{t('filters.to')}<input type="date" value={filters.to} onChange={(event) => update('to', event.target.value)} /></label>
         <button className="secondary-button" type="submit">{t('filters.apply')}</button>
       </form>
       {error && <div className="members-error" role="alert">{error}</div>}
+      <RouteOverview tenantId={tenantId} assistant={applied.assistant} />
       <div className="audit-table-card">
         <div className="audit-table-meta"><strong>{t('list')}</strong><span>{t('count', { count: data?.total ?? 0 })}</span></div>
         {loading ? <div className="audit-empty">{t('loading')}</div> : data?.items.length ? (
           <div className="audit-table-scroll">
             <table className="audit-table">
               <thead><tr>
-                <th>{t('columns.status')}</th><th>{t('columns.time')}</th><th>{t('columns.assistant')}</th><th>{t('columns.origin')}</th>
+                <th>{t('columns.status')}</th><th>{t('columns.time')}</th><th>{t('columns.assistant')}</th><th>{t('columns.origin')}</th><th>{t('columns.route')}</th>
                 <th>{t('columns.latency')}</th><th>{t('columns.tokens')}</th><th>{t('columns.traceId')}</th>
               </tr></thead>
               <tbody>{data.items.map((item) => (
@@ -262,6 +381,7 @@ export function TracesPage({ tenantId }: { tenantId: string }) {
                   <td><time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString(undefined, { hour12: false })}</time></td>
                   <td>{item.assistant_name}</td>
                   <td>{t(`origin.${item.origin}`)}{item.channel ? ` · ${item.channel}` : ''}</td>
+                  <td>{item.path ? `${item.path}${item.route_target ? ` · ${item.route_target}` : ''}${item.handoff ? ` · ${t(`handoff.${item.handoff}`, item.handoff)}` : ''}` : '—'}</td>
                   <td>{seconds(item.latency_ms)}</td>
                   <td>{item.tokens_in ?? 0} / {item.tokens_out ?? 0}</td>
                   <td><code>{item.trace_id.slice(0, 12)}…</code>{!item.trace_available && <small className="trace-expired"> {t('expired')}</small>}</td>

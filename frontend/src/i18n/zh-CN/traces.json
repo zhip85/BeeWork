@@ -22,7 +22,10 @@
     "from": "开始日期",
     "to": "结束日期",
     "apply": "筛选",
-    "all": "全部"
+    "all": "全部",
+    "path": "路径",
+    "handoff": "转 B 原因",
+    "failed": "仅看能力失败"
   },
   "status": {
     "success": "成功",
@@ -43,7 +46,8 @@
     "origin": "来源",
     "latency": "延迟",
     "tokens": "Token（入/出）",
-    "traceId": "Trace ID"
+    "traceId": "Trace ID",
+    "route": "路由"
   },
   "detail": {
     "title": "调用详情",
@@ -57,5 +61,53 @@
     "error": "错误",
     "input": "输入",
     "output": "输出"
+  },
+  "path": {
+    "A": "路径 A（直达）",
+    "B": "路径 B（智能体）"
+  },
+  "handoff": {
+    "no_candidates": "没有候选能力",
+    "classifier_failed": "分类器失败",
+    "low_confidence": "置信度不足",
+    "ambiguous": "候选难分高下",
+    "not_direct": "能力不可直达",
+    "write": "写操作需确认",
+    "slots_missing": "缺少参数",
+    "slots_invalid": "参数无效",
+    "slots_failed": "参数提取失败",
+    "capability_failed": "能力调用失败",
+    "disabled": "路由未启用"
+  },
+  "overview": {
+    "title": "路由概览（近 7 天）",
+    "pathA": "路径 A 占比",
+    "pathB": "路径 B 占比",
+    "confidence": "平均置信度",
+    "handoffs": "转 B 的主要原因",
+    "failed": "失败最多的能力",
+    "cost": "成本（按路径 / 能力）",
+    "runs": "运行数",
+    "toolCalls": "工具调用",
+    "truncated": "数据量过大，仅统计最近一部分"
+  },
+  "route": {
+    "title": "路由决策",
+    "source": {
+      "classifier": "分类器",
+      "rule": "优先级规则",
+      "faq": "FAQ",
+      "pending": "进行中的流程",
+      "none": "无"
+    },
+    "confidence": "置信度",
+    "classifier": "分类耗时",
+    "handoff": "转 B",
+    "failedWith": "能力失败",
+    "recall": "召回分",
+    "calls": "能力调用",
+    "tool": "能力",
+    "attempts": "尝试次数",
+    "circuit": "熔断"
   }
 }

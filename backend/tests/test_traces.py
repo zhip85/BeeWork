@@ -23,6 +23,7 @@ from beework.models.assistants import Assistant
 from beework.models.conversations import Conversation
 from beework.models.jobs import RunEvent
 from beework.models.runtime import Run
+from beework.models.tools import ToolInvocation
 from beework.security import hash_password
 from isolation import disable_external_integrations, stub_public_dns
 
@@ -165,6 +166,69 @@ class TraceTests(unittest.TestCase):
         self.assertEqual(self.list(headers, q="not-an-id")["total"], 0)  # exact match only, never a substring search
         page = self.list(headers, limit=1, offset=1)
         self.assertEqual((page["total"], len(page["items"])), (2, 1))
+
+    def route_run(self, code: str = "enterprise", route: dict | None = None, **kwargs) -> Run:
+        return self.make_run(code, output={"text": "回答", "route": route} if route else {"text": "回答"}, **kwargs)
+
+    def test_the_list_shows_and_filters_by_the_route(self) -> None:
+        order = {"name": "get_order", "kind": "api_tool", "id": "e1"}
+        a = self.route_run(route={"version": 2, "path": "A", "source": "classifier", "target": order, "confidence": 0.93})
+        low = self.route_run(route={"version": 2, "path": "B", "source": "classifier", "handoff": "low_confidence", "confidence": 0.4})
+        broken = self.route_run(route={"version": 2, "path": "B", "source": "classifier", "target": order, "handoff": "capability_failed", "capability_error": "tool.failed"})
+        plain = self.route_run()  # never reached the router
+        headers = self.login()
+        ids = lambda **p: {i["run_id"] for i in self.list(headers, **p)["items"]}  # noqa: E731
+        self.assertEqual(ids(path="A"), {str(a.id)})
+        self.assertEqual(ids(path="B"), {str(low.id), str(broken.id)})
+        self.assertEqual(ids(handoff="low_confidence"), {str(low.id)})
+        self.assertEqual(ids(capability_failed="true"), {str(broken.id)})
+        self.assertEqual(len(ids()), 4)
+        rows = {i["run_id"]: i for i in self.list(headers)["items"]}
+        self.assertEqual((rows[str(a.id)]["path"], rows[str(a.id)]["route_target"], rows[str(a.id)]["confidence"]), ("A", "get_order", 0.93))
+        self.assertEqual((rows[str(broken.id)]["handoff"], rows[str(broken.id)]["capability_error"]), ("capability_failed", "tool.failed"))
+        self.assertIsNone(rows[str(plain.id)]["path"])
+        self.assertEqual(self.client.get("/api/v1/traces", params={"path": "C"}, headers=headers).status_code, 422)
+
+    def test_the_detail_carries_the_route_and_the_capability_calls_without_user_text(self) -> None:
+        run = self.route_run(route={"version": 2, "path": "A", "source": "classifier", "target": {"name": "get_order"}, "text": "13800138000", "args": {"id": "A1"}})
+        with self.session_factory.begin() as db:
+            tenant = self.ids["enterprise"]["tenant"]
+            db.add(ToolInvocation(tenant_id=tenant, run_id=run.id, call_index=1, tool_name="api:get_order", source="api", status="ok", duration_ms=120, attempts=2, attempt_ms=[50, 70], breaker_state="closed"))
+            db.add(ToolInvocation(tenant_id=tenant, run_id=run.id, call_index=0, tool_name="mcp:lookup", source="mcp", status="error", error_code="tool.failed", duration_ms=30))
+        headers = self.login()
+        detail = self.client.get(f"/api/v1/traces/{run.id}", headers=headers).json()
+        self.assertEqual(set(detail["route"]), {"version", "path", "source", "target"})  # unknown keys never leave
+        self.assertEqual([(c["tool_name"], c["status"], c["attempts"], c["attempt_ms"]) for c in detail["tool_calls"]], [("mcp:lookup", "error", 1, []), ("api:get_order", "ok", 2, [50, 70])])
+        self.assertNotIn("13800138000", json.dumps(detail))
+        self.assertIsNone(self.client.get(f"/api/v1/traces/{self.make_run().id}", headers=headers).json()["route"])
+
+    def test_the_summary_counts_paths_reasons_failures_and_what_each_cost(self) -> None:
+        order = {"name": "get_order", "kind": "api_tool"}
+        runs = [
+            self.route_run(route={"path": "A", "target": order, "confidence": 0.9}, latency=200),
+            self.route_run(route={"path": "A", "target": order, "confidence": 0.8}, latency=400),
+            self.route_run(route={"path": "B", "handoff": "low_confidence", "confidence": 0.3}, latency=900),
+            self.route_run(route={"path": "B", "target": order, "handoff": "capability_failed", "capability_error": "tool.failed"}),
+            self.route_run(route={"path": "A", "target": {"name": "x"}}, created=NOW - timedelta(days=10)),  # outside the window
+            self.route_run("other", route={"path": "A", "target": order}),  # another tenant
+            self.route_run(),  # no route
+        ]
+        with self.session_factory.begin() as db:
+            for n in range(3):
+                db.add(ToolInvocation(tenant_id=self.ids["enterprise"]["tenant"], run_id=runs[0].id, call_index=n, tool_name="api:get_order", source="api", status="ok", duration_ms=5))
+        headers = self.login()
+        with patch.object(traces, "datetime", wraps=datetime) as clock:
+            clock.now.return_value = NOW
+            body = self.client.get("/api/v1/traces/route-summary", params={"days": 7}, headers=headers).json()
+        self.assertEqual((body["runs"], body["path_a"], body["path_b"], body["avg_confidence"]), (4, 2, 2, 0.667))
+        self.assertEqual(body["handoff_reasons"], [{"key": "capability_failed", "count": 1}, {"key": "low_confidence", "count": 1}])
+        self.assertEqual(body["failed_capabilities"], [{"key": "get_order", "count": 1}])
+        by_path = {c["key"]: c for c in body["by_path"]}
+        self.assertEqual((by_path["A"]["runs"], by_path["A"]["tokens_in"], by_path["A"]["tokens_out"], by_path["A"]["tool_calls"], by_path["A"]["avg_latency_ms"]), (2, 20, 10, 3, 300))
+        self.assertEqual([(c["key"], c["runs"]) for c in body["by_capability"]], [("get_order", 2)])
+        self.assertEqual(self.client.get("/api/v1/traces/route-summary", params={"days": 0}, headers=headers).status_code, 422)
+        foreign = self.login("enterprise", tenant="other")
+        self.assertIn(self.client.get("/api/v1/traces/route-summary", headers=foreign).status_code, (403, 404))
 
     def test_other_tenants_portal_conversations_and_unknown_runs_are_not_reachable(self) -> None:
         mine = self.make_run()

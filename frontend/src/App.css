@@ -4417,3 +4417,14 @@ textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .trace-span-detail dd { margin: 0; min-width: 0; }
 .trace-span-detail pre { margin: 0; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 .trace-timeline { margin: 0; padding-left: 18px; font-size: var(--fs-sm); }
+.trace-overview { display: grid; gap: 10px; padding: 14px 16px; margin-bottom: 14px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.trace-overview h2 { margin: 0; font-size: var(--fs-md); }
+.trace-overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.trace-overview-grid > div { display: grid; gap: 2px; align-content: start; font-size: var(--fs-sm); }
+.trace-overview-grid span { color: var(--ink-soft); }
+.trace-overview-grid strong { font-size: var(--fs-xl); }
+.trace-overview-grid ul { margin: 0; padding-left: 16px; }
+.trace-costs { font-size: var(--fs-sm); }
+.trace-route { display: grid; gap: 8px; }
+.trace-route h3 { margin: 0; font-size: var(--fs-md); }
+.trace-check { display: flex; align-items: center; gap: 6px; align-self: end; }

@@ -104,6 +104,20 @@ class IntentRuntimeTests(test_rewrite.RewriteRuntimeTests):
         self.assertEqual((output["route"]["path"], output["route"]["handoff"], output["route"]["capability_error"]), ("B", "capability_failed", "tool.failed"))
         self.assertEqual(len(fake.invoked), 1)
 
+    def test_the_router_opens_the_l2_spans_and_names_the_capability_on_path_a(self) -> None:
+        from contextlib import nullcontext
+
+        from beework.runtime.tracing import TraceHandle
+
+        names: list[str] = []
+        with patch.object(TraceHandle, "span", lambda self, stage: (names.append(stage), nullcontext())[1]):
+            self.route(Fake([(ORDER, 0.93)]), "订单 A1 到哪了")
+        self.assertEqual([n for n in names if n.startswith(("l2.", "path."))], ["l2.recall", "l2.classify", "l2.slots", "path.a.get_order"])
+        names.clear()
+        with patch.object(TraceHandle, "span", lambda self, stage: (names.append(stage), nullcontext())[1]):
+            self.route(Fake([(ORDER, 0.2)]), "帮我看看")  # path B: judged, nothing carried out
+        self.assertEqual([n for n in names if n.startswith(("l2.", "path."))], ["l2.recall", "l2.classify"])
+
     def test_a_priority_rule_calls_its_target_without_the_classifier(self) -> None:
         rule = {"id": "r1", "name": "查订单", "priority": 1, "match_type": "keyword", "pattern": "订单", "target_entry_id": ORDER.id, "enabled": True, "created_at": "2026-01-01"}
         fake = Fake([(SHOUT, 0.9)])

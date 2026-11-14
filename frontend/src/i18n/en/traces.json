@@ -22,7 +22,10 @@
     "from": "From",
     "to": "To",
     "apply": "Filter",
-    "all": "All"
+    "all": "All",
+    "path": "Path",
+    "handoff": "Handoff reason",
+    "failed": "Failed capability only"
   },
   "status": {
     "success": "Success",
@@ -43,7 +46,8 @@
     "origin": "Origin",
     "latency": "Latency",
     "tokens": "Tokens (in/out)",
-    "traceId": "Trace ID"
+    "traceId": "Trace ID",
+    "route": "Route"
   },
   "detail": {
     "title": "Call detail",
@@ -57,5 +61,53 @@
     "error": "Error",
     "input": "Input",
     "output": "Output"
+  },
+  "path": {
+    "A": "Path A (direct)",
+    "B": "Path B (agent)"
+  },
+  "handoff": {
+    "no_candidates": "No candidates",
+    "classifier_failed": "Classifier failed",
+    "low_confidence": "Low confidence",
+    "ambiguous": "Ambiguous",
+    "not_direct": "Not directly callable",
+    "write": "Write needs confirmation",
+    "slots_missing": "Missing arguments",
+    "slots_invalid": "Invalid arguments",
+    "slots_failed": "Argument extraction failed",
+    "capability_failed": "Capability failed",
+    "disabled": "Routing off"
+  },
+  "overview": {
+    "title": "Routing overview (last 7 days)",
+    "pathA": "Path A share",
+    "pathB": "Path B share",
+    "confidence": "Avg confidence",
+    "handoffs": "Top reasons for B",
+    "failed": "Most failing capabilities",
+    "cost": "Cost (by path / capability)",
+    "runs": "Runs",
+    "toolCalls": "Tool calls",
+    "truncated": "Too many runs; only the most recent are counted"
+  },
+  "route": {
+    "title": "Routing decision",
+    "source": {
+      "classifier": "Classifier",
+      "rule": "Priority rule",
+      "faq": "FAQ",
+      "pending": "Pending flow",
+      "none": "None"
+    },
+    "confidence": "Confidence",
+    "classifier": "Classifier time",
+    "handoff": "To B",
+    "failedWith": "Capability failed",
+    "recall": "recall",
+    "calls": "Capability calls",
+    "tool": "Capability",
+    "attempts": "Attempts",
+    "circuit": "circuit"
   }
 }

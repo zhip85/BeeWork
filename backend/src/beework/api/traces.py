@@ -18,7 +18,7 @@ from beework.models.assistants import Assistant
 from beework.models.conversations import Conversation
 from beework.models.runtime import Run
 from beework.rbac import require_tenant_permission
-from beework.schemas.traces import TraceDetailResponse, TraceResponse
+from beework.schemas.traces import RouteSummary, TraceDetailResponse, TraceResponse
 
 router = APIRouter()
 _HEX32 = re.compile(r"^[0-9a-f]{32}$")
@@ -43,6 +43,7 @@ def _response(run: Run, assistant: Assistant, conversation: Conversation | None)
         "channel": conversation.source if conversation is not None else None, "environment": run.environment,
         "status": traces.status_of(run), "latency_ms": run.latency_ms, "tokens_in": run.tokens_in, "tokens_out": run.tokens_out,
         "error_code": run.error_code, "trace_available": bool(run.trace_url), "created_at": run.created_at,
+        **traces.route_fields(run),
     }
 
 
@@ -63,6 +64,9 @@ def list_traces(
     created_to: datetime | None = None,
     min_latency_ms: int | None = Query(default=None, ge=0),
     q: str | None = Query(default=None, max_length=64, description="Exact trace id, run id or conversation id"),
+    path: str | None = Query(default=None, pattern="^[AB]$", description="Route path chosen by the router"),
+    handoff: str | None = Query(default=None, max_length=40, description="Why path A turned into B"),
+    capability_failed: bool | None = Query(default=None, description="True: the capability tried on path A failed"),
     pagination: Pagination = Depends(get_pagination),
     membership: Membership = Depends(require_tenant_permission("traces:view")),
     db: Session = Depends(get_db),
@@ -96,6 +100,13 @@ def list_traces(
             statement = statement.where(Run.trace_url.is_not(None), cast(Run.trace_url, String).like(f"%/{key}"))
         else:
             statement = statement.where(False)
+    route = Run.output["route"]
+    if path:
+        statement = statement.where(route["path"].as_string() == path)
+    if handoff:
+        statement = statement.where(route["handoff"].as_string() == handoff)
+    if capability_failed is True:
+        statement = statement.where(route["capability_error"].as_string().is_not(None))
     page = pagination
     total = db.scalar(select(func.count()).select_from(statement.with_only_columns(Run.id).subquery())) or 0
     rows = db.execute(statement.order_by(Run.created_at.desc(), Run.id).offset(page.offset).limit(page.limit)).all()
@@ -103,6 +114,16 @@ def list_traces(
         items=[TraceResponse(**_response(run, assistant, conversation)) for run, assistant, conversation in rows],
         total=total, limit=page.limit, offset=page.offset,
     )
+
+
+@router.get("/traces/route-summary", response_model=RouteSummary)
+def route_summary(
+    assistant_id: UUID | None = None,
+    days: int = Query(default=7, ge=1, le=90),
+    membership: Membership = Depends(require_tenant_permission("traces:view")),
+    db: Session = Depends(get_db),
+) -> RouteSummary:
+    return traces.route_summary(db, membership.tenant_id, assistant_id, days, visible=_base(membership, db))
 
 
 @router.get("/traces/{run_id}", response_model=TraceDetailResponse)
@@ -119,4 +140,5 @@ def get_trace(
     return TraceDetailResponse(
         **_response(run, assistant, conversation), spans=spans, spans_source=source, notice=notice,
         timeline=traces.timeline_of(db, run),
+        route=traces.public_route(run), tool_calls=traces.tool_calls_of(db, run),
     )

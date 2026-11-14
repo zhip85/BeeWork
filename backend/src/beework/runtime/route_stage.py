@@ -125,7 +125,7 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
                 sent.append(text)
                 writer({"type": "token", "text": text})
 
-        with deps.clock.external(), deps.span(f"route.{target.kind}"):
+        with deps.clock.external(), deps.span(f"path.a.{target.name}"):
             result = runtime.invoke(target, args, sink)
         return result, "".join(sent)
 
@@ -133,7 +133,7 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
         """Carry out path A. Anything that does not work out turns the decision into path B (in place) and returns the L3 hints."""
         target = decision.target
         assert target is not None
-        with deps.clock.external():
+        with deps.clock.external(), deps.span("l2.slots"):
             slots = runtime.extract(target, query, history)
         if slots.status != "ok":
             decision.to_b({"missing": "slots_missing", "invalid": "slots_invalid"}.get(slots.status, "slots_failed"))  # type: ignore[arg-type]
@@ -220,11 +220,13 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
             if decomposed is not None:
                 return {"target": "assistant", **decomposed}
 
-        candidates = [c for c in runtime.candidates(query) if c.kind != "kb"]  # a knowledge base is not an intent: FAQ was asked above
+        with deps.span("l2.recall"):
+            recalled = runtime.candidates(query)
+        candidates = [c for c in recalled if c.kind != "kb"]  # a knowledge base is not an intent: FAQ was asked above
         rewritten: dict[str, RuntimeState] = {}
 
         def classify(text: str) -> ClassifyResult:
-            with deps.clock.external():
+            with deps.clock.external(), deps.span("l2.classify"):
                 first = runtime.classify(text, history, candidates)
             low = not first.scored or first.scored[0].confidence < rewrite_config.confidence_threshold
             if late_rewrite and first.failure is None and low:
@@ -232,7 +234,7 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
                 fresh = rewrite_now(original, text, history)
                 if fresh.get("query") and fresh["query"] != text:
                     rewritten["update"] = fresh
-                    with deps.clock.external():
+                    with deps.clock.external(), deps.span("l2.classify"):
                         return runtime.classify(fresh["query"], history, candidates)
             return first
 

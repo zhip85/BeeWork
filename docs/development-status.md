@@ -492,6 +492,11 @@
 - 保留期：`traces.retention` 每日任务，保留天数 = min(套餐 `trace_retention_days`（缺省 标准 7 / 专业 30 / 企业 90），租户会话保留期)；先在 Langfuse 批量删除（`DELETE /api/public/traces`，实测可用）再清 `runs.trace_url` 并写审计，失败次日重试。
 - 验证：ruff；`test_traces` 12 项；前端 tsc / lint / i18n / style / build；用开发库里一次真实对话的 trace 读取并组装（17 个 span）。**页面未目视验收；删除接口只用不存在的 id 试过；路径 A / B、能力调用链、按路径成本归 T-168。**
 
+### T-168 路由追踪（追踪部分已完成，待验收；评测部分等 T-083）
+
+- **无迁移**。路由阶段新增 span `l2.recall / l2.classify / l2.slots / path.a.<能力>`（Langfuse 里带 `oc.` 前缀）；调用追踪列表可按路径 A / B、转 B 原因、能力失败筛选；详情显示路由决策与能力调用链（次数、尝试、熔断，仅元数据）；`GET /api/v1/traces/route-summary` 给出近 N 天 A / B 占比、置信度、转 B 原因、失败的能力、按路径与按能力的成本；追踪页顶部有“路由概览”。
+- 验证：ruff；`test_traces` 15 项、`test_intent_runtime` span 用例；前端 tsc / lint / i18n / style / build；开发库（PostgreSQL）真实租户汇总可用。**页面未目视验收；路由评测、阈值校准、发布门禁未做（等 T-083）。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

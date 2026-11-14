@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from beework.compliance import get_policy
@@ -26,8 +26,16 @@ from beework.integrations.langfuse import (
 from beework.models import AuditEvent, Tenant
 from beework.models.jobs import RunEvent
 from beework.models.runtime import Run
+from beework.models.tools import ToolInvocation
 from beework.pii import redact_text
-from beework.schemas.traces import SpanResponse, TimelineEvent
+from beework.schemas.traces import (
+    PathCost,
+    RouteCount,
+    RouteSummary,
+    SpanResponse,
+    TimelineEvent,
+    ToolCallResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -180,3 +188,115 @@ def purge_expired_traces(db: Session, now: datetime | None = None, *, batch: int
         purged[tenant.id] = len(runs)
         db.commit()
     return purged
+
+
+# ---------------------------------------------------------------------------
+# The router's record (T-168). ``runs.output.route`` holds ids, names, scores and reason codes only.
+# ---------------------------------------------------------------------------
+
+ROUTE_KEYS = ("version", "path", "source", "target", "rule", "candidates", "confidence", "second", "classifier_ms", "failure", "handoff",
+              "slots", "executed", "capability_error", "partial", "pending", "parts")
+MAX_SUMMARY_RUNS = 20000
+
+
+def route_of(run: Run) -> dict | None:
+    route = (run.output or {}).get("route") if isinstance(run.output, dict) else None
+    return route if isinstance(route, dict) and route.get("path") in ("A", "B") else None
+
+
+def route_fields(run: Run) -> dict:
+    """The few route facts a list row shows."""
+    route = route_of(run)
+    if route is None:
+        return {}
+    target = route.get("target") if isinstance(route.get("target"), dict) else {}
+    return {
+        "path": route["path"], "route_target": target.get("name"), "handoff": route.get("handoff"),
+        "capability_error": route.get("capability_error"), "confidence": route.get("confidence"),
+    }
+
+
+def public_route(run: Run) -> dict | None:
+    route = route_of(run)
+    return None if route is None else {key: route[key] for key in ROUTE_KEYS if key in route}
+
+
+def tool_calls_of(db: Session, run: Run) -> list[ToolCallResponse]:
+    rows = db.scalars(select(ToolInvocation).where(ToolInvocation.run_id == run.id, ToolInvocation.tenant_id == run.tenant_id).order_by(ToolInvocation.call_index, ToolInvocation.created_at))
+    return [
+        ToolCallResponse(
+            call_index=r.call_index, tool_name=r.tool_name, source=r.source, status=r.status, error_code=r.error_code, attempts=r.attempts,
+            breaker_state=r.breaker_state, duration_ms=r.duration_ms, attempt_ms=list(r.attempt_ms or []), is_write=r.is_write,
+        )
+        for r in rows
+    ]
+
+
+def route_summary(db: Session, tenant_id: UUID, assistant_id: UUID | None, days: int, now: datetime | None = None, *, visible=None) -> RouteSummary:
+    """Path A / B share, confidence, why runs went to B, which capability failed, and what each path and capability cost.
+
+    ``visible`` is the caller's scoped run statement (columns: Run, ...); without it every run of the tenant counts."""
+    since = (now or datetime.now(UTC)) - timedelta(days=days)
+    statement = visible if visible is not None else select(Run).where(Run.tenant_id == tenant_id)
+    statement = statement.where(Run.created_at >= since, Run.output["route"]["path"].as_string().in_(("A", "B")))
+    if assistant_id:
+        statement = statement.where(Run.assistant_id == assistant_id)
+    ids = statement.with_only_columns(Run.id).order_by(Run.created_at.desc()).limit(MAX_SUMMARY_RUNS + 1).subquery()
+    rows = db.execute(
+        select(Run.id, Run.output["route"], Run.tokens_in, Run.tokens_out, Run.latency_ms).where(Run.id.in_(select(ids.c.id)))
+    ).all()
+    truncated = len(rows) > MAX_SUMMARY_RUNS
+    rows = rows[:MAX_SUMMARY_RUNS]
+    calls: dict[UUID, int] = {}
+    if rows:
+        for run_id, count in db.execute(
+            select(ToolInvocation.run_id, func.count()).where(ToolInvocation.tenant_id == tenant_id, ToolInvocation.created_at >= since)
+            .group_by(ToolInvocation.run_id)
+        ):
+            calls[run_id] = count
+    totals: dict[str, dict[str, list]] = {"path": {}, "capability": {}}
+    confidences: list[float] = []
+    handoffs: dict[str, int] = {}
+    failures: dict[str, int] = {}
+
+    def add(kind: str, key: str, run_id, tokens_in, tokens_out, latency) -> None:
+        bucket = totals[kind].setdefault(key, [0, 0, 0, 0, []])
+        bucket[0] += 1
+        bucket[1] += tokens_in or 0
+        bucket[2] += tokens_out or 0
+        bucket[3] += calls.get(run_id, 0)
+        if latency is not None:
+            bucket[4].append(latency)
+
+    for run_id, route, tokens_in, tokens_out, latency in rows:
+        if not isinstance(route, dict):
+            continue
+        path = route.get("path")
+        add("path", path, run_id, tokens_in, tokens_out, latency)
+        if isinstance(route.get("confidence"), (int, float)):
+            confidences.append(float(route["confidence"]))
+        target = route.get("target") if isinstance(route.get("target"), dict) else {}
+        if route.get("handoff"):
+            handoffs[route["handoff"]] = handoffs.get(route["handoff"], 0) + 1
+        if route.get("capability_error") and target.get("name"):
+            failures[target["name"]] = failures.get(target["name"], 0) + 1
+        if path == "A" and target.get("name"):
+            add("capability", target["name"], run_id, tokens_in, tokens_out, latency)
+
+    def costs(kind: str) -> list[PathCost]:
+        items = [
+            PathCost(key=key, runs=v[0], tokens_in=v[1], tokens_out=v[2], tool_calls=v[3], avg_latency_ms=int(sum(v[4]) / len(v[4])) if v[4] else None)
+            for key, v in totals[kind].items()
+        ]
+        return sorted(items, key=lambda c: (-c.runs, c.key))
+
+    def counted(source: dict[str, int]) -> list[RouteCount]:
+        return [RouteCount(key=k, count=n) for k, n in sorted(source.items(), key=lambda kv: (-kv[1], kv[0]))[:10]]
+
+    by_path = costs("path")
+    return RouteSummary(
+        days=days, runs=sum(c.runs for c in by_path), path_a=totals["path"].get("A", [0])[0], path_b=totals["path"].get("B", [0])[0],
+        avg_confidence=round(sum(confidences) / len(confidences), 3) if confidences else None,
+        handoff_reasons=counted(handoffs), failed_capabilities=counted(failures), by_path=by_path, by_capability=costs("capability")[:20],
+        truncated=truncated,
+    )

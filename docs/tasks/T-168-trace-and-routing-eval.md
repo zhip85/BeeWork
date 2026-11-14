@@ -21,3 +21,23 @@
 ## 说明
 
 T-083 / T-084 仍按各自规格先做，本任务在它们之上追加；如果它们尚未开始，可以把本文并入它们一起开发。
+
+## 完成记录（追踪部分：范围 1 与 4；范围 2、3 等 T-083）
+
+分支 `task/T-168-route-tracing`。**无迁移**。T-083（评测）尚未做，路由评测、阈值校准、发布门禁没有动。
+
+**后端**
+- `runtime/route_stage.py`：新增 span `l2.recall`、`l2.classify`（含改写后的再次分类）、`l2.slots`、`path.a.<能力名>`（取代原 `route.<kind>`）。能力调用本身仍是 `tool.<source:identifier>`（T-071 已有）。span 经 `TraceHandle.span` 统一加前缀 `oc.`，所以 Langfuse 里实际是 `oc.l2.recall` 等。
+- `traces.py`：`route_fields`（列表行）、`public_route`（详情，只放行白名单键，不含用户原文与参数值）、`tool_calls_of`（来自 `tool_invocations`：次数、尝试耗时、熔断状态，仅元数据）、`route_summary`（近 N 天路径 A / B 占比、平均置信度、转 B 原因、失败的能力、按路径与按能力的成本：模型 Token + 工具调用次数 + 平均延迟，最多统计 20000 次运行）。
+- `GET /api/v1/traces` 新增筛选 `path`（A / B）、`handoff`（转 B 原因）、`capability_failed`；每行带 `path / route_target / handoff / capability_error / confidence`。`GET /api/v1/traces/route-summary?days&assistant_id`（须在 `/{run_id}` 之前注册）。`GET /api/v1/traces/{run_id}` 增加 `route` 与 `tool_calls`。权限与范围沿用 T-084。
+
+**前端**：调用追踪页顶部“路由概览（近 7 天）”（A / B 占比、平均置信度、转 B 主要原因、失败最多的能力、按路径 / 能力的成本表，随所选智能体筛选）；列表新增“路由”列与路径、转 B 原因、仅看能力失败筛选；详情抽屉新增“路由决策”（来源、目标、置信度、分类耗时、候选与召回分）和“能力调用”表（状态、尝试次数、熔断、耗时）；中英文案。
+
+**验证**：ruff；`test_traces` 15 项（新增：路由筛选与行字段、详情白名单与调用链且不含用户原文、汇总的计数 / 原因 / 失败 / 成本 / 窗口 / 跨租户）；`test_intent_runtime` 新增 span 顺序用例（路径 A 与路径 B）；前端 tsc / lint（无新增警告，仍是原有 9 条）/ i18n:check / style:check / build。**真实栈**：在开发库（PostgreSQL）里对真实租户调用 `route_summary`，JSON 路径取值与聚合可用（xiaozhi 租户 3 次运行：A 2 / B 1、平均置信度 0.975、转 B 原因 low_confidence）。未重跑全量后端。
+
+**未完成 / 遗留**
+1. 范围 2、3（路由评测、阈值校准表、发布门禁）依赖 T-083，未做。
+2. 范围 4 的“智能体详情里的路由概览”放在调用追踪页顶部（可按智能体筛选），智能体详情页里还没有入口。
+3. 页面没有目视验收；Langfuse 里新 span 名称没有用真实路径 A 的对话再核对一次（只用假追踪句柄验证了名称与顺序）。
+4. 汇总在应用层聚合，超过 20000 次运行只统计最近的并标注 `truncated`。
+5. “按能力”的成本只统计路径 A 直达的能力；路径 B 里模型自己调用的工具成本在 T-165 的工具统计里，没有并入。
