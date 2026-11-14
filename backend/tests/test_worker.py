@@ -192,13 +192,13 @@ class WorkerQueueTests(unittest.TestCase):
     def test_worker_loop_step_runs_jobs_and_schedules_once_per_day(self):
         with self.sessions.begin() as db:
             enqueue(db, "noop.echo", {"message": "hello"}, tenant_id=self.tenant_id)
-        self.assertEqual(run_once("worker-1", self.sessions, batch_size=20), 16)  # noop.echo + the 15 scheduled jobs
+        self.assertEqual(run_once("worker-1", self.sessions, batch_size=20), 17)  # noop.echo + the 16 scheduled jobs
         self.assertEqual(run_once("worker-2", self.sessions), 0)  # nothing new, no duplicate schedule
         with self.sessions() as db:
             jobs = list(db.scalars(select(Job)))
             self.assertEqual(
                 sorted(job.kind for job in jobs),
-                ["approvals.sweep", "audit.retention", "auth.release_locks", "capabilities.mcp_health", "conversations.end_inactive", "conversations.retention", "gateway.reconcile_access", "knowledge.expire_faqs", "knowledge.reconcile", "knowledge.sweep_documents", "memory.retention", "noop.echo", "portal.reclaim_idle_seats", "tenants.auto_lifecycle", "usage.month_rollover", "usage.sync"],
+                ["approvals.sweep", "audit.retention", "auth.release_locks", "capabilities.mcp_health", "conversations.end_inactive", "conversations.retention", "gateway.reconcile_access", "knowledge.expire_faqs", "knowledge.reconcile", "knowledge.sweep_documents", "memory.retention", "noop.echo", "portal.reclaim_idle_seats", "tenants.auto_lifecycle", "traces.retention", "usage.month_rollover", "usage.sync"],
             )
             self.assertTrue(all(job.status == "succeeded" for job in jobs), [(j.kind, j.status, j.last_error) for j in jobs])
 
@@ -240,6 +240,8 @@ class WorkerQueueTests(unittest.TestCase):
                 "portal.reclaim_idle_seats:2026-10-23",
                 "tenants.auto_lifecycle:2026-10-22T08",
                 "tenants.auto_lifecycle:2026-10-23T08",
+                "traces.retention:2026-10-22",
+                "traces.retention:2026-10-23",
                 "usage.month_rollover:2026-10-22T08",
                 "usage.month_rollover:2026-10-23T08",
                 "usage.sync:2026-10-22T08:00",

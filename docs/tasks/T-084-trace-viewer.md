@@ -41,7 +41,7 @@
 
 **前端**：`pages/traces/TracesPage.tsx`（列表、筛选、分页、右侧详情抽屉：瀑布图含层级缩进、耗时条、错误标红、点开看模型 / Token / 成本 / 输入输出；Langfuse 不可用时显示提示与运行事件时间线；可跳到会话）、侧边栏“调用追踪”入口（`traces:view`）、中英文案（`traces` 命名空间）。
 
-**验证**：ruff；`test_traces` 12 项（筛选组合、时间与精确搜索、分页、跨租户 / 门户私有会话 / 不存在的运行 404、瀑布组装与脱敏、Langfuse 不可用与已过期的回退、MockTransport 契约测试（路径、`fields`、cursor 分页、Basic 认证、401 / 500 / 连接失败、批量删除请求体）、保留期（套餐与会话保留期取小、可注入时钟、Langfuse 删除失败保留链接并次日重试、审计）、每日调度包含该任务）；前端 tsc / lint（新增文件无警告）/ i18n:check / style:check / build。**真实 Langfuse**：用开发库里一次线上对话的 trace 读取并组装，17 个 span 的层级、耗时、模型、Token 与 Langfuse 一致（上面实测记录）；删除接口只用不存在的 id 试过。
+**验证**：ruff；`test_traces` 12 项（筛选组合、时间与精确搜索、分页、跨租户 / 门户私有会话 / 不存在的运行 404、瀑布组装与脱敏、Langfuse 不可用与已过期的回退、MockTransport 契约测试（路径、`fields`、cursor 分页、Basic 认证、401 / 500 / 连接失败、批量删除请求体）、保留期（套餐与会话保留期取小、可注入时钟、Langfuse 删除失败保留链接并次日重试、审计）、每日调度包含该任务）；既有 `test_worker` 两项硬编码了每日任务清单，已加入 `traces.retention`；全量后端 1390 项（其余 1388 项通过，修正这两项后 `test_worker` + `test_traces` 27 项通过，未再整体重跑）；前端 tsc / lint（新增文件无警告）/ i18n:check / style:check / build。**真实 Langfuse**：用开发库里一次线上对话的 trace 读取并组装，17 个 span 的层级、耗时、模型、Token 与 Langfuse 一致（上面实测记录）；删除接口只用不存在的 id 试过。
 
 **未完成 / 遗留**
 1. 页面未目视验收，也没有在真实栈里点过一次“列表 → 详情”（接口与组装用真实 trace 验证过，页面只过了类型 / lint / 构建）。
