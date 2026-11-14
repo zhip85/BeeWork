@@ -167,6 +167,21 @@ class WidgetConfig(BaseModel):
     assistant_name: str
     welcome: str
     primary_color: str
+    # T-042 / T-044: what the page applies (absent in snapshots published before they existed: the page then uses its defaults)
+    theme: str = "light"
+    radius: int = 12
+    entry: str = "bottom-right"
+    quick_replies: bool = True
+    cards: bool = True
+    tables: bool = True
+    forms: bool = True
+    streaming: bool = True
+
+
+class H5SessionRequest(BaseModel):
+    tenant: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    path: str = Field(min_length=1, max_length=121, pattern=r"^/[A-Za-z0-9._~/-]*$")
+    visitor_id: str | None = Field(default=None, max_length=64, pattern=r"^[A-Za-z0-9_-]{8,64}$")
 
 
 class WidgetSession(BaseModel):

@@ -138,7 +138,7 @@ class FrameworkTests(test_channels.ChannelBase):
             kinds[code] = published.json()["integration"]
         self.assertEqual({k: v["kind"] for k, v in kinds.items()}, {"website": "script", "h5": "link", "open-api": "curl"})
         self.assertIn("data-site-key", kinds["website"]["code"])
-        self.assertIn("/h5/help?channel=", kinds["h5"]["code"])
+        self.assertTrue(kinds["h5"]["code"].endswith("/h5/acme/h5/help"))  # the tenant's namespace, then the path (T-044)
         self.assertIn("Bearer", kinds["open-api"]["code"])
 
     def test_every_publish_keeps_an_immutable_history_row_and_the_draft_shows_unpublished_changes(self) -> None:

@@ -203,7 +203,13 @@ export function ChannelsPage({ tenant, assistantId, embedded = false }: { tenant
             <h2>{t('embed.title')}</h2>
             <p>{t(`embed.body.${embedFor.integration.kind}`)}</p>
             <textarea aria-label={t('embed.title')} className="embed-code" onFocus={(event) => event.target.select()} readOnly rows={4} value={embedFor.integration.code} />
-            {embedFor.allowed_origins.length > 0 && <p className="wizard-muted">{t('embed.origins', { origins: embedFor.allowed_origins.join(', ') })}</p>}
+            {embedFor.integration.embed && (
+              <>
+                <p>{t('embed.iframe')}</p>
+                <textarea aria-label={t('embed.iframe')} className="embed-code" onFocus={(event) => event.target.select()} readOnly rows={3} value={embedFor.integration.embed} />
+              </>
+            )}
+            {embedFor.allowed_origins.length > 0 && <p className="wizard-muted">{t(embedFor.type === 'h5' ? 'embed.framedBy' : 'embed.origins', { origins: embedFor.allowed_origins.join(', ') })}</p>}
             <div className="confirm-actions">
               <button className="primary-button" onClick={() => { void navigator.clipboard?.writeText(embedFor.integration?.code ?? ''); setNotice({ text: t('embed.copied') }); setEmbedFor(null) }} type="button">{t('embed.copy')}</button>
             </div>

@@ -101,7 +101,9 @@
     },
     "copy": "复制",
     "copied": "接入代码已复制",
-    "origins": "允许的网站：{{origins}}"
+    "origins": "允许的网站：{{origins}}",
+    "iframe": "要嵌入到别的网页里，可以用 iframe：",
+    "framedBy": "只有这些网站可以嵌入：{{origins}}"
   },
   "rotate": {
     "action": "重置 Key",

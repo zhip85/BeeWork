@@ -44,7 +44,7 @@ export type Channel = {
   pending_approval_id: string | null
   row_version: number
   embed_code: string | null
-  integration: { kind: string; code: string } | null
+  integration: { kind: string; code: string; embed?: string } | null
 }
 
 type PickItem = { id: string; name_zh: string; trigger_tag: string; version: string; type: string; compatibility: Record<string, string> }

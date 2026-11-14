@@ -90,6 +90,7 @@ def _response(db: Session, request: Request, channel: ChannelInstance) -> Channe
     pending = pending_request(db, channel.tenant_id, "channel", channel.id)
     kind = get_type(db, channel.type)
     effective, sources = experience_service.resolve_for(db, channel, assistant) if assistant else ({}, {})
+    tenant_slug = db.scalar(select(Tenant.slug).where(Tenant.id == channel.tenant_id)) or ""
     base = public_base_url(str(request.base_url))
     published = bool(channel.published_snapshot)
     return ChannelResponse(
@@ -107,7 +108,7 @@ def _response(db: Session, request: Request, channel: ChannelInstance) -> Channe
         pending_approval_id=pending.id if pending else None, row_version=channel.row_version,
         created_at=channel.created_at, updated_at=channel.updated_at,
         embed_code=embed_code(channel.site_key, request) if published and channel.type == "website" else None,
-        integration=adapter_for(channel.type).integration_snippet(channel, base) if published else None,
+        integration=adapter_for(channel.type).integration_snippet(channel, base, tenant_slug) if published else None,
     )
 
 
@@ -154,6 +155,12 @@ def _validate(db: Session, membership: Membership, payload: ChannelWrite, *, exc
             raise ApiError(422, "channel.component_invalid", "所选组件不存在")
         if item.status == "disabled" or component_service.full_compatibility(item.compatibility or {})[payload.type] == "off":
             raise ApiError(422, "channel.component_invalid", f"组件“{item.name_zh}”已停用或不兼容{kind.name}渠道，不能选择")
+    if payload.type == "h5" and payload.config.get("h5_path"):
+        path = "/" + payload.config["h5_path"].strip("/")
+        payload.config["h5_path"] = path  # stored normalised: one leading slash, none at the end
+        clash = db.scalars(select(ChannelInstance).where(ChannelInstance.tenant_id == membership.tenant_id, ChannelInstance.type == "h5", ChannelInstance.id != (exclude or UUID(int=0))))
+        if any("/" + str((c.config or {}).get("h5_path", "")).strip("/") == path for c in clash):
+            raise ApiError(409, "channel.h5_path_taken", f"H5 路径 {path} 已被本租户的其他渠道使用")
     load_assistant(db, membership, payload.assistant_id)  # 404 for other tenants' / invisible assistants
     tenant = db.get(Tenant, membership.tenant_id)
     if tenant is None or payload.environment not in environments_for(db, tenant.id):

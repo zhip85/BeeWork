@@ -101,7 +101,9 @@
     },
     "copy": "Copy",
     "copied": "Embed code copied",
-    "origins": "Allowed websites: {{origins}}"
+    "origins": "Allowed websites: {{origins}}",
+    "iframe": "To put it inside another page, use an iframe:",
+    "framedBy": "Only these sites may embed it: {{origins}}"
   },
   "rotate": {
     "action": "Reset key",

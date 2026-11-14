@@ -1,18 +1,21 @@
-/*! BeeWork website widget — one self-contained script, no dependencies.
+/*! BeeWork website widget and H5 page — one self-contained script, no dependencies.
  *  Embed:  <script src="https://API_HOST/v1/widget.js" data-site-key="bw_site_..." async></script>
+ *  H5:     the page served at /h5/{tenant}/{path} loads it with data-h5="{tenant}/{path}" (full screen or bottom drawer).
  *  Optional attributes: data-api-base (override the API address).
  */
 (function () {
   'use strict'
   if (window.BeeWorkWidget) return
 
-  var script = document.currentScript || document.querySelector('script[data-site-key]')
+  var script = document.currentScript || document.querySelector('script[data-site-key], script[data-h5]')
   if (!script) return
   var siteKey = script.getAttribute('data-site-key')
-  if (!siteKey) return
+  var h5Target = script.getAttribute('data-h5') // "{tenant}/{path}" on an H5 page
+  if (!siteKey && !h5Target) return
+  var storeId = siteKey || 'h5_' + h5Target
   var apiBase = (script.getAttribute('data-api-base') || new URL(script.src, window.location.href).origin).replace(/\/$/, '')
 
-  var STORE = { visitor: 'bw_visitor_' + siteKey, conversation: 'bw_conversation_' + siteKey }
+  var STORE = { visitor: 'bw_visitor_' + storeId, conversation: 'bw_conversation_' + storeId }
   function read(key) { try { return window.localStorage.getItem(key) } catch (e) { return null } }
   function write(key, value) {
     try { if (value === null) window.localStorage.removeItem(key); else window.localStorage.setItem(key, value) } catch (e) { /* private mode */ }
@@ -25,10 +28,11 @@
   // -- API ------------------------------------------------------------------------------------------------
 
   async function openSession() {
-    var response = await fetch(apiBase + '/v1/widget/session', {
+    var h5 = h5Target ? { tenant: h5Target.slice(0, h5Target.indexOf('/')), path: h5Target.slice(h5Target.indexOf('/')) } : null
+    var response = await fetch(apiBase + (h5 ? '/v1/h5/session' : '/v1/widget/session'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ site_key: siteKey, visitor_id: read(STORE.visitor) || undefined }),
+      body: JSON.stringify(h5 ? { tenant: h5.tenant, path: h5.path, visitor_id: read(STORE.visitor) || undefined } : { site_key: siteKey, visitor_id: read(STORE.visitor) || undefined }),
     })
     var body = await response.json().catch(function () { return {} })
     if (!response.ok) throw new Error((body.error && body.error.message) || '无法连接客服')
@@ -115,6 +119,11 @@
     '.bw-input{flex:1;resize:none;border:1px solid #cfd8d3;border-radius:8px;padding:8px;font:inherit;max-height:90px}',
     '.bw-send{border:0;border-radius:8px;padding:0 14px;color:#fff;cursor:pointer;font:inherit}',
     '.bw-send[disabled]{opacity:.5;cursor:default}',
+    '.bw-panel.dark{background:#1c1c22;color:#eee;border-color:#33333b}.bw-panel.dark .bw-list{background:#15151a}.bw-panel.dark .bw-msg.bot,.bw-panel.dark .bw-widget,.bw-panel.dark .bw-form{background:#24242c;border-color:#33333b;color:#eee}.bw-panel.dark .bw-input{background:#1c1c22;color:#eee;border-color:#44444d}',
+    '.bw-fab.left{right:auto;left:20px}.bw-panel.left{right:auto;left:20px}',
+    '.bw-panel.h5-full{position:fixed;inset:0;width:100%;max-width:none;height:100%;max-height:none;border-radius:0 !important;display:flex}',
+    '.bw-panel.h5-drawer{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-width:none;height:82vh;max-height:none;border-radius:16px 16px 0 0;display:flex}',
+    '.bw-panel.h5-full .bw-close,.bw-panel.h5-drawer .bw-close{display:none}.bw-panel[class*=h5-] .bw-input{font-size:16px}.bw-panel[class*=h5-] .bw-form{padding-bottom:max(10px,env(safe-area-inset-bottom))}',
     '.bw-widget{align-self:flex-start;max-width:92%;background:#fff;border:1px solid #e3e8e5;border-radius:10px;padding:10px;display:grid;gap:6px;font-size:13px}',
     '.bw-widget strong{font-size:14px}.bw-widget small{color:#667}.bw-w-tags span{display:inline-block;margin-right:4px;padding:0 6px;border-radius:99px;background:#eef}',
     '.bw-w-price{font-weight:700;color:#d33}.bw-w-price del{margin-left:6px;color:#889;font-weight:400}',
@@ -262,6 +271,44 @@
     return box
   }
 
+  // -- Experience (T-042 / T-044): what the published channel froze, applied to this page. -----------------------------------------------
+
+  var settings = {}
+  function applyExperience(config) {
+    settings = config || {}
+    color = settings.primary_color || color
+    if (typeof settings.radius === 'number') panel.style.borderRadius = settings.radius + 'px'
+    var dark = settings.theme === 'dark' || (settings.theme === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    panel.classList.toggle('dark', Boolean(dark))
+    if (settings.entry === 'bottom-left') { fab.classList.add('left'); panel.classList.add('left') }
+    if (h5Target) {
+      fab.style.display = 'none'
+      panel.classList.add(settings.entry === 'drawer' ? 'h5-drawer' : 'h5-full')
+      if (settings.entry !== 'drawer') panel.style.borderRadius = '0'
+    }
+  }
+
+  // “表格” switched off: a Markdown table becomes lines of ``column：value`` (the same rule as the server's text fallback).
+  function tablesToLists(text) {
+    var lines = String(text).split('\n'), out = [], header = null
+    var row = /^\s*\|.*\|\s*$/, rule = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/
+    function cells(line) { return line.trim().replace(/^\||\|$/g, '').split('|').map(function (c) { return c.trim() }) }
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i]
+      if (header === null && row.test(line) && i + 1 < lines.length && rule.test(lines[i + 1])) { header = cells(line); continue }
+      if (header !== null && rule.test(line)) continue
+      if (header !== null && row.test(line)) { out.push('- ' + cells(line).map(function (c, n) { return (header[n] || '') + '：' + c }).join('；')); continue }
+      header = null
+      out.push(line)
+    }
+    return out.join('\n')
+  }
+  function shown(text) { return settings.tables === false ? tablesToLists(text) : text }
+  function allowed(widget) {
+    if (widget.type === 'form') return settings.forms !== false
+    return settings.cards !== false
+  }
+
   var started = false
   async function open() {
     panel.classList.add('open')
@@ -270,7 +317,7 @@
     started = true
     try {
       var current = await ensureSession()
-      color = current.config.primary_color || color
+      applyExperience(current.config)
       title.textContent = current.config.assistant_name || title.textContent
       paint()
       addMessage('bot', current.config.welcome)
@@ -296,11 +343,16 @@
     var received = ''
     try {
       await streamChat(request, {
-        delta: function (piece) { received += piece; reply.textContent = received; list.scrollTop = list.scrollHeight },
+        delta: function (piece) {
+          received += piece
+          if (settings.streaming === false) return // “流式输出” off: the reply is shown once it is complete
+          reply.textContent = shown(received)
+          list.scrollTop = list.scrollHeight
+        },
         done: function (full, widgets) {
-          var shown = full || received
-          if (shown) reply.textContent = shown; else if (widgets.length) reply.remove()
-          widgets.forEach(function (widget) {
+          var finalText = full || received
+          if (finalText) reply.textContent = shown(finalText); else if (widgets.length) reply.remove()
+          widgets.filter(allowed).forEach(function (widget) {
             list.appendChild(renderWidget(widget, function (tag, action, data, text) { converse(text, { event: { tag: tag, action: action, data: data } }) }))
           })
           list.scrollTop = list.scrollHeight
@@ -325,5 +377,6 @@
   })
 
   document.body.appendChild(host)
-  window.BeeWorkWidget = { open: open, close: hide, version: 2 }
+  window.BeeWorkWidget = { open: open, close: hide, version: 3 }
+  if (h5Target) open() // an H5 page is the conversation itself
 })()

@@ -368,7 +368,8 @@ class ChannelTests(ChannelBase):
 
     def test_a_session_returns_the_inherited_experience_and_a_cors_header_for_the_allowed_origin(self) -> None:
         channel, opened = self.open_widget(self.live_channel(experience={"primary_color": "#112233"}))
-        self.assertEqual(opened["config"], {"assistant_name": "Helper", "welcome": "hi", "primary_color": "#112233"})  # name + greeting inherited
+        self.assertEqual({k: opened["config"][k] for k in ("assistant_name", "welcome", "primary_color")}, {"assistant_name": "Helper", "welcome": "hi", "primary_color": "#112233"})  # name + greeting inherited
+        self.assertEqual((opened["config"]["radius"], opened["config"]["entry"], opened["config"]["streaming"]), (12, "bottom-right", True))  # the rest of the frozen experience (T-042)
         self.assertRegex(opened["visitor_id"], r"^v_")
         self.assertEqual(opened["expires_in"], 3600)
         response = self.session(channel["site_key"])

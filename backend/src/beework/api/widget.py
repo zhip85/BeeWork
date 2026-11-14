@@ -81,14 +81,28 @@ def _origin(request: Request) -> str:
         raise ApiError(403, "origin_not_allowed", "该网站不在渠道的允许域名中") from None
 
 
+def own_origin(request: Request) -> str:
+    """The origin the H5 pages are served from: the public API address, or the address the request came to."""
+    try:
+        return normalize_origin(settings.public_api_url or str(request.base_url))
+    except ValueError:
+        return ""
+
+
 def _live_channel(db: Session, channel: ChannelInstance | None, origin: str, request: Request) -> ChannelInstance:
-    """The channel as published: active, with a snapshot whose allow-list contains the caller's origin."""
+    """The channel as published: active, with a snapshot whose allow-list contains the caller's origin.
+
+    An H5 page is served by the API itself, so its requests come from the API's own origin; the allow-list of an H5 channel is for
+    *embedding* the page in an iframe (``frame-ancestors``), not for the page's own calls."""
     if channel is None:
         raise ApiError(404, "site_not_found", "未找到该站点")
     snapshot = channel.published_snapshot
     if channel.status not in ("active", "error") or not snapshot:  # "error": a failed health check does not stop serving
         raise ApiError(403, "channel_unavailable", "该渠道当前未启用")
-    if origin not in (snapshot.get("allowed_origins") or []):
+    if channel.type == "h5":
+        if not origin or origin != own_origin(request):
+            raise ApiError(403, "origin_not_allowed", "H5 页面只能由 BeeWork 提供的地址访问")
+    elif origin not in (snapshot.get("allowed_origins") or []):
         raise ApiError(403, "origin_not_allowed", "该网站不在渠道的允许域名中")
     request.state.cors_origin = origin  # the response may now be read by that page
     return channel
@@ -129,6 +143,18 @@ def widget_script() -> FileResponse:
     )
 
 
+EXPERIENCE_KEYS = ("assistant_name", "welcome", "primary_color", "theme", "radius", "entry", "quick_replies", "cards", "tables", "forms", "streaming")
+
+
+def _session(channel: ChannelInstance, visitor_id: str, origin: str) -> WidgetSession:
+    """The visitor token and what the page needs to look right: the experience frozen in the published snapshot (T-042)."""
+    experience = channel.published_snapshot["experience"]
+    return WidgetSession(
+        token=issue_token(channel, visitor_id, origin), expires_in=TOKEN_TTL_SECONDS, visitor_id=visitor_id,
+        config=WidgetConfig(**{k: experience[k] for k in EXPERIENCE_KEYS if k in experience}),
+    )
+
+
 @router.post("/widget/session", response_model=WidgetSession, summary="为访客创建会话令牌")
 def create_session(payload: WidgetSessionRequest, request: Request, db: Session = Depends(get_db)) -> WidgetSession:
     ip = request.client.host if request.client else None
@@ -137,11 +163,7 @@ def create_session(payload: WidgetSessionRequest, request: Request, db: Session 
     channel = db.scalar(select(ChannelInstance).where(ChannelInstance.site_key == payload.site_key, ChannelInstance.type == "website"))
     channel = _live_channel(db, channel, origin, request)
     visitor_id = payload.visitor_id or "v_" + secrets.token_urlsafe(18)
-    experience = channel.published_snapshot["experience"]
-    return WidgetSession(
-        token=issue_token(channel, visitor_id, origin), expires_in=TOKEN_TTL_SECONDS, visitor_id=visitor_id,
-        config=WidgetConfig(**{k: experience[k] for k in ("assistant_name", "welcome", "primary_color")}),
-    )
+    return _session(channel, visitor_id, origin)
 
 
 @router.post("/widget/chat", response_model=ChatResponse, summary="访客与智能体对话")
@@ -158,7 +180,7 @@ def widget_chat(
     snapshot = channel.published_snapshot
     target = resolve_target(db, tenant, UUID(snapshot["assistant_id"]), snapshot["environment"], payload.message)
     run, conversation = start_chat(
-        db, target, source="website", channel_type="website", channel_instance_id=channel.id, external_id=visitor_id,
+        db, target, source=channel.type, channel_type=channel.type, channel_instance_id=channel.id, external_id=visitor_id,
         end_user_name=None, message=payload.message, conversation_id=payload.conversation_id,
     )
     timeout = target.dsl.limits.timeout_seconds
@@ -192,7 +214,7 @@ def widget_messages(
             Conversation.tenant_id == tenant.id,
             Conversation.channel_instance_id == channel.id,
             EndUser.external_id == visitor_id,
-            EndUser.channel_type == "website",
+            EndUser.channel_type == channel.type,
         )
     )
     if conversation is None:  # someone else's conversation looks exactly like a missing one

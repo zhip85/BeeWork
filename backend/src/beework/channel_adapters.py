@@ -34,7 +34,7 @@ class ChannelAdapter(Protocol):
     def render(self, text: str, capabilities: set[str]) -> str:
         """The reply as this channel can show it."""
 
-    def integration_snippet(self, channel: ChannelInstance, base_url: str) -> dict[str, str]:
+    def integration_snippet(self, channel: ChannelInstance, base_url: str, tenant_slug: str = "") -> dict[str, str]:
         """What to paste or open to connect: ``{"kind": ..., "code": ...}`` plus optional extras."""
 
 
@@ -83,7 +83,7 @@ class GenericAdapter:
     def render(self, text: str, capabilities: set[str]) -> str:
         return text if "表格" in capabilities else tables_to_lists(text)
 
-    def integration_snippet(self, channel: ChannelInstance, base_url: str) -> dict[str, str]:
+    def integration_snippet(self, channel: ChannelInstance, base_url: str, tenant_slug: str = "") -> dict[str, str]:
         return {"kind": "webhook", "code": f"{base_url}/v1/channels/{channel.type}/{channel.site_key}/webhook"}
 
 
@@ -107,7 +107,7 @@ class WebsiteAdapter(GenericAdapter):
             return HealthResult(False, "已发布的快照没有允许域名")
         return HealthResult(True)
 
-    def integration_snippet(self, channel: ChannelInstance, base_url: str) -> dict[str, str]:
+    def integration_snippet(self, channel: ChannelInstance, base_url: str, tenant_slug: str = "") -> dict[str, str]:
         return {"kind": "script", "code": f'<script src="{base_url}/v1/widget.js" data-site-key="{channel.site_key}" async></script>'}
 
 
@@ -121,7 +121,7 @@ class OpenApiAdapter(GenericAdapter):
     def render(self, text: str, capabilities: set[str]) -> str:
         return text  # JSON clients get the Markdown as written
 
-    def integration_snippet(self, channel: ChannelInstance, base_url: str) -> dict[str, str]:
+    def integration_snippet(self, channel: ChannelInstance, base_url: str, tenant_slug: str = "") -> dict[str, str]:
         path = (channel.config or {}).get("base_path") or "/v1"
         code = (
             f"curl -X POST {base_url}{path}/chat \\\n"
@@ -138,16 +138,17 @@ class H5Adapter(GenericAdapter):
     def validate_connection(self, config: dict[str, Any], secrets: dict[str, str]) -> list[str]:
         problems = super().validate_connection(config, secrets)
         path = str(config.get("h5_path") or "")
-        if path and not re.fullmatch(r"/[A-Za-z0-9._~/-]{0,120}", path):
-            problems.append("H5 路径应以 / 开头，只含字母、数字和 . _ ~ / -")
+        if path and not re.fullmatch(r"/[A-Za-z0-9._~/-]{1,120}", path):
+            problems.append("H5 路径应以 / 开头，只含字母、数字和 . _ ~ / -，且不能只有 /")
         try:
             normalize_origins(list(config.get("allowed_origins") or []))
         except ValueError as exc:
             problems.append(str(exc))
         return problems
 
-    def integration_snippet(self, channel: ChannelInstance, base_url: str) -> dict[str, str]:
-        return {"kind": "link", "code": f"{base_url.rstrip('/')}{(channel.config or {}).get('h5_path') or '/'}?channel={channel.site_key}"}
+    def integration_snippet(self, channel: ChannelInstance, base_url: str, tenant_slug: str = "") -> dict[str, str]:
+        path = (channel.config or {}).get("h5_path") or "/"
+        return {"kind": "link", "code": f"{base_url.rstrip('/')}/h5/{tenant_slug}{path}", "embed": f'<iframe src="{base_url.rstrip("/")}/h5/{tenant_slug}{path}" style="border:0;width:100%;height:100%" allow="clipboard-write"></iframe>'}
 
 
 _ADAPTERS: dict[str, ChannelAdapter] = {

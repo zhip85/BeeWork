@@ -10,6 +10,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from beework.api import router as api_router
 from beework.api.conventions import ApiError, api_error_handler, validation_error_handler
+from beework.api.h5 import api_router as h5_api_router
+from beework.api.h5 import page_router as h5_page_router
 from beework.api.open_api import router as open_api_router
 from beework.api.widget import router as widget_router
 from beework.auth import get_current_user
@@ -24,6 +26,8 @@ app = FastAPI(
 )
 app.include_router(api_router)
 app.include_router(open_api_router)  # /v1: the open API, authenticated by tenant API keys
+app.include_router(h5_api_router)
+app.include_router(h5_page_router)  # /h5/{tenant}/{path}: the visitor-facing page of an H5 channel
 app.include_router(widget_router)  # /v1/widget: the website widget, authenticated by site key + Origin
 app.exception_handler(ApiError)(api_error_handler)
 app.exception_handler(StarletteHTTPException)(api_error_handler)

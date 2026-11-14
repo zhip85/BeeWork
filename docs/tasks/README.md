@@ -118,7 +118,7 @@
 | [T-041](./T-041-channel-framework.md) | 渠道框架完整版：渠道类型、向导、发布、接入代码 | T-040、T-028、T-010 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-041-channel-framework`；组件选择、注入提示词、试跑等待 T-043 / T-059；H5 / WhatsApp / 微信只有通用适配器 |
 | [T-042](./T-042-experience-inheritance.md) | 渠道体验四级继承与体验编辑器 | T-041 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-042-experience-inheritance`；体验项已写进发布快照，但网站挂件目前只使用主色 / 名称 / 欢迎语，其余项（主题、圆角、入口、开关）待各渠道运行时接入 |
 | [T-043](./T-043-widget-components.md) | Widget 模板、租户组件库与组件编辑器 | T-041 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-043-widget-components`；渲染器未打进网站 / H5 SDK，运行时解析与降级属 T-059 |
-| [T-044](./T-044-h5-channel.md) | H5 渠道 | T-041、T-042、T-043 | — | 待开发 | | |
+| [T-044](./T-044-h5-channel.md) | H5 渠道 | T-041、T-042、T-043 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-044-h5-channel`；二维码、Playwright 移动视口未做（需要新增依赖，等确认）；真实手机浏览器未验证 |
 | [T-045](./T-045-whatsapp-channel.md) | WhatsApp 渠道 | T-041、T-043 | Meta WhatsApp Cloud API 测试账号 | 暂缓 | | 2026-11-12 运行时架构 v2 的渠道里没有 WhatsApp，暂不做 |
 | [T-046](./T-046-wechat-channel.md) | 微信公众号渠道 | T-041、T-043 | 公众号或测试号 | 待开发 | | |
 | [T-059](./T-059-oc-components.md) | OC · 组件编排 | T-054、T-041、T-043 | — | 待验收 | Claude Sonnet 5.5 | 分支 `task/T-059-oc-components`；带组件的渠道回复不再流式（整段解析后一次发出）；未用真实模型验证“模型是否按提示词输出标签”；页面与 widget.js 未在真实浏览器验证 |
