@@ -476,7 +476,7 @@
 ### T-029 助理提示词 AI 生成建议（已完成，有条件）
 
 - **无新迁移**。`POST /api/v1/assistants/prompt-suggestions` 用当前环境默认对话模型经 LiteLLM 生成系统指令（中英模板按界面语言选），`source=debug` 计 1 点、30 秒超时、输出去 Markdown 围栏并截断 8000 字、成功写审计；结果只填「基础」页表单，保存草稿时写 `draft_config.prompt_ai_optimized`，概览基础配置卡片显示「AI 已优化」（AST-052）。规格写的「向导第 2 步」在 T-021 重构时已删除，按钮改放智能体「基础」页提示词字段旁，见任务文件「完成记录」。
-- 验证：ruff 全量；PostgreSQL 一次性库 `alembic upgrade → check → downgrade base → upgrade`（`MIGRATE_EXIT=0`）；`test_prompt_suggestions` 11 项（假模型：截断、模板按语言、422 / 403 / 跨租户 404 / 504 / 502 / 配额 403 / 审计 / 草稿标记往返）；前端 tsc / lint / i18n / style / build；全量后端套件 1248 项（本任务 11 项全 ok，3 项流式用例补 Valkey 后重跑通过，1 项 0051 迁移用例在纯 main 基线上同样失败，见任务文件「完成记录」）。**未连过真实第三方模型；`check_gateway_e2e.py` 未实跑**（共享 Compose 开发库被并行分支迁移推进导致 api 服务启动失败，隔离栈 API 未监听；与 T-014 记录的问题同类，详见任务文件「遗留问题」）。
+- 验证：ruff 全量；PostgreSQL 一次性库 `alembic upgrade → check → downgrade base → upgrade`（`MIGRATE_EXIT=0`）；`test_prompt_suggestions` 11 项（假模型：截断、模板按语言、422 / 403 / 跨租户 404 / 504 / 502 / 配额 409 / 审计 / 草稿标记往返）；前端 tsc / lint / i18n / style / build；全量后端套件 1248 项（本任务 11 项全 ok，3 项流式用例补 Valkey 后重跑通过，1 项 0051 迁移用例在纯 main 基线上同样失败，见任务文件「完成记录」）。**未连过真实第三方模型；`check_gateway_e2e.py` 未实跑**（共享 Compose 开发库被并行分支迁移推进导致 api 服务启动失败，隔离栈 API 未监听；与 T-014 记录的问题同类，详见任务文件「遗留问题」）。
 
 ## 4. 下一步
 

@@ -216,11 +216,11 @@ class PromptSuggestionTests(unittest.TestCase):
         self.assertEqual((response.status_code, response.json()["code"]), (409, "runtime.gateway_not_ready"))
 
     def test_monthly_points_quota_is_enforced_before_the_call(self) -> None:
-        from beework.errors import ApiError
-
-        with mock.patch.object(api, "enforce_quota", side_effect=ApiError(403, "plan.quota_exceeded", "本月点数已用完")):
+        # Real enforce_quota path: the enterprise limit is 10_000_000, so a full meter makes the next point 409.
+        full_meter = lambda db, tenant_id: 10_000_000  # noqa: E731
+        with mock.patch.dict("beework.entitlements._usage_counters", {"monthly_points": full_meter}):
             response = self.suggest()
-        self.assertEqual((response.status_code, response.json()["code"]), (403, "plan.quota_exceeded"))
+        self.assertEqual((response.status_code, response.json()["code"]), (409, "plan.quota_exceeded"))
 
     # -- failures -----------------------------------------------------------------
 

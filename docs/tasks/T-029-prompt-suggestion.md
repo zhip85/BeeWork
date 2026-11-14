@@ -28,7 +28,7 @@
 
 **接口**：`POST /api/v1/assistants/prompt-suggestions` — 权限 `assistants:edit` + CSRF，模型取当前环境（`X-Environment`）默认对话模型；请求 `name` / `scenario` / `current_prompt?` / `locale?` / `assistant_id?`，响应 `prompt` / `truncated` / `locale` / `environment` / `model_id`。计点 `source=debug`（1 点 `monthly_points`）、30 秒超时、结果去 Markdown 围栏并截断到 8000 字、成功写审计 `assistant.prompt_suggestion`。生成结果只填表单，不写草稿；用户保存时前端把 `prompt_ai_optimized` 写进草稿。`assistant_id` 可选，传入时做资源级编辑权限与租户隔离校验（跨租户 404）。
 
-**测试覆盖**：成功（中文模板 / `source=debug` 计点 metadata / 审计 / 结果不落库）、英文模板按界面语言、8000 字截断与围栏剥离、现有提示词作为参考素材、422（名称或场景为空 / 空白 / 超长 / locale 非法）、403（viewer）、跨租户 404、无默认模型 422、网关密钥不可用 409、点数配额 403、超时 504、模型异常与空输出 502 且不写审计、草稿标记保存往返。
+**测试覆盖**：成功（中文模板 / `source=debug` 计点 metadata / 审计 / 结果不落库）、英文模板按界面语言、8000 字截断与围栏剥离、现有提示词作为参考素材、422（名称或场景为空 / 空白 / 超长 / locale 非法）、403（viewer）、跨租户 404、无默认模型 422、网关密钥不可用 409、点数配额 409（走真实 `enforce_quota` 路径）、超时 504、模型异常与空输出 502 且不写审计、草稿标记保存往返。
 
 **验证命令与结果**
 
@@ -47,3 +47,4 @@
 3. 审计描述 `assistant.prompt_suggestion` 在 `api/prompt_suggestions.py` 内用 `AUDIT_ACTION_DESCRIPTIONS.setdefault` 注册，未改共享的 `models/__init__.py`（该文件当时被并行任务修改中）。
 4. AST-052 的「查看完整提示词」只读弹窗仍缺：T-021 重构后未落地，本任务规格第 3 点只要求「AI 已优化」标签，故概览卡片只显示标签与提示词前三行摘要。
 5. 共享工作区在本次开发期间被并行任务切换过分支；本任务分支 `task/T-029-prompt-suggestion` 的提交只包含上列本任务文件，未包含其它任务的改动。
+6. 2026-11-14 review 修正：配额测试从 mock `enforce_quota` 改为真实路径（patch `monthly_points` 用量计数器，断言 409 而非此前误写的 403）；「AI 已优化」徽标颜色改用主题变量（`var(--brand-soft)` / `var(--ok)`）。其余 review 建议留档：超时后线程靠模型侧 30 秒超时自愈、`SUGGESTION_MODEL_FACTORY` 注入点待改 `Depends`、「AI 已优化」标签是否随手动编辑失效待产品确认、i18n `wizard.*` 键名过时。
