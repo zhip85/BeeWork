@@ -260,7 +260,8 @@ def _intent_runtime(
         entry = scope.entries.get(entry_id or "")
         return candidate_of(entry) if entry is not None else None
 
-    return IntentRuntime(callable_by_id=scope.callable_by_id(), candidates=candidates, classify=classify, extract=extract, invoke=invoke, faq=faq, pending=pending)
+    return IntentRuntime(callable_by_id=scope.callable_by_id(), candidates=candidates, classify=classify, extract=extract, invoke=invoke, faq=faq, pending=pending,
+                         faq_bases=[candidate_of(e) for e in scope.entries.values() if e.kind == "kb" and e.direct_enabled])
 
 
 def _rewrite_model(bind: Any, run: Run, dsl: AssistantDSLv1) -> BaseChatModel:

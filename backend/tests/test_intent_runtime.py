@@ -28,6 +28,8 @@ class Fake:
         self.found = list(candidates)
         self.invoked: list[tuple[str, dict]] = []
         self.classified: list[str] = []
+        self.faq_asked: list[str] = []
+        self.pending = None
 
     def runtime(self) -> IntentRuntime:
         def classify(query, history, found):
@@ -40,8 +42,13 @@ class Fake:
 
         return IntentRuntime(
             callable_by_id={c.id: c for c in self.found if c.direct and not c.writes}, candidates=lambda q: self.found, classify=classify,
-            extract=lambda target, q, h: self.slots, invoke=invoke, faq=lambda target, q: self.faq_answer, pending=lambda: None,
+            extract=lambda target, q, h: self.slots, invoke=invoke, faq=self._faq, pending=lambda: self.pending,
+            faq_bases=[c for c in self.found if c.kind == "kb"],
         )
+
+    def _faq(self, target, query):
+        self.faq_asked.append(query)
+        return self.faq_answer
 
 
 class IntentRuntimeTests(test_rewrite.RewriteRuntimeTests):
@@ -103,13 +110,43 @@ class IntentRuntimeTests(test_rewrite.RewriteRuntimeTests):
         _, _, _, output = self.route(fake, "订单 A1 到哪了", priority_rules_enabled=True, rules=[rule])
         self.assertEqual((output["route"]["source"], output["route"]["rule_id"], fake.classified, fake.invoked[0][0]), ("rule", "r1", [], "get_order"))
 
-    def test_a_confident_faq_answers_directly_and_otherwise_the_agent_does(self) -> None:
-        chunk = {"document_name": "退货", "chunk_id": "c1", "text": "Q", "score": 0.9, "kind": "faq", "kb_name": "售后知识库", "document_id": "d1"}
-        run_id, llm, retriever, output = self.route(Fake([(FAQ_KB, 0.95)], faq=FaqAnswer("七天无理由退货。", chunk)), "能退货吗")
+    CHUNK = {"document_name": "退货", "chunk_id": "c1", "text": "Q", "score": 0.9, "kind": "faq", "kb_name": "售后知识库", "document_id": "d1"}
+
+    def test_a_confident_faq_answers_before_any_judgement_and_otherwise_the_agent_does(self) -> None:
+        fake = Fake([], faq=FaqAnswer("七天无理由退货。", self.CHUNK))
+        run_id, llm, retriever, output = self.route(fake, "能退货吗")
         self.assertEqual((output["route"]["path"], output["route"]["source"], llm.seen_messages, retriever.calls), ("A", "faq", [], []))
+        self.assertEqual((fake.classified, fake.faq_asked), ([], ["能退货吗"]))  # the classifier was never asked
         self.assertEqual(self.final_text(run_id), "七天无理由退货。")
-        _, llm, _, output = self.route(Fake([(FAQ_KB, 0.95)], faq=None), "能退货吗")
-        self.assertEqual((output["route"]["path"], len(llm.seen_messages)), ("B", 1))
+        miss = Fake([(ORDER, 0.1)], faq=None)
+        _, llm, _, output = self.route(miss, "能退货吗")
+        self.assertEqual((output["route"]["path"], len(llm.seen_messages), len(miss.classified)), ("B", 1, 1))  # a miss goes on to the judgement
+
+    def test_the_classifier_never_sees_a_knowledge_base_as_a_candidate(self) -> None:
+        seen = []
+        fake = Fake([(ORDER, 0.1)])
+        real = fake.runtime()
+        real.classify = lambda q, h, found: (seen.extend(c.kind for c in found), ClassifyResult(scored=[]))[1]
+        with patch("beework.runtime.executor._intent_runtime", return_value=real):
+            self.configure(intent={"enabled": True})
+            self.ask("能退货吗", llm=ScriptedChat(chunks=["x"], seen_messages=[]))
+        self.assertNotIn("kb", seen)
+        self.assertIn("api_tool", seen)
+
+    def test_a_priority_rule_and_a_waiting_flow_come_before_the_faq(self) -> None:
+        rule = {"id": "r1", "name": "查订单", "priority": 1, "match_type": "keyword", "pattern": "订单", "target_entry_id": ORDER.id, "enabled": True, "created_at": "2026-01-01"}
+        fake = Fake([], faq=FaqAnswer("FAQ 答案", self.CHUNK))
+        _, _, _, output = self.route(fake, "订单 A1 到哪了", priority_rules_enabled=True, rules=[rule])
+        self.assertEqual((output["route"]["source"], fake.faq_asked), ("rule", []))
+        waiting = Fake([], faq=FaqAnswer("FAQ 答案", self.CHUNK), candidates=(FLOW, FAQ_KB), slots=Slots("ok", args={"query": "好的"}), result=ToolResult("ok", "已记录"))
+        waiting.pending = FLOW
+        _, _, _, output = self.route(waiting, "好的")
+        self.assertEqual((output["route"]["source"], waiting.faq_asked), ("pending", []))
+
+    def test_with_faq_direct_off_the_faq_is_not_asked(self) -> None:
+        fake = Fake([(ORDER, 0.1)], faq=FaqAnswer("FAQ 答案", self.CHUNK))
+        _, _, _, output = self.route(fake, "能退货吗", faq_direct=False)
+        self.assertEqual((fake.faq_asked, output["route"]["path"]), ([], "B"))
 
     def test_a_chatflow_answer_is_the_reply_and_leaves_the_conversation_waiting_for_it(self) -> None:
         fake = Fake([(FLOW, 0.95)], slots=Slots("ok", args={"query": "我要退货"}), result=ToolResult("ok", "请提供订单号"), candidates=(FLOW,))

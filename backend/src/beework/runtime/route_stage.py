@@ -8,19 +8,30 @@ without tools. Everything that does not work out — no candidates, a classifier
 missing or invalid, a capability that fails — is **path B**: the normal tool-using agent, with the candidates and the reason as hints.
 Nothing in the stage raises into the run because of the classifier.
 
+An FAQ is not something the classifier chooses: before any judgement the agent's knowledge bases are asked for a confident FAQ match (a
+cheap similarity search, no model call), and a clear hit is the reply. A Chatflow waiting for the user's next message and an administrator's
+priority rule come first; a miss goes on to the judgement, and the usual retrieval still sees the FAQ as context.
+
 With intent judgement off (or nothing in scope) the agent answers as before. The stage also decides the rewrite when that is set to
 “only at low confidence” (T-057 left it to this stage): the message is classified as written; only when the confidence is below the
 rewrite threshold is it rewritten and classified again.
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from beework.runtime.compiler import Node, RuntimeDeps, RuntimeState, register_stage
 from beework.runtime.dsl import AssistantDSLv1
 from beework.runtime.glossary_stage import expansion_update
-from beework.runtime.intent import Candidate, ClassifyResult, IntentDecision, Slots, decide
+from beework.runtime.intent import (
+    Candidate,
+    ClassifyResult,
+    IntentDecision,
+    Slots,
+    decide,
+    matching_rule,
+)
 
 MAX_RECORDED = 8
 
@@ -42,6 +53,7 @@ class IntentRuntime:
     invoke: Callable[..., Any]  # (candidate, args, stream=None) -> tools.executor.ToolResult; ``stream`` receives tokens as they arrive
     faq: Callable[[Candidate, str], FaqAnswer | None]
     pending: Callable[[], Candidate | None]
+    faq_bases: list[Candidate] = field(default_factory=list)  # the knowledge bases in scope that may answer from an FAQ (asked before any judgement)
 
 
 def _brief(candidate: Candidate) -> dict[str, str]:
@@ -121,14 +133,6 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
         """Carry out path A. Anything that does not work out turns the decision into path B (in place) and returns the L3 hints."""
         target = decision.target
         assert target is not None
-        if target.kind == "kb":  # FAQ direct answer: only a confident FAQ hit answers; otherwise L3 (the usual retrieval) does
-            with deps.clock.external():
-                faq = runtime.faq(target, query)
-            if faq is None:
-                decision.to_b("not_direct")
-                return {"l3_hints": _hints(decision, candidates)}
-            decision.source = "faq"
-            return {"text": faq.text, "answered": True, "context": [faq.chunk], "retrieval_mode": "faq", "usage": {"input": None, "output": None}}
         with deps.clock.external():
             slots = runtime.extract(target, query, history)
         if slots.status != "ok":
@@ -174,6 +178,16 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
             return None
         return {"sub_results": results, "route_info": {"version": 2, "path": "B", "source": "none", "handoff": "decomposed", "parts": parts}}
 
+    def faq_first(runtime: IntentRuntime, query: str) -> tuple[Candidate, FaqAnswer] | None:
+        """The best confident FAQ answer among the knowledge bases in scope, if any."""
+        best: tuple[Candidate, FaqAnswer] | None = None
+        for base in runtime.faq_bases:
+            with deps.clock.external():
+                answer = runtime.faq(base, query)
+            if answer is not None and (best is None or answer.chunk.get("score", 0) > best[1].chunk.get("score", 0)):
+                best = (base, answer)
+        return best
+
     def node(state: RuntimeState) -> RuntimeState:
         if state.get("blocked"):
             return {}
@@ -187,13 +201,26 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
                 update.update(rewrite_now(original, query, history))
             return update
 
+        pending = runtime.pending()
+        if config.faq_direct and runtime.faq_bases and pending is None and not (
+            config.priority_rules_enabled and matching_rule(config.rules, original, runtime.callable_by_id) is not None
+        ):
+            hit = faq_first(runtime, query)
+            if hit is not None:
+                base, answer = hit
+                decision = IntentDecision(path="A", source="faq", target=base)
+                return {
+                    "target": "assistant", "text": answer.text, "answered": True, "context": [answer.chunk], "retrieval_mode": "faq",
+                    "usage": {"input": None, "output": None}, "route_info": route_record(decision, []),
+                }
+
         subs = state.get("sub_questions") or []
         if len(subs) >= 2:
             decomposed = route_sub_questions(runtime, subs, history)
             if decomposed is not None:
                 return {"target": "assistant", **decomposed}
 
-        candidates = runtime.candidates(query)
+        candidates = [c for c in runtime.candidates(query) if c.kind != "kb"]  # a knowledge base is not an intent: FAQ was asked above
         rewritten: dict[str, RuntimeState] = {}
 
         def classify(text: str) -> ClassifyResult:
@@ -210,7 +237,7 @@ def route_stage(dsl: AssistantDSLv1, deps: RuntimeDeps) -> Node:
             return first
 
         decision = decide(
-            text=original, candidates=candidates, config=config, classify=classify, pending=runtime.pending(),
+            text=original, candidates=candidates, config=config, classify=classify, pending=pending,
             callable_by_id=runtime.callable_by_id,
         )
         update = {"target": "assistant"}
