@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from beework.entitlements import entitlement_value
 from beework.errors import ApiError
+from beework.events import emit_event
 from beework.models import AuditEvent, Membership, TenantRole, User, utc_now
 from beework.models.approvals import ApprovalComment, ApprovalPolicy, ApprovalRequest
 from beework.worker.queue import enqueue, job_handler
@@ -254,6 +255,7 @@ def submit_change(
         raise ApiError(409, "approval.pending_exists", "已有待审批的申请，是否撤回并重新提交？") from None
     _audit(db, request, "approval.submitted", requester_id)
     _notify(db, "approval.submitted", request, current_approvers(request))
+    _announce(db, request, "submitted")
     return SubmitResult(request, False)
 
 
@@ -332,10 +334,12 @@ def decide(db: Session, request: ApprovalRequest, actor_id: UUID, *, approve: bo
         request.decided_at = now
         _audit(db, request, "approval.rejected", actor_id, level=str(request.current_level))
         _notify(db, "approval.rejected", request, [request.requester_id])
+        _announce(db, request, "rejected")
     elif request.current_level < len(levels):
         _audit(db, request, "approval.level_approved", actor_id, level=str(request.current_level))
         request.current_level += 1
         _notify(db, "approval.submitted", request, current_approvers(request))
+        _announce(db, request, "level_approved")
     else:
         request.status = "approved"
         request.decided_at = now
@@ -343,6 +347,7 @@ def decide(db: Session, request: ApprovalRequest, actor_id: UUID, *, approve: bo
         _audit(db, request, "approval.approved", actor_id)
         _enqueue_apply(db, request)
         _notify(db, "approval.approved", request, [request.requester_id])
+        _announce(db, request, "approved")
     return request
 
 
@@ -353,10 +358,19 @@ def _enqueue_apply(db: Session, request: ApprovalRequest) -> None:
     )
 
 
+def _announce(db: Session, request: ApprovalRequest, state: str) -> None:
+    """APR-025: every change of an approval's state is an ``approval.updated`` event (ids and the state; no titles or comments)."""
+    emit_event(db, request.tenant_id, "approval.updated", {
+        "approval_id": str(request.id), "state": state, "type": request.type, "object_type": request.object_type,
+        "object_id": str(request.object_id), "level": request.current_level,
+    })
+
+
 def _withdraw(db: Session, request: ApprovalRequest, actor_id: UUID | None) -> None:
     request.status = "withdrawn"
     request.decided_at = utc_now()
     _audit(db, request, "approval.withdrawn", actor_id)
+    _announce(db, request, "withdrawn")
 
 
 def withdraw(db: Session, request: ApprovalRequest, actor_id: UUID) -> ApprovalRequest:

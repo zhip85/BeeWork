@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from beework.events import emit_event
 from beework.models import AuditEvent, utc_now
 from beework.models.assistants import Assistant, AssistantVersion
 from beework.schemas.assistants import AssistantDraftConfig
@@ -178,4 +179,7 @@ def execute_publish(
             },
         )
     )
+    emit_event(db, assistant.tenant_id, "assistant.published", {
+        "assistant_id": str(assistant.id), "version": version.version, "version_id": str(version.id), "kind": kind,
+    })
     return version

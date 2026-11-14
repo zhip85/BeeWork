@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from beework.compliance import get_policy
 from beework.entitlements import enforce_quota
+from beework.events import emit_event
 from beework.models import AuditEvent, Tenant, User
 from beework.models.assistants import Assistant
 from beework.models.conversations import Conversation, EndUser, Message
@@ -167,6 +168,10 @@ def end_conversation(db: Session, conversation: Conversation, now: datetime) -> 
     )
     conversation.status = "resolved" if last_role in {"assistant", "human_agent"} else "abandoned"
     conversation.ended_at = now
+    emit_event(db, conversation.tenant_id, "conversation.completed", {
+        "conversation_id": str(conversation.id), "assistant_id": str(conversation.assistant_id), "status": conversation.status,
+        "source": conversation.source, "turns": conversation.turns, "ended_at": now.isoformat(),
+    })
     for hook in CONVERSATION_ENDED_HOOKS:
         try:
             hook(db, conversation)

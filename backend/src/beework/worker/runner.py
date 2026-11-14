@@ -21,6 +21,7 @@ from beework import (
 from beework import (
     documents as _documents,  # noqa: F401  (registers knowledge.*_document jobs and hooks)
 )
+from beework import events as _events  # noqa: F401  (registers events.dispatch)
 from beework import (
     faqs as _faqs,  # noqa: F401  (registers knowledge.*_faq jobs and hooks)
 )
@@ -43,6 +44,9 @@ from beework import (
     test_cases as _test_cases,  # noqa: F401  (registers the testcases.run job)
 )
 from beework import usage as _usage  # noqa: F401  (registers usage.sync and usage.month_rollover)
+from beework import (
+    webhooks as _webhooks,  # noqa: F401  (registers webhooks.deliver and the Webhook subscriber)
+)
 from beework.db import SessionLocal
 from beework.governance import (
     tenant as _tenant_pii,  # noqa: F401  (registers the tenant.pii_rules approval action)

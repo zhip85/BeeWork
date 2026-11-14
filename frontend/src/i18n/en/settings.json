@@ -6,7 +6,8 @@
     "usage": "Subscription & usage",
     "api": "API keys",
     "rules": "Rule library",
-    "glossary": "Glossary"
+    "glossary": "Glossary",
+    "webhooks": "Webhooks"
   },
   "privacy": {
     "title": "Data & privacy",
@@ -85,6 +86,48 @@
       "saved": "Budget saved",
       "saveFailed": "Could not save the budget",
       "readOnly": "You do not have permission to change the budget."
+    }
+  },
+  "webhooks": {
+    "title": "Webhooks",
+    "subtitle": "Push platform events to your own systems. Requests are signed.",
+    "add": "Add endpoint",
+    "adding": "Adding…",
+    "url": "Endpoint URL",
+    "events": "Events",
+    "enabled": "Enabled",
+    "lastPush": "Last push",
+    "never": "Not pushed yet",
+    "autoOff": "Switched off after 24 hours of failures",
+    "empty": "No endpoints",
+    "records": "Deliveries",
+    "noRecords": "No deliveries yet.",
+    "event": "Event",
+    "result": "Result",
+    "attempts": "Attempts",
+    "time": "Time",
+    "resend": "Resend",
+    "close": "Close",
+    "test": "Test",
+    "rotate": "Rotate secret",
+    "delete": "Delete",
+    "deleteBody": "Delete endpoint {{url}}? Nothing is pushed to it any more and its delivery records are removed.",
+    "added": "Endpoint added",
+    "testSent": "Test event sent",
+    "resent": "Sent again",
+    "deleted": "Endpoint deleted",
+    "copied": "Signing secret copied",
+    "copyNow": "Copy the signing secret now (it cannot be shown again):",
+    "copyClose": "Copy and close",
+    "failed": "Action failed",
+    "verifyHint": "Each request carries X-BeeWork-Event, X-BeeWork-Delivery (unchanged on retries, use it to de-duplicate), X-BeeWork-Timestamp and X-BeeWork-Signature (HMAC-SHA256 of “timestamp.body”). See docs/webhooks.md for how to verify.",
+    "status": {
+      "pending": "Pending",
+      "retrying": "Retrying",
+      "delivered": "Delivered",
+      "failed": "Failed",
+      "dead": "Gave up",
+      "cancelled": "Cancelled"
     }
   }
 }

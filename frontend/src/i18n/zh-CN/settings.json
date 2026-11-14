@@ -6,7 +6,8 @@
     "usage": "订阅与用量",
     "api": "API 密钥",
     "rules": "规则库",
-    "glossary": "术语表"
+    "glossary": "术语表",
+    "webhooks": "Webhook"
   },
   "privacy": {
     "title": "数据与隐私",
@@ -85,6 +86,48 @@
       "saved": "预算已保存",
       "saveFailed": "保存预算失败",
       "readOnly": "你没有修改预算的权限。"
+    }
+  },
+  "webhooks": {
+    "title": "Webhook",
+    "subtitle": "将平台事件推送到自有系统，请求带签名校验。",
+    "add": "添加端点",
+    "adding": "添加中…",
+    "url": "端点地址",
+    "events": "订阅事件",
+    "enabled": "启用",
+    "lastPush": "最近推送",
+    "never": "尚未推送",
+    "autoOff": "连续 24 小时推送失败，已自动停用",
+    "empty": "暂无端点",
+    "records": "投递记录",
+    "noRecords": "还没有投递记录。",
+    "event": "事件",
+    "result": "结果",
+    "attempts": "次数",
+    "time": "时间",
+    "resend": "重发",
+    "close": "关闭",
+    "test": "测试",
+    "rotate": "轮换密钥",
+    "delete": "删除",
+    "deleteBody": "删除端点 {{url}}？删除后不再推送，已有的投递记录一并删除。",
+    "added": "端点已添加",
+    "testSent": "测试事件已发送",
+    "resent": "已重新发送",
+    "deleted": "端点已删除",
+    "copied": "签名密钥已复制",
+    "copyNow": "请立即复制签名密钥（之后无法再次查看）：",
+    "copyClose": "复制并关闭",
+    "failed": "操作失败",
+    "verifyHint": "每次请求带 X-BeeWork-Event、X-BeeWork-Delivery（重试时不变，可用来去重）、X-BeeWork-Timestamp 与 X-BeeWork-Signature（HMAC-SHA256，对“时间戳.请求体”签名）。验证方法见文档 docs/webhooks.md。",
+    "status": {
+      "pending": "待发送",
+      "retrying": "重试中",
+      "delivered": "成功",
+      "failed": "失败",
+      "dead": "已放弃",
+      "cancelled": "已取消"
     }
   }
 }

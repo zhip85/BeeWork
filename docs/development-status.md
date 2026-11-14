@@ -522,6 +522,11 @@
 - **无迁移**。`/h5/{租户}/{路径}` 页面（与网站挂件共用 `widget.js` 的 H5 模式：全屏 / 底部抽屉，整页即对话）、`POST /v1/h5/session`（只接受本站 Origin）、`frame-ancestors` 只放行渠道的允许域名、路径租户内唯一（409）、接入代码为链接 + iframe；挂件开始消费 T-042 的体验项（圆角、主题、左下角、流式、表格、卡片 / 表单开关）。
 - 验证：ruff；`test_h5` 10 项；`scripts/check_h5_page.mjs`（jsdom）；前端 tsc / lint / i18n / style / build。二维码（`qrcode-generator`）与 Playwright 移动视口检查已补（真实 Chromium 的 iPhone 13 / Pixel 5 配置通过）；**未在真机 / Safari / Firefox 验证；子域名地址未做。** 顺带修复了 `delete_model` 对 LiteLLM 400 “not found in db” 的处理（此前新模型同步会失败）。
 
+### T-087 事件总线与 Webhook（已完成，待验收）
+
+- **迁移 `0060_webhooks`**。`emit_event` outbox 与 Worker 分发（订阅者接口留给 T-088）；已接入 `conversation.completed`、`approval.updated`、`assistant.published`、`usage.threshold`；Webhook 端点（公网 https、签名密钥加密且只显示一次）、HMAC-SHA256 签名投递、1 / 5 / 30 分钟再每小时的重试（24 小时）、投递 ID 不变、连续 24 小时失败自动停用并通知、最近 100 次记录、测试 / 重发 / 轮换；设置 → Webhook 页；`docs/webhooks.md` 的验签示例。
+- 验证：ruff；`test_webhooks` 26 项（含直接运行文档里的验签代码）；前端 tsc / lint / i18n / style / build；PostgreSQL 迁移升降级；真实 Worker 分发。**没有向真实公网端点投递过；`handoff.requested` 等 T-081；页面未目视验收。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

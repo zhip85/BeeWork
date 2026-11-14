@@ -22,6 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from beework.errors import ApiError
+from beework.events import emit_event
 from beework.integrations.litellm import GatewayError, LiteLLMClient, gateway_configured
 from beework.models import AuditEvent, PlatformModel, Tenant
 from beework.models.conversations import Conversation
@@ -376,6 +377,7 @@ def evaluate_budget(db: Session, tenant_id: UUID, *, now: datetime | None = None
         except IntegrityError:
             continue  # already notified this month
         fired.append(threshold)
+        emit_event(db, tenant_id, "usage.threshold", {"threshold": threshold, "used": ceil(used), "budget": budget.monthly_points, "month": month})
         notify(
             db, tenant_id=tenant_id, type="usage.threshold",
             title=f"本月点数用量已达预算的 {threshold}%",

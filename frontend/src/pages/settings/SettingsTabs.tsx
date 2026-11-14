@@ -12,6 +12,7 @@ export function SettingsTabs() {
       <NavLink to="/settings/approvals">{t('tabs.approvals')}</NavLink>
       <NavLink to="/settings/usage">{t('tabs.usage')}</NavLink>
       <NavLink to="/settings/api">{t('tabs.api')}</NavLink>
+      <NavLink to="/settings/webhooks">{t('tabs.webhooks')}</NavLink>
     </nav>
   )
 }

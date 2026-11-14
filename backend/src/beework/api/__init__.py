@@ -49,6 +49,7 @@ from beework.api import (
     test_cases,
     traces,
     usage,
+    webhooks,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -101,5 +102,6 @@ for module in (
     subscription,
     test_cases,
     usage,
+    webhooks,
 ):
     router.include_router(module.router)

@@ -54,6 +54,7 @@ import { KnowledgeCreatePage } from './pages/knowledge/KnowledgeCreatePage'
 import { KnowledgeDetailPage } from './pages/knowledge/KnowledgeDetailPage'
 import { KnowledgeListPage } from './pages/knowledge/KnowledgeListPage'
 import { ApiKeysPage } from './pages/settings/ApiKeysPage'
+import { WebhooksPage } from './pages/settings/WebhooksPage'
 import { ApprovalPoliciesPage } from './pages/settings/ApprovalPoliciesPage'
 import { DataPrivacyPage } from './pages/settings/DataPrivacyPage'
 import { TenantGlossaryPage } from './pages/settings/TenantGlossaryPage'
@@ -462,6 +463,7 @@ function App() {
             <Route path="/notifications" element={activeTenant ? <NotificationsPage key={activeTenant.id} tenantId={activeTenant.id} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/channels" element={hasPermission('channels:view') && activeTenant ? <ChannelsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/api" element={hasPermission('settings:view') && activeTenant ? <ApiKeysPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} environments={activeTenant.environments} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/settings/webhooks" element={hasPermission('settings:view') && activeTenant ? <WebhooksPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/approvals" element={canSeeApprovals && activeTenant ? <ApprovalsPage key={activeTenant.id} onChanged={() => setApprovalsTick((value) => value + 1)} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/usage" element={hasPermission('settings:view') && activeTenant ? <UsagePage key={activeTenant.id} tenantId={activeTenant.id} canEdit={hasPermission('settings:edit') && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/settings/approvals" element={hasPermission('settings:view') && activeTenant ? <ApprovalPoliciesPage key={activeTenant.id} tenantId={activeTenant.id} canEdit={isTenantAdmin && activeTenant.access_mode === 'full'} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
