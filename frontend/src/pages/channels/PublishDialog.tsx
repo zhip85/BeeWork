@@ -10,10 +10,11 @@ type Preview = {
   first_publish: boolean
   changes: { field: string; from: unknown; to: unknown }[]
   problems: string[]
-  components: { name: string }[]
+  components: { id: string; name_zh: string; trigger_tag: string; version: string; mode: string }[]
+  components_diff: { added: { id: string; name_zh: string }[]; removed: { id: string; name_zh: string }[]; changed: { id: string; name_zh: string; from_version: string; version: string }[] }
   components_note: string
   injection_prompt: string | null
-  trial: { name: string }[]
+  trial: { id: string; name: string; trigger_tag: string; ok: boolean; problems: string[]; sample: unknown }[]
   trial_note: string
 }
 
@@ -66,11 +67,30 @@ export function PublishDialog({ channel, tenantId, onCancel, onConfirm }: { chan
                 {preview.changes.length > 0 && (
                   <ul className="channel-diff">{preview.changes.map((change) => <li key={change.field}><strong>{change.field}</strong> <del>{show(change.from)}</del> → <ins>{show(change.to)}</ins></li>)}</ul>
                 )}
-                <p className="wizard-muted">{preview.components.length ? preview.components.map((c) => c.name).join(' · ') : preview.components_note}</p>
+                <ul className="channel-diff">
+                  {preview.components_diff.added.map((item) => <li key={`a-${item.id}`}><ins>+ {item.name_zh}</ins></li>)}
+                  {preview.components_diff.removed.map((item) => <li key={`r-${item.id}`}><del>− {item.name_zh}</del></li>)}
+                  {preview.components_diff.changed.map((item) => <li key={`c-${item.id}`}>{item.name_zh} <del>v{item.from_version}</del> → <ins>v{item.version}</ins></li>)}
+                </ul>
+                {preview.components.length === 0
+                  ? <p className="wizard-muted">{preview.components_note}</p>
+                  : <ul className="channel-diff">{preview.components.map((item) => <li key={item.id}>{item.name_zh} <code>&lt;{item.trigger_tag}&gt;</code> · {item.mode} · v{item.version}</li>)}</ul>}
               </div>
             )}
-            {tab === 'prompt' && <div role="tabpanel"><p className="wizard-muted">{preview.injection_prompt ?? t('publish.noPrompt')}</p></div>}
-            {tab === 'trial' && <div role="tabpanel"><p className="wizard-muted">{preview.trial.length ? preview.trial.map((c) => c.name).join(' · ') : preview.trial_note}</p></div>}
+            {tab === 'prompt' && <div role="tabpanel">{preview.injection_prompt ? <pre className="channel-prompt">{preview.injection_prompt}</pre> : <p className="wizard-muted">{t('publish.noPrompt')}</p>}</div>}
+            {tab === 'trial' && (
+              <div role="tabpanel">
+                {preview.trial.length === 0 && <p className="wizard-muted">{preview.trial_note}</p>}
+                {preview.trial.map((item) => (
+                  <div className="channel-trial" key={item.id}>
+                    <strong>{item.name}</strong> <code>&lt;{item.trigger_tag}&gt;</code>
+                    <p className={item.ok ? 'channel-trial-ok' : 'form-error'}>{item.ok ? t('publish.trialOk') : t('publish.trialFail')}</p>
+                    {item.problems.length > 0 && <ul>{item.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
+                    <pre className="channel-prompt">{JSON.stringify(item.sample, null, 2)}</pre>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
         <div className="confirm-actions">

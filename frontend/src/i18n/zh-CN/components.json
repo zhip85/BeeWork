@@ -1,0 +1,109 @@
+{
+  "close": "关闭",
+  "cancel": "取消",
+  "save": "保存",
+  "saving": "保存中…",
+  "failed": "操作失败",
+  "saved": "组件已保存",
+  "copied": "已复制为租户组件",
+  "synced": "已同步 SaaS 模板最新版本",
+  "deleted": "组件已删除",
+  "new": "新建组件",
+  "delete": "删除",
+  "sync": "同步",
+  "readOnly": "只读",
+  "copyToMine": "复制到我的组件",
+  "emptyMine": "还没有组件。可以新建，或从 SaaS 模板库复制。",
+  "inUse": "已被已发布的渠道使用：{{names}}",
+  "syncTitle": "同步模板 v{{from}} → v{{to}}？",
+  "syncBody": "将用模板最新版本覆盖：{{fields}}。名称与描述保持不变。",
+  "deleteBody": "删除组件“{{name}}”？",
+  "segments": {
+    "mine": "我的组件（{{count}}）",
+    "saas": "SaaS 模板库（{{count}}）"
+  },
+  "segmentHint": {
+    "mine": "租户自有组件副本，可自由修改；SaaS 模板更新后可按需同步。",
+    "saas": "复制 SaaS 模板即可创建租户组件，模板本身只读。"
+  },
+  "badge": {
+    "fromTemplate": "复制自 SaaS",
+    "selfBuilt": "租户自建",
+    "saas": "SaaS 模板",
+    "updated": "模板已更新 v{{version}}",
+    "copies": "已复制 {{count}} 个"
+  },
+  "types": {
+    "card": "Card 商品卡片",
+    "comparison": "Comparison 对比",
+    "timeline": "Timeline 订单追踪",
+    "form": "Form 预约选择器"
+  },
+  "modes": {
+    "native": "原生",
+    "text": "文本",
+    "json": "JSON",
+    "off": "关闭"
+  },
+  "status": {
+    "enabled": "启用",
+    "draft": "草稿",
+    "disabled": "停用",
+    "published": "已发布",
+    "deprecated": "已弃用"
+  },
+  "channelNames": {
+    "website": "网站",
+    "h5": "H5",
+    "whatsapp": "WhatsApp",
+    "wechat": "微信",
+    "open-api": "开放 API"
+  },
+  "editor": {
+    "newName": "新建组件",
+    "tenantKicker": "租户组件",
+    "platformKicker": "SaaS 组件模板",
+    "fromTemplate": "复制自 SaaS 模板 v{{version}}，修改仅影响本租户。",
+    "selfBuilt": "租户自建组件。",
+    "platformNote": "租户可将此模板复制为自己的组件。",
+    "basics": "基础信息",
+    "nameZh": "组件名称（中文）",
+    "nameEn": "组件名称（英文）",
+    "type": "类型",
+    "typeHint": "切换类型会把数据架构、模拟数据、触发标签重置为该类型默认值。",
+    "description": "描述",
+    "tag": "LLM 触发标签",
+    "tagHint": "LLM 输出 JSON 时携带此标签，OC 网关自动调用该组件渲染 UI。输入会自动转小写，非 a-z / 0-9 / _ 的字符替换为 _。",
+    "status": "状态",
+    "version": "版本号",
+    "versionHint": "数据架构、触发标签或兼容矩阵变化时必须提高版本号。",
+    "schema": "数据架构（用于 Agent）",
+    "schemaHint": "定义 Agent 传入的数据结构。字段名末尾 ? 表示可选；类型如 string、number、string[]、{ label: string; url: string }[]；也可以直接写标准 JSON Schema。",
+    "format": "格式化 JSON",
+    "formatted": "JSON 已格式化",
+    "badJson": "JSON 格式有误，请检查语法。",
+    "compat": "渠道兼容与降级",
+    "compatHint": "标记为关闭的渠道无法选择该组件。",
+    "sample": "模拟数据",
+    "preview": "渲染结果 · 实时",
+    "placeholder": "结构化内容将在此处渲染。",
+    "saveFailed": "保存失败",
+    "tenantFoot": "仅保存到本租户组件库。",
+    "platformFoot": "版本变更后，已复制的租户将看到同步提示。"
+  },
+  "tab": "组件库",
+  "pick": {
+    "title": "组件 · 已选 {{selected}} / 可选 {{total}}",
+    "hint": "从租户组件库中选择，仅显示兼容当前渠道类型的组件。",
+    "none": "暂无兼容组件，可在“组件库”页签中复制 SaaS 模板。"
+  },
+  "platform": {
+    "nav": "Widget 模板",
+    "title": "Widget 模板",
+    "subtitle": "SaaS 组件模板库，租户复制后成为自己的组件。",
+    "new": "新建模板",
+    "deleteBody": "删除模板“{{name}}”？",
+    "copies": "{{count}} 个租户副本",
+    "onlyDeprecate": "已有租户副本，只能弃用。"
+  }
+}

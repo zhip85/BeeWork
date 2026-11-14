@@ -1,0 +1,109 @@
+{
+  "close": "Close",
+  "cancel": "Cancel",
+  "save": "Save",
+  "saving": "Saving…",
+  "failed": "Action failed",
+  "saved": "Component saved",
+  "copied": "Copied as a tenant component",
+  "synced": "Synced with the latest template",
+  "deleted": "Component deleted",
+  "new": "New component",
+  "delete": "Delete",
+  "sync": "Sync",
+  "readOnly": "Read-only",
+  "copyToMine": "Copy to my components",
+  "emptyMine": "No components yet. Create one, or copy from the SaaS template library.",
+  "inUse": "Used by published channels: {{names}}",
+  "syncTitle": "Sync template v{{from}} → v{{to}}?",
+  "syncBody": "The template's latest version will overwrite: {{fields}}. Your name and description stay.",
+  "deleteBody": "Delete component “{{name}}”?",
+  "segments": {
+    "mine": "My components ({{count}})",
+    "saas": "SaaS templates ({{count}})"
+  },
+  "segmentHint": {
+    "mine": "Your own copies; edit freely and sync when a template is updated.",
+    "saas": "Copy a SaaS template to create your own component; the template itself is read-only."
+  },
+  "badge": {
+    "fromTemplate": "Copied from SaaS",
+    "selfBuilt": "Self-built",
+    "saas": "SaaS template",
+    "updated": "Template updated v{{version}}",
+    "copies": "{{count}} copied"
+  },
+  "types": {
+    "card": "Card",
+    "comparison": "Comparison",
+    "timeline": "Timeline (order tracking)",
+    "form": "Form (appointment picker)"
+  },
+  "modes": {
+    "native": "Native",
+    "text": "Text",
+    "json": "JSON",
+    "off": "Off"
+  },
+  "status": {
+    "enabled": "Enabled",
+    "draft": "Draft",
+    "disabled": "Disabled",
+    "published": "Published",
+    "deprecated": "Deprecated"
+  },
+  "channelNames": {
+    "website": "Website",
+    "h5": "H5",
+    "whatsapp": "WhatsApp",
+    "wechat": "WeChat",
+    "open-api": "Open API"
+  },
+  "editor": {
+    "newName": "New component",
+    "tenantKicker": "Tenant component",
+    "platformKicker": "SaaS component template",
+    "fromTemplate": "Copied from SaaS template v{{version}}; changes only affect this tenant.",
+    "selfBuilt": "Self-built component.",
+    "platformNote": "Tenants can copy this template as their own component.",
+    "basics": "Basics",
+    "nameZh": "Name (Chinese)",
+    "nameEn": "Name (English)",
+    "type": "Type",
+    "typeHint": "Changing the type resets the schema, sample data and trigger tag to that type's defaults.",
+    "description": "Description",
+    "tag": "LLM trigger tag",
+    "tagHint": "The model wraps its JSON in this tag and the gateway renders the component. Lower-cased; characters other than a-z, 0-9 and _ become _.",
+    "status": "Status",
+    "version": "Version",
+    "versionHint": "Raise the version when the schema, trigger tag or compatibility matrix changes.",
+    "schema": "Data schema (for the agent)",
+    "schemaHint": "The structure the agent passes in. A trailing ? marks an optional field; types such as string, number, string[], { label: string; url: string }[]; standard JSON Schema also works.",
+    "format": "Format JSON",
+    "formatted": "JSON formatted",
+    "badJson": "Invalid JSON, please check the syntax.",
+    "compat": "Channel compatibility and fallback",
+    "compatHint": "A channel marked Off cannot select this component.",
+    "sample": "Sample data",
+    "preview": "Rendered · live",
+    "placeholder": "Structured content renders here.",
+    "saveFailed": "Save failed",
+    "tenantFoot": "Saved to this tenant's library only.",
+    "platformFoot": "Tenants who copied it will see a sync prompt after a version change."
+  },
+  "tab": "Components",
+  "pick": {
+    "title": "Components · {{selected}} of {{total}} selected",
+    "hint": "Pick from the tenant library; only components compatible with this channel type are listed.",
+    "none": "No compatible components. Copy a SaaS template in the Components tab."
+  },
+  "platform": {
+    "nav": "Widget templates",
+    "title": "Widget templates",
+    "subtitle": "The SaaS component template library; tenants copy one to make it their own.",
+    "new": "New template",
+    "deleteBody": "Delete template “{{name}}”?",
+    "copies": "{{count}} tenant copies",
+    "onlyDeprecate": "Tenants have copies; deprecate it instead."
+  }
+}

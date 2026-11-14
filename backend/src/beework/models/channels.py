@@ -77,6 +77,7 @@ class ChannelInstance(Base, TenantOwnedMixin, TimestampMixin, VersionedMixin):
     created_by: Mapped[str | None] = mapped_column(String(64))
     # T-041: connection parameters of the type (non-secret values; secrets are Fernet-encrypted in ``secret_config``).
     config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    component_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)  # selected tenant components (T-043), draft
     secret_config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     health_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     health_error: Mapped[str | None] = mapped_column(String(200))

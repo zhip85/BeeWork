@@ -502,6 +502,11 @@
 - **迁移 `0057_channel_framework`**。五种渠道类型的目录与平台启用 / 停用（`channel_types` 只存平台改动）、套餐决定可建类型、`ChannelAdapter` 与网站 / H5 / 开放 API 适配器（WhatsApp / 微信为通用适配器）、连接配置与加密密钥（掩码、留空保持）、发布前适配器校验、每次发布追加不可变快照（PostgreSQL 触发器）、按类型的接入代码、发布预览接口、`channels.health` 健康检查（3 次失败置“异常”并通知，异常时继续服务）。前端：渠道页两个页签、两步向导与实时预览、发布弹窗三个页签、平台“渠道类型”页。
 - 验证：ruff；`test_channel_framework` 17 项；`test_channels`、`test_worker`；PostgreSQL 迁移升降级、`alembic check`、触发器用例；前端 tsc / lint / i18n / style / build。**页面未目视验收；组件选择、注入提示词、试跑（T-043 / T-059）、H5 / WhatsApp / 微信的运行时（T-044–T-046）未做；版本号沿用 v1.0 格式。**
 
+### T-043 Widget 与组件库（已完成，待验收）
+
+- **迁移 `0058_widget_components`**。简化 / 标准 JSON Schema 的解析与校验（供 T-059 与试跑）、4 个预置平台模板、租户组件库（复制、同步、版本、标签唯一、被已发布快照使用不可删）、渠道所选组件冻结进快照（改库后显示“有未发布修改”）、发布预览的组件差异 / 注入提示词 / 真实试跑；前端：组件库页签、共用的组件编辑器、内置渲染器（转义 + 链接限制）、向导选组件、平台“Widget 模板”页。
+- 验证：ruff；`test_components` 25 项；前端 tsc / lint / i18n / style / build / `test:renderer`（XSS）；PostgreSQL 迁移升降级与 `alembic check`。**页面未目视验收；渲染器未打进网站 / H5 SDK，运行时解析、校验与降级属 T-059。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

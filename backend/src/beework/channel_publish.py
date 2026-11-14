@@ -55,8 +55,9 @@ def effective_experience(experience: dict[str, Any], assistant: Assistant, defau
     }
 
 
-def build_snapshot(channel: ChannelInstance, assistant: Assistant, defaults: dict[str, Any] | None = None) -> dict[str, Any]:
+def build_snapshot(channel: ChannelInstance, assistant: Assistant, defaults: dict[str, Any] | None = None, components: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     return {
+        "components": list(components or []),
         "channel_id": str(channel.id),
         "type": channel.type,
         "config": dict(channel.config or {}),
@@ -73,17 +74,18 @@ def _published_view(snapshot: dict[str, Any]) -> dict[str, Any]:
         "name": snapshot.get("name"), "assistant_id": snapshot.get("assistant_id"), "environment": snapshot.get("environment"),
         "allowed_origins": snapshot.get("allowed_origins"), "overrides": snapshot.get("overrides", {}),
         "type": snapshot.get("type", "website"), "config": snapshot.get("config", {}),
+        "components": sorted((c["id"], c["version"]) for c in snapshot.get("components", [])),
     }
 
 
-def has_unpublished_changes(channel: ChannelInstance) -> bool:
+def has_unpublished_changes(channel: ChannelInstance, components: list[tuple[str, str]] | None = None) -> bool:
     """CHN-002: the draft differs from what is live (the list shows “有未发布修改”)."""
     if channel.published_snapshot is None:
         return False
     draft = {
         "name": channel.name, "assistant_id": str(channel.assistant_id), "environment": channel.environment,
         "allowed_origins": list(channel.allowed_origins or []), "overrides": dict(channel.experience or {}),
-        "type": channel.type, "config": dict(channel.config or {}),
+        "type": channel.type, "config": dict(channel.config or {}), "components": sorted(components or []),
     }
     return draft != _published_view(channel.published_snapshot)
 

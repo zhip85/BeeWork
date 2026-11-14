@@ -4460,3 +4460,55 @@ textarea.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .channel-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .channel-tags span { padding: 1px 8px; border-radius: 999px; background: var(--brand-soft); font-size: var(--fs-sm); }
 @media (max-width: 720px) { .channel-wizard-body { grid-template-columns: minmax(0, 1fr); } }
+.wr { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--canvas); font-size: var(--fs-sm); text-align: left; }
+.wr strong { font-size: var(--fs-md); }
+.wr small { color: var(--ink-soft); }
+.wr-card { grid-template-columns: 72px minmax(0, 1fr); align-items: start; }
+.wr-card-image { aspect-ratio: 1; border-radius: var(--radius-sm); background: var(--brand-soft); }
+.wr-card-body { display: grid; gap: 4px; min-width: 0; }
+.wr-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.wr-tags span { padding: 0 6px; border-radius: 999px; background: var(--brand-soft); }
+.wr-price b { color: var(--danger); font-size: var(--fs-md); }
+.wr-price del { margin-left: 6px; color: var(--ink-soft); }
+.wr-meta { display: flex; gap: 10px; margin: 0; color: var(--ink-soft); }
+.wr-button { justify-self: start; padding: 4px 12px; border: 0; border-radius: var(--radius-sm); background: var(--brand); color: #fff; font: inherit; cursor: pointer; }
+.wr-comparison table { width: 100%; border-collapse: collapse; }
+.wr-comparison th, .wr-comparison td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; font-weight: 500; }
+.wr-comparison .recommended { background: var(--brand-soft); }
+.wr-comparison em { margin-left: 4px; font-style: normal; color: var(--warn); }
+.wr-timeline header { display: flex; justify-content: space-between; }
+.wr-timeline ol { margin: 0; padding-left: 16px; display: grid; gap: 4px; }
+.wr-timeline li { color: var(--ink-soft); }
+.wr-timeline li.done { color: var(--ink); }
+.wr-timeline li.current { color: var(--brand); font-weight: 600; }
+.wr-timeline li b { margin-right: 8px; font-weight: inherit; }
+.wr-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.wr-grid button { padding: 3px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; cursor: pointer; }
+.wr-grid button.selected { border-color: var(--brand); background: var(--brand-soft); }
+.wr-grid button:disabled { opacity: 0.4; cursor: not-allowed; }
+.component-library { display: grid; gap: 10px; }
+.component-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.component-card { display: grid; gap: 6px; align-content: start; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); cursor: pointer; }
+.component-card:hover, .component-card:focus-visible { border-color: var(--brand); outline: none; }
+.component-card footer { display: flex; align-items: center; justify-content: space-between; color: var(--ink-soft); font-size: var(--fs-sm); }
+.component-card-preview { pointer-events: none; }
+.component-badges { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+.component-badges span { padding: 0 8px; border-radius: 999px; background: var(--brand-soft); font-size: var(--fs-sm); }
+.component-badges .update { background: var(--warn); color: #fff; }
+.component-compat { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; font-size: var(--fs-sm); }
+.component-compat span { padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); }
+.mode-native { color: var(--ok); } .mode-json { color: var(--brand); } .mode-text { color: var(--warn); } .mode-off { color: var(--ink-soft); }
+.component-editor { width: min(1000px, 96vw); max-height: 92vh; overflow: auto; }
+.component-editor-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.component-editor fieldset { display: grid; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); }
+.component-editor textarea { font-family: var(--font-mono, monospace); font-size: var(--fs-sm); }
+.component-compat-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.component-modes { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+.component-modes button { padding: 3px 10px; border: 0; background: none; font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.component-modes button.active { background: var(--brand-soft); font-weight: 600; }
+.component-pick { display: grid; gap: 6px; }
+.component-pick label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; }
+@media (max-width: 720px) { .component-editor-body { grid-template-columns: minmax(0, 1fr); } }
+.channel-prompt { margin: 4px 0; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface); font-size: var(--fs-sm); white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; }
+.channel-trial { display: grid; gap: 4px; margin-bottom: 10px; }
+.channel-trial-ok { margin: 0; color: var(--ok); }

@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "i18n:check": "node scripts/check-i18n.mjs",
     "preview": "vite preview",
-    "style:check": "node scripts/check-font-sizes.mjs"
+    "style:check": "node scripts/check-font-sizes.mjs",
+    "test:renderer": "node scripts/check-component-renderer.mjs"
   },
   "dependencies": {
     "@formily/core": "^2.3.7",

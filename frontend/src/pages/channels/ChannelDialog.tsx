@@ -30,6 +30,8 @@ export type Channel = {
   environment: TenantEnvironmentName
   allowed_origins: string[]
   config: Record<string, string>
+  component_ids: string[]
+  published_components: { id: string; name_zh: string; trigger_tag: string; version: string; mode: string }[]
   secret_masks: Record<string, string>
   experience: { primary_color: string; assistant_name: string; welcome: string }
   effective_experience: Record<string, string>
@@ -43,6 +45,8 @@ export type Channel = {
   embed_code: string | null
   integration: { kind: string; code: string } | null
 }
+
+type PickItem = { id: string; name_zh: string; trigger_tag: string; version: string; type: string; compatibility: Record<string, string> }
 
 export type AssistantOption = { id: string; name: string }
 
@@ -77,6 +81,8 @@ export function ChannelDialog({
   const [color, setColor] = useState(channel?.experience.primary_color ?? '')
   const [assistantName, setAssistantName] = useState(channel?.experience.assistant_name ?? '')
   const [welcome, setWelcome] = useState(channel?.experience.welcome ?? '')
+  const [picks, setPicks] = useState<PickItem[]>([])
+  const [picked, setPicked] = useState<string[] | null>(channel ? channel.component_ids : null)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const locked = channel !== null && channel.status !== 'draft' ? true : (channel?.published_version ?? '—') !== '—'
@@ -88,6 +94,18 @@ export function ChannelDialog({
       .catch(() => active && setTypes([]))
     return () => { active = false }
   }, [tenantId])
+
+  useEffect(() => {
+    let active = true
+    apiRequest<{ items: PickItem[] }>(`/api/v1/components?selectable=true&channel_type=${encodeURIComponent(type)}`, {}, tenantId)
+      .then((result) => {
+        if (!active) return
+        setPicks(result.items)
+        setPicked((chosen) => (chosen === null ? result.items.map((item) => item.id) : chosen.filter((id) => result.items.some((item) => item.id === id))))  // a new channel starts with everything selected (CHN-011)
+      })
+      .catch(() => active && setPicks([]))
+    return () => { active = false }
+  }, [tenantId, type])
 
   const current = types.find((item) => item.code === type)
   const params = current?.connection_params ?? []
@@ -103,6 +121,7 @@ export function ChannelDialog({
     setSecrets({})
     setOrigins('')
     setColor('')
+    setPicked(null)
     setWelcome('')  // CHN-010: switching type resets the type's own settings
   }
 
@@ -115,7 +134,7 @@ export function ChannelDialog({
       await apiRequest(channel ? `/api/v1/channels/${channel.id}` : '/api/v1/channels', {
         method: channel ? 'PUT' : 'POST',
         body: JSON.stringify({
-          type, name, assistant_id: assistantId, environment, config, secrets,
+          type, name, assistant_id: assistantId, environment, config, secrets, component_ids: picked ?? [],
           allowed_origins: params.some((p) => p.kind === 'origins') ? origins.split('\n').map((line) => line.trim()).filter(Boolean) : [],
           experience: { primary_color: color, assistant_name: assistantName, welcome },
           row_version: channel?.row_version,
@@ -203,8 +222,18 @@ export function ChannelDialog({
             {step === 2 && (
               <>
                 <section className="channel-components">
-                  <h3>{t('wizard.components')}</h3>
-                  <p className="wizard-muted">{t('wizard.componentsPending')}</p>
+                  <h3>{t('wizard.componentsTitle', { selected: (picked ?? []).length, total: picks.length })}</h3>
+                  <p className="wizard-muted">{t('wizard.componentsHint')}</p>
+                  {picks.length === 0 && <p className="wizard-muted">{t('wizard.componentsNone')}</p>}
+                  <div className="component-pick">
+                    {picks.map((item) => (
+                      <label key={item.id}>
+                        <input checked={(picked ?? []).includes(item.id)} onChange={(event) => setPicked((chosen) => (event.target.checked ? [...(chosen ?? []), item.id] : (chosen ?? []).filter((id) => id !== item.id)))} type="checkbox" />
+                        <span>{item.name_zh}</span>
+                        <small>{item.type} · {item.compatibility[type] ?? 'off'} · v{item.version}</small>
+                      </label>
+                    ))}
+                  </div>
                 </section>
                 <div className="channel-experience">
                   <label>{t('fields.color')}

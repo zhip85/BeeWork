@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from beework import component_service
 from beework.api import assistants as assistants_api
 from beework.api.assistants import _load as load_assistant
 from beework.api.conventions import ApiError, check_row_version, require_platform_admin
@@ -28,6 +29,7 @@ from beework.entitlements import environments_for
 from beework.model_secrets import decrypt_model_api_key, encrypt_model_api_key
 from beework.models import AuditEvent, Membership, Tenant, User, utc_now
 from beework.models.channels import ChannelInstance, ChannelSnapshot, ChannelType
+from beework.models.components import TenantComponent
 from beework.rbac import require_tenant_permission
 from beework.schemas.channels import (
     ChannelList,
@@ -92,14 +94,16 @@ def _response(db: Session, request: Request, channel: ChannelInstance) -> Channe
     published = bool(channel.published_snapshot)
     return ChannelResponse(
         id=channel.id, type=channel.type, type_name=kind.name if kind else channel.type, type_enabled=bool(kind and kind.enabled),
-        config=dict(channel.config or {}), secret_masks=_secret_masks(channel), health_error=channel.health_error,
+        config=dict(channel.config or {}), secret_masks=_secret_masks(channel),
+        component_ids=[UUID(c) for c in channel.component_ids or []],
+        published_components=[{k: c[k] for k in ("id", "name_zh", "trigger_tag", "version", "mode")} for c in (channel.published_snapshot or {}).get("components", [])], health_error=channel.health_error,
         health_checked_at=channel.health_checked_at, name=channel.name, assistant_id=channel.assistant_id,
         assistant_name=assistant.name if assistant else None, environment=channel.environment,
         allowed_origins=list(channel.allowed_origins or []),
         experience=ExperienceOverrides.model_validate(channel.experience or {}),
         effective_experience=effective_experience(channel.experience or {}, assistant, _defaults_of(db, channel.type)) if assistant else {},
         status=channel.status, site_key=channel.site_key, published_version=version_label(channel.version_seq),
-        published_at=channel.published_at, has_unpublished_changes=has_unpublished_changes(channel),
+        published_at=channel.published_at, has_unpublished_changes=has_unpublished_changes(channel, [(str(c.id), c.version) for c in component_service.selected_components(db, channel)[0]]),
         pending_approval_id=pending.id if pending else None, row_version=channel.row_version,
         created_at=channel.created_at, updated_at=channel.updated_at,
         embed_code=embed_code(channel.site_key, request) if published and channel.type == "website" else None,
@@ -144,6 +148,12 @@ def _validate(db: Session, membership: Membership, payload: ChannelWrite, *, exc
             raise ApiError(422, "channel.config_invalid", f"“{kind.name}”渠道没有密钥参数 {key}")
     if payload.allowed_origins and "allowed_origins" not in params:
         raise ApiError(422, "channel.config_invalid", f"“{kind.name}”渠道不使用允许域名")
+    for component_id in payload.component_ids:
+        item = db.scalar(select(TenantComponent).where(TenantComponent.id == component_id, TenantComponent.tenant_id == membership.tenant_id))
+        if item is None:
+            raise ApiError(422, "channel.component_invalid", "所选组件不存在")
+        if item.status == "disabled" or component_service.full_compatibility(item.compatibility or {})[payload.type] == "off":
+            raise ApiError(422, "channel.component_invalid", f"组件“{item.name_zh}”已停用或不兼容{kind.name}渠道，不能选择")
     load_assistant(db, membership, payload.assistant_id)  # 404 for other tenants' / invisible assistants
     tenant = db.get(Tenant, membership.tenant_id)
     if tenant is None or payload.environment not in environments_for(db, tenant.id):
@@ -252,7 +262,7 @@ def create_channel(
         tenant_id=membership.tenant_id, type=payload.type, name=payload.name, assistant_id=payload.assistant_id,
         environment=payload.environment, allowed_origins=payload.allowed_origins,
         experience=payload.experience.model_dump(), site_key=_site_key(), created_by=str(membership.user_id),
-        config=payload.config, secret_config=_encrypt(payload.secrets, {}),
+        config=payload.config, secret_config=_encrypt(payload.secrets, {}), component_ids=[str(c) for c in dict.fromkeys(payload.component_ids)],
     )
     db.add(channel)
     db.flush()
@@ -286,10 +296,11 @@ def update_channel(
         check_row_version(channel, payload.row_version, db)
     _validate(db, membership, payload, exclude=channel.id, existing=channel)
     if channel.type != payload.type:  # a draft switched type: what belonged to the old type goes (CHN-010)
-        channel.type, channel.secret_config, channel.experience = payload.type, {}, {}
+        channel.type, channel.secret_config, channel.experience, channel.component_ids = payload.type, {}, {}, []
     channel.name, channel.assistant_id, channel.environment = payload.name, payload.assistant_id, payload.environment
     channel.allowed_origins = payload.allowed_origins
     channel.config = payload.config
+    channel.component_ids = [str(c) for c in dict.fromkeys(payload.component_ids)]
     channel.secret_config = _encrypt(payload.secrets, channel.secret_config or {})
     channel.experience = payload.experience.model_dump()
     channel.row_version += 1
@@ -323,6 +334,16 @@ def _diff(channel: ChannelInstance, snapshot: dict[str, Any], overrides: dict[st
         for key, label in rows
         if live.get(key, "website" if key == "type" else None) != snapshot[key]
     ]
+    live_components = {c["id"]: c for c in live.get("components", [])}
+    for item in snapshot.get("components", []):
+        before = live_components.get(item["id"])
+        if before is None:
+            changes.append({"section": "components", "field": f"+ {item['name_zh']}", "from": None, "to": f"v{item['version']}"})
+        elif before["version"] != item["version"]:
+            changes.append({"section": "components", "field": item["name_zh"], "from": f"v{before['version']}", "to": f"v{item['version']}"})
+    for item_id, item in live_components.items():
+        if item_id not in {c["id"] for c in snapshot.get("components", [])}:
+            changes.append({"section": "components", "field": f"− {item['name_zh']}", "from": f"v{item['version']}", "to": None})
     for key, value in snapshot.get("config", {}).items():
         before = (live.get("config") or {}).get(key)
         if before != value:
@@ -356,7 +377,10 @@ def publish_channel(
         raise ApiError(409, "channel.publish_blocked", "绑定的智能体已停用")
     if channel.environment == "production" and assistant.live_version_id is None:
         raise ApiError(409, "channel.publish_blocked", "生产环境的渠道需要先发布智能体（开发/预发环境使用最新草稿）")
-    snapshot = build_snapshot(channel, assistant, _defaults_of(db, channel.type))
+    selected, component_problems = component_service.selected_components(db, channel)
+    if component_problems:
+        raise ApiError(409, "channel.publish_blocked", "；".join(component_problems))
+    snapshot = build_snapshot(channel, assistant, _defaults_of(db, channel.type), component_service.snapshot_components(channel, selected))
     overrides = dict(channel.experience or {})
     result = submit_change(
         db, tenant_id=membership.tenant_id, event="channel", action=ACTION, object_type="channel", object_id=channel.id,
@@ -394,6 +418,11 @@ def publish_preview(
     assistant = assistant_of(db, channel)
     problems = _connection_problems(channel)
     changes: list[dict[str, Any]] = []
+    selected, component_problems = component_service.selected_components(db, channel)
+    problems.extend(component_problems)
+    frozen = component_service.snapshot_components(channel, selected)
+    live = (channel.published_snapshot or {}).get("components", [])
+    kind = get_type(db, channel.type)
     if assistant is None:
         problems.append("绑定的智能体已被删除，请改绑其他智能体")
     else:
@@ -401,13 +430,15 @@ def publish_preview(
             problems.append("绑定的智能体已停用")
         if channel.environment == "production" and assistant.live_version_id is None:
             problems.append("生产环境的渠道需要先发布智能体")
-        snapshot = build_snapshot(channel, assistant, _defaults_of(db, channel.type))
+        snapshot = build_snapshot(channel, assistant, _defaults_of(db, channel.type), frozen)
         changes = _diff(channel, snapshot, dict(channel.experience or {}))
     return PublishPreview(
         version_from=version_label(channel.version_seq), version_to=version_label(channel.version_seq + 1),
         first_publish=channel.published_snapshot is None, changes=changes, problems=problems,
-        components=[], components_note="未选择组件，智能体将以纯文本回复。（组件库在 T-043 提供）",
-        injection_prompt=None, trial=[], trial_note="暂无可试跑组件。",
+        components=[{k: c[k] for k in ("id", "name_zh", "trigger_tag", "version", "mode", "type")} for c in frozen],
+        components_diff=component_service.components_diff(live, frozen), components_note="未选择组件，智能体将以纯文本回复。",
+        injection_prompt=component_service.injection_prompt(kind.name if kind else channel.type, frozen) if frozen else None,
+        trial=component_service.trial_runs(frozen), trial_note="暂无可试跑组件。",
     )
 
 

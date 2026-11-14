@@ -8,6 +8,7 @@ import type { TenantMembership } from '../../types'
 import { ChannelDialog } from './ChannelDialog'
 import type { AssistantOption, Channel, ChannelType } from './ChannelDialog'
 import { PublishDialog } from './PublishDialog'
+import { ComponentLibrary } from '../components/ComponentLibrary'
 
 /** Channels (T-040/T-041): five types, list, wizard, publish dialog (through the approval policy), integration code, enable/disable, types tab. */
 export function ChannelsPage({ tenant, assistantId, embedded = false }: { tenant: TenantMembership; assistantId?: string; embedded?: boolean }) {
@@ -20,7 +21,7 @@ export function ChannelsPage({ tenant, assistantId, embedded = false }: { tenant
   const [assistants, setAssistants] = useState<AssistantOption[]>([])
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
-  const [tab, setTab] = useState<'instances' | 'types'>('instances')
+  const [tab, setTab] = useState<'instances' | 'components' | 'types'>('instances')
   const [types, setTypes] = useState<ChannelType[]>([])
   const [publishing, setPublishing] = useState<Channel | null>(null)
   const [error, setError] = useState('')
@@ -110,7 +111,7 @@ export function ChannelsPage({ tenant, assistantId, embedded = false }: { tenant
       </div>
       {!embedded && (
         <div className="channel-tabs" role="tablist">
-          {(['instances', 'types'] as const).map((value) => (
+          {(['instances', 'components', 'types'] as const).map((value) => (
             <button aria-selected={tab === value} className={tab === value ? 'active' : ''} key={value} onClick={() => setTab(value)} role="tab" type="button">{t(`tabs.${value}`)}</button>
           ))}
         </div>
@@ -124,6 +125,7 @@ export function ChannelsPage({ tenant, assistantId, embedded = false }: { tenant
           </select>
         </div>
       )}
+      {tab === 'components' && !embedded && <ComponentLibrary canDelete={can('widgets:delete')} canEdit={can('widgets:edit')} tenantId={tenantId} />}
       {tab === 'types' && !embedded && (
         <div className="channel-type-grid">
           {types.map((item) => (

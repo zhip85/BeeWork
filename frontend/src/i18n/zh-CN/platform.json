@@ -155,5 +155,6 @@
     "disabledHint": "已停用：租户不能新建该类型。",
     "saved": "渠道类型已保存",
     "failed": "保存失败"
-  }
+  },
+  "widgetTemplates": "Widget 模板"
 }

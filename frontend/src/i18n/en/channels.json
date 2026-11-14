@@ -84,7 +84,11 @@
     "first": "First publish",
     "against": "Compared with {{version}}",
     "noPrompt": "No components, nothing is injected.",
-    "confirm": "Publish"
+    "confirm": "Publish",
+    "live": "Live: ",
+    "added": "Added",
+    "trialOk": "Schema valid",
+    "trialFail": "Schema invalid"
   },
   "embed": {
     "action": "Get embed code",
@@ -150,7 +154,8 @@
   "allTypes": "All types",
   "tabs": {
     "instances": "Channels",
-    "types": "Channel types"
+    "types": "Channel types",
+    "components": "Components"
   },
   "typeStatus": {
     "enabled": "Enabled"
@@ -167,7 +172,9 @@
     "next": "Next",
     "back": "Back",
     "components": "Components",
-    "componentsPending": "Components can be chosen here once the component library ships; for now the channel replies in plain text."
+    "componentsTitle": "Components · {{selected}} of {{total}} selected",
+    "componentsHint": "Pick from the tenant library; only components compatible with this channel type are listed.",
+    "componentsNone": "No compatible components. Copy a SaaS template in the Components tab."
   },
   "preview": {
     "title": "Live preview · {{type}}",

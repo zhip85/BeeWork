@@ -37,6 +37,7 @@ class ChannelWrite(BaseModel):
     allowed_origins: list[str] = Field(default_factory=list, max_length=MAX_ORIGINS)
     experience: ExperienceOverrides = Field(default_factory=ExperienceOverrides)
     # Connection parameters of the type (see ``GET /channel-types``). Secrets are write-only: omitted or blank keeps the stored value.
+    component_ids: list[UUID] = Field(default_factory=list, max_length=30)  # tenant components shown on this channel (T-043)
     config: dict[str, str] = Field(default_factory=dict, max_length=20)
     secrets: dict[str, str] = Field(default_factory=dict, max_length=20)
     row_version: int | None = None
@@ -80,6 +81,8 @@ class ChannelResponse(BaseModel):
     type_name: str
     type_enabled: bool
     config: dict[str, str]
+    component_ids: list[UUID]
+    published_components: list[dict]  # [{id, name, trigger_tag, version, mode}] frozen in the live snapshot
     secret_masks: dict[str, str]  # key -> masked value, only for secrets that are set
     health_error: str | None
     health_checked_at: datetime | None
@@ -124,7 +127,8 @@ class PublishPreview(BaseModel):
     first_publish: bool
     changes: list[dict]
     problems: list[str]  # why publishing would be refused right now
-    components: list[dict]
+    components: list[dict]  # the selection a publish would freeze: {id, name_zh, trigger_tag, version, mode}
+    components_diff: dict  # {added, removed, changed} against the live version
     components_note: str
     injection_prompt: str | None
     trial: list[dict]

@@ -155,5 +155,6 @@
     "disabledHint": "Disabled: tenants cannot create this type.",
     "saved": "Channel type saved",
     "failed": "Save failed"
-  }
+  },
+  "widgetTemplates": "Widget templates"
 }
