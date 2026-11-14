@@ -182,5 +182,63 @@
     "defaultWelcome": "How can we help?",
     "user": "Where is my order?",
     "plain": "(plain text reply)"
+  },
+  "experience": {
+    "title": "{{type}} · Experience",
+    "chain": "Inheritance chain",
+    "save": "Save changes",
+    "restore": "Restore inheritance",
+    "loadFailed": "Could not load the experience settings",
+    "preview": "Live preview",
+    "sampleCard": "Order progress · shipped · arriving tomorrow",
+    "quick1": "Track order",
+    "quick2": "Contact support",
+    "action": "Experience",
+    "editPlatform": "Edit platform default",
+    "editTenant": "Edit tenant default",
+    "assistantTitle": "Agent channel settings",
+    "assistantHint": "These apply to this agent's channels and override the tenant default; a channel's own Experience can override them again.",
+    "configure": "Configure",
+    "note": "Changes reach published channels only after they are published again.",
+    "kicker": {
+      "platform": "PLATFORM",
+      "tenant": "TENANT",
+      "assistant": "ASSISTANT",
+      "instance": "INSTANCE"
+    },
+    "level": {
+      "platform": "Platform",
+      "tenant": "Tenant",
+      "assistant": "Agent",
+      "instance": "Channel"
+    },
+    "fields": {
+      "primary_color": "Brand colour",
+      "theme": "Theme",
+      "radius": "Corner radius",
+      "entry": "Entry",
+      "welcome": "Welcome text",
+      "quick_replies": "Quick replies",
+      "cards": "Cards",
+      "tables": "Tables",
+      "forms": "Forms",
+      "streaming": "Streaming"
+    },
+    "options": {
+      "theme": {
+        "light": "Light",
+        "dark": "Dark",
+        "auto": "Auto"
+      },
+      "entry": {
+        "bottom-right": "Bottom right",
+        "bottom-left": "Bottom left",
+        "fullscreen": "Full screen",
+        "drawer": "Bottom drawer",
+        "conversation": "Conversation",
+        "official-account": "Official account",
+        "endpoint": "Endpoint"
+      }
+    }
   }
 }

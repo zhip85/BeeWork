@@ -116,3 +116,16 @@ class ChannelSnapshot(Base, TenantOwnedMixin):
     snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
     published_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class TenantChannelStyle(Base, TenantOwnedMixin):
+    """A tenant's default experience for one channel type (the “租户” layer of CHN-031): only the fields that differ from the platform default."""
+
+    __tablename__ = "tenant_channel_styles"
+    __table_args__ = (UniqueConstraint("tenant_id", "channel_type", name="uq_tenant_channel_styles_type"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    channel_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    overrides: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    updated_by: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)

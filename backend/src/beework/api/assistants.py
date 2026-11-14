@@ -607,7 +607,10 @@ def update_assistant(
     assistant.icon = payload.icon
     assistant.color = payload.color
     assistant.visibility = payload.visibility
+    kept = dict(assistant.draft_config or {}).get("channel_experience") if "channel_experience" not in payload.config.model_fields_set else None
     assistant.draft_config = config.model_dump(mode="json")
+    if kept:
+        assistant.draft_config = {**assistant.draft_config, "channel_experience": kept}  # a client that never heard of it must not wipe it
     _set_visible_orgs(db, assistant, payload.visible_org_ids)
     assistant.row_version += 1
     assistant.updated_by = _actor_name(db, membership)

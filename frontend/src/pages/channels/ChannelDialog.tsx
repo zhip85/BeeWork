@@ -33,8 +33,9 @@ export type Channel = {
   component_ids: string[]
   published_components: { id: string; name_zh: string; trigger_tag: string; version: string; mode: string }[]
   secret_masks: Record<string, string>
-  experience: { primary_color: string; assistant_name: string; welcome: string }
-  effective_experience: Record<string, string>
+  experience: Record<string, string | number | boolean>
+  effective_experience: Record<string, string | number | boolean>
+  experience_sources: Record<string, string>
   status: ChannelStatus
   health_error: string | null
   site_key: string
@@ -78,9 +79,9 @@ export function ChannelDialog({
   const [config, setConfig] = useState<Record<string, string>>(channel?.config ?? {})
   const [secrets, setSecrets] = useState<Record<string, string>>({})
   const [origins, setOrigins] = useState((channel?.allowed_origins ?? []).join('\n'))
-  const [color, setColor] = useState(channel?.experience.primary_color ?? '')
-  const [assistantName, setAssistantName] = useState(channel?.experience.assistant_name ?? '')
-  const [welcome, setWelcome] = useState(channel?.experience.welcome ?? '')
+  const [color, setColor] = useState(String(channel?.experience.primary_color ?? ''))
+  const [assistantName, setAssistantName] = useState(String(channel?.experience.assistant_name ?? ''))
+  const [welcome, setWelcome] = useState(String(channel?.experience.welcome ?? ''))
   const [picks, setPicks] = useState<PickItem[]>([])
   const [picked, setPicked] = useState<string[] | null>(channel ? channel.component_ids : null)
   const [error, setError] = useState('')

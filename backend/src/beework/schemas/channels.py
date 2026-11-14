@@ -11,11 +11,19 @@ Environment = Literal["development", "staging", "production"]
 
 
 class ExperienceOverrides(BaseModel):
-    """Channel-level overrides; an empty value inherits from the assistant / platform defaults."""
+    """Channel-level overrides; an empty value inherits from the layers above (T-042: every setting of the type, not only three)."""
 
     primary_color: str = Field(default="", max_length=7)
     assistant_name: str = Field(default="", max_length=50)
     welcome: str = Field(default="", max_length=500)
+    theme: str = Field(default="", max_length=8)
+    radius: int | None = None
+    entry: str = Field(default="", max_length=24)
+    quick_replies: bool | None = None
+    cards: bool | None = None
+    tables: bool | None = None
+    forms: bool | None = None
+    streaming: bool | None = None
 
     @field_validator("primary_color")
     @classmethod
@@ -76,8 +84,9 @@ class ChannelResponse(BaseModel):
     assistant_name: str | None  # None: the assistant was deleted (“智能体不可用”)
     environment: str
     allowed_origins: list[str]
-    experience: ExperienceOverrides
-    effective_experience: dict[str, str]
+    experience: dict[str, str | int | bool]  # the channel's own overrides, only the ones that are set
+    effective_experience: dict[str, str | int | bool]
+    experience_sources: dict[str, str]  # setting -> platform | tenant | assistant | instance
     status: Literal["draft", "active", "error", "disabled"]
     type_name: str
     type_enabled: bool
@@ -109,6 +118,7 @@ class ChannelTypeResponse(BaseModel):
     connection_params: list[dict]
     capabilities: list[str]
     default_experience: dict
+    experience_fields: list[dict] = []  # [{key, kind, options}] the settings of this type (T-042)
 
 
 class ChannelTypeList(BaseModel):

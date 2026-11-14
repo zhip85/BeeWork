@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from beework import assistant_oc, component_service
+from beework import assistant_oc, component_service, experience_service
+from beework import experience as experience_rules
 from beework.api import assistants as assistants_api
 from beework.api.assistants import _load as load_assistant
 from beework.api.conventions import ApiError, check_row_version, require_platform_admin
@@ -18,7 +19,6 @@ from beework.channel_publish import (
     ACTION,
     assistant_of,
     build_snapshot,
-    effective_experience,
     has_unpublished_changes,
     version_label,
 )
@@ -38,7 +38,6 @@ from beework.schemas.channels import (
     ChannelTypeResponse,
     ChannelTypeWrite,
     ChannelWrite,
-    ExperienceOverrides,
     PendingChannelApproval,
     PublishChannelRequest,
     PublishPreview,
@@ -90,6 +89,7 @@ def _response(db: Session, request: Request, channel: ChannelInstance) -> Channe
     assistant = assistant_of(db, channel)
     pending = pending_request(db, channel.tenant_id, "channel", channel.id)
     kind = get_type(db, channel.type)
+    effective, sources = experience_service.resolve_for(db, channel, assistant) if assistant else ({}, {})
     base = public_base_url(str(request.base_url))
     published = bool(channel.published_snapshot)
     return ChannelResponse(
@@ -100,10 +100,10 @@ def _response(db: Session, request: Request, channel: ChannelInstance) -> Channe
         health_checked_at=channel.health_checked_at, name=channel.name, assistant_id=channel.assistant_id,
         assistant_name=assistant.name if assistant else None, environment=channel.environment,
         allowed_origins=list(channel.allowed_origins or []),
-        experience=ExperienceOverrides.model_validate(channel.experience or {}),
-        effective_experience=effective_experience(channel.experience or {}, assistant, _defaults_of(db, channel.type)) if assistant else {},
+        experience=dict(channel.experience or {}),
+        effective_experience=effective, experience_sources=sources,
         status=channel.status, site_key=channel.site_key, published_version=version_label(channel.version_seq),
-        published_at=channel.published_at, has_unpublished_changes=has_unpublished_changes(channel, [(str(c.id), c.version) for c in component_service.selected_components(db, channel)[0]]),
+        published_at=channel.published_at, has_unpublished_changes=has_unpublished_changes(channel, [(str(c.id), c.version) for c in component_service.selected_components(db, channel)[0]], effective),
         pending_approval_id=pending.id if pending else None, row_version=channel.row_version,
         created_at=channel.created_at, updated_at=channel.updated_at,
         embed_code=embed_code(channel.site_key, request) if published and channel.type == "website" else None,
@@ -180,15 +180,20 @@ def list_channel_types(
         items.append(ChannelTypeResponse(
             code=kind.code, name=kind.name, version=kind.version, enabled=kind.enabled, available=reason is None,
             unavailable_reason=reason, connection_params=kind.connection_params, capabilities=kind.capabilities,
-            default_experience=kind.default_experience,
+            default_experience=kind.default_experience, experience_fields=_fields_of(kind.code),
         ))
     return ChannelTypeList(items=items)
+
+
+def _fields_of(code: str) -> list[dict]:
+    return [{"key": f.key, "kind": f.kind, "options": list(f.options)} for f in experience_rules.fields_for(code)]
 
 
 def _type_response(kind, *, available: bool = True, reason: str | None = None) -> ChannelTypeResponse:
     return ChannelTypeResponse(
         code=kind.code, name=kind.name, version=kind.version, enabled=kind.enabled, available=available, unavailable_reason=reason,
         connection_params=kind.connection_params, capabilities=kind.capabilities, default_experience=kind.default_experience,
+        experience_fields=_fields_of(kind.code),
     )
 
 
@@ -222,7 +227,7 @@ def update_channel_type(
     if "capabilities" in changed:
         row.capabilities = [c.strip() for c in changed["capabilities"] if c.strip()]
     if "default_experience" in changed:
-        row.default_experience = dict(changed["default_experience"])
+        row.default_experience = experience_rules.validate_layer(code, changed["default_experience"])  # PLT-101: only settings the type has
     row.updated_at = utc_now()
     db.add(AuditEvent(tenant_id=None, actor_user_id=user.id, action="channel_type.updated", details={"type": code, "fields": ",".join(sorted(changed))}))
     db.commit()
@@ -261,7 +266,7 @@ def create_channel(
     channel = ChannelInstance(
         tenant_id=membership.tenant_id, type=payload.type, name=payload.name, assistant_id=payload.assistant_id,
         environment=payload.environment, allowed_origins=payload.allowed_origins,
-        experience=payload.experience.model_dump(), site_key=_site_key(), created_by=str(membership.user_id),
+        experience=experience_rules.validate_layer(payload.type, payload.experience.model_dump(), allow=("assistant_name",)), site_key=_site_key(), created_by=str(membership.user_id),
         config=payload.config, secret_config=_encrypt(payload.secrets, {}), component_ids=[str(c) for c in dict.fromkeys(payload.component_ids)],
     )
     db.add(channel)
@@ -302,7 +307,7 @@ def update_channel(
     channel.config = payload.config
     channel.component_ids = [str(c) for c in dict.fromkeys(payload.component_ids)]
     channel.secret_config = _encrypt(payload.secrets, channel.secret_config or {})
-    channel.experience = payload.experience.model_dump()
+    channel.experience = experience_rules.validate_layer(payload.type, payload.experience.model_dump(), allow=("assistant_name",))
     channel.row_version += 1
     channel.updated_at = utc_now()
     _audit(db, membership, "channel.updated", channel)
@@ -380,7 +385,7 @@ def publish_channel(
     selected, component_problems = component_service.selected_components(db, channel)
     if component_problems:
         raise ApiError(409, "channel.publish_blocked", "；".join(component_problems))
-    snapshot = build_snapshot(channel, assistant, _defaults_of(db, channel.type), component_service.snapshot_components(channel, selected))
+    snapshot = build_snapshot(channel, assistant, _defaults_of(db, channel.type), component_service.snapshot_components(channel, selected), experience_service.resolve_for(db, channel, assistant)[0])
     overrides = dict(channel.experience or {})
     result = submit_change(
         db, tenant_id=membership.tenant_id, event="channel", action=ACTION, object_type="channel", object_id=channel.id,
@@ -429,7 +434,7 @@ def publish_preview(
             problems.append("绑定的智能体已停用")
         if channel.environment == "production" and assistant.live_version_id is None:
             problems.append("生产环境的渠道需要先发布智能体")
-        snapshot = build_snapshot(channel, assistant, _defaults_of(db, channel.type), frozen)
+        snapshot = build_snapshot(channel, assistant, _defaults_of(db, channel.type), frozen, experience_service.resolve_for(db, channel, assistant)[0])
         changes = _diff(channel, snapshot, dict(channel.experience or {}))
     return PublishPreview(
         version_from=version_label(channel.version_seq), version_to=version_label(channel.version_seq + 1),

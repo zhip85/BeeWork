@@ -7,6 +7,8 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { TenantMembership } from '../../types'
 import { ChannelDialog } from './ChannelDialog'
 import type { AssistantOption, Channel, ChannelType } from './ChannelDialog'
+import { ExperienceEditor } from './ExperienceEditor'
+import type { Level } from './ExperienceEditor'
 import { PublishDialog } from './PublishDialog'
 import { ComponentLibrary } from '../components/ComponentLibrary'
 
@@ -24,6 +26,7 @@ export function ChannelsPage({ tenant, assistantId, embedded = false }: { tenant
   const [tab, setTab] = useState<'instances' | 'components' | 'types'>('instances')
   const [types, setTypes] = useState<ChannelType[]>([])
   const [publishing, setPublishing] = useState<Channel | null>(null)
+  const [experience, setExperience] = useState<{ level: Level; type: string; channelId?: string } | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState<{ text: string; approvalId?: string } | null>(null)
   const [editing, setEditing] = useState<Channel | 'new' | null>(null)
@@ -134,12 +137,20 @@ export function ChannelsPage({ tenant, assistantId, embedded = false }: { tenant
               <p>{item.available ? t('typeStatus.enabled') : t(`unavailable.${item.unavailable_reason ?? 'disabled'}`)}</p>
               <p className="wizard-muted">{t('typeParams', { params: item.connection_params.map((param) => param.label).join(' · ') })}</p>
               <p className="channel-tags">{item.capabilities.map((tag) => <span key={tag}>{tag}</span>)}</p>
+              {can('channels:edit') && item.available && <button className="secondary-button" onClick={() => setExperience({ level: 'tenant', type: item.code })} type="button">{t('experience.editTenant')}</button>}
             </article>
           ))}
         </div>
       )}
       {notice && <p className="assistants-notice" role="status">{notice.text} {notice.approvalId && <Link to={`/approvals?id=${notice.approvalId}`}>{t('publish.viewApproval')}</Link>}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
+      {embedded && assistantId && can('channels:edit') && (
+        <section className="channel-assistant-styles">
+          <h3>{t('experience.assistantTitle')}</h3>
+          <p className="wizard-muted">{t('experience.assistantHint')}</p>
+          <p>{types.filter((item) => item.available).map((item) => <button className="secondary-button" key={item.code} onClick={() => setExperience({ level: 'assistant', type: item.code })} type="button">{item.name} · {t('experience.configure')}</button>)}</p>
+        </section>
+      )}
       {tab === 'instances' && channels && channels.length === 0 && <p className="assistants-empty-filtered">{t('empty')}</p>}
       {tab === 'instances' && channels && channels.length > 0 && (
         <div className="assistants-table-wrap">
@@ -158,6 +169,7 @@ export function ChannelsPage({ tenant, assistantId, embedded = false }: { tenant
                   </td>
                   <td><span className={`approval-status ${channel.status === 'active' ? 'approved' : channel.status === 'disabled' ? 'rejected' : channel.status === 'error' ? 'failed' : 'withdrawn'}`} title={channel.health_error ?? undefined}>{t(`status.${channel.status}`)}</span></td>
                   <td className="row-actions">
+                    {can('channels:edit') && <button className="text-button" onClick={() => setExperience({ level: 'instance', type: channel.type, channelId: channel.id })} type="button">{t('experience.action')}</button>}
                     {can('channels:edit') && <button aria-label={t('edit')} className="icon-button" onClick={() => setEditing(channel)} title={t('edit')} type="button"><Pencil size={14} /></button>}
                     {can('channels:publish') && <button aria-label={t('publish.action')} className="icon-button" onClick={() => setPublishing(channel)} title={t('publish.action')} type="button"><Rocket size={14} /></button>}
                     {channel.integration && <button aria-label={t('embed.action')} className="icon-button" onClick={() => setEmbedFor(channel)} title={t('embed.action')} type="button"><Code2 size={14} /></button>}
@@ -197,6 +209,17 @@ export function ChannelsPage({ tenant, assistantId, embedded = false }: { tenant
             </div>
           </div>
         </div>
+      )}
+      {experience && (
+        <ExperienceEditor
+          assistantId={assistantId}
+          channelId={experience.channelId}
+          channelType={experience.type}
+          level={experience.level}
+          onClose={() => setExperience(null)}
+          onSaved={() => { setExperience(null); setNotice({ text: t('experience.note') }); refresh() }}
+          tenantId={tenantId}
+        />
       )}
       {publishing && <PublishDialog channel={publishing} onCancel={() => setPublishing(null)} onConfirm={() => publish(publishing)} tenantId={tenantId} />}
       {deleting && <ConfirmDialog body={t('deleteBody', { name: deleting.name })} danger onCancel={() => setDeleting(null)} onConfirm={() => remove(deleting)} title={t('delete')} />}

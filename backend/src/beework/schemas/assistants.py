@@ -66,6 +66,9 @@ class AssistantDraftConfig(BaseModel):
     mount_settings: dict[str, MountSettings] = Field(default_factory=dict, max_length=200)
     # OC configuration (T-054a defines the shape; stage tasks fill in behaviour).
     oc: OCConfig = Field(default_factory=OCConfig)
+    # The assistant's own channel settings per channel type (T-042, the “助手” layer of CHN-031). Written through its own endpoint;
+    # ``update_assistant`` keeps what is stored when a client does not send it.
+    channel_experience: dict[str, dict] = Field(default_factory=dict, max_length=8)
 
 
 class AssistantWriteRequest(BaseModel):

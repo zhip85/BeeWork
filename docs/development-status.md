@@ -512,6 +512,11 @@
 - **无迁移**。`oc.components`（开关缺省开、每轮 1–5、失败策略 文本 / 重试 / 丢弃、文本降级模板）；提示词函数与发布弹窗共用；运行时 `components` 阶段按会话所属渠道的**已发布快照**解析 `<标签>JSON</标签>`、校验、按 native / json / text / off 输出，超限与失败按策略处理，追踪只记标签 / 模式 / 问题；`widgets` 进入 `runs.output`、`done` 事件、开放 API 响应与 SSE；终端用户的组件操作以 `event` 回传为下一轮输入；OC 面板与注入预览；网站挂件渲染四种组件。
 - 验证：ruff；`test_oc_components` 17 项；前端 tsc / lint / i18n / style / build；`scripts/check_widget_components.mjs`（jsdom）。**带组件的渠道不再逐字流式；没有用真实模型验证标签输出；未目视验收。**
 
+### T-042 渠道体验继承（已完成，待验收）
+
+- **迁移 `0059_tenant_channel_styles`**。四层体验（平台 / 租户 / 智能体 / 渠道）与合并函数（每项带来源）；各层只存差异，按类型校验；快照冻结每个适用项的合并结果，上层改动让渠道显示“有未发布修改”而线上不变；统一的体验编辑器与四个入口。
+- 验证：ruff；`test_experience` 16 项；前端 tsc / lint / i18n / style / build；PostgreSQL 迁移升降级与 `alembic check`。**页面未目视验收；网站挂件仍只用主色 / 名称 / 欢迎语，其余项等 H5 与各渠道运行时消费。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

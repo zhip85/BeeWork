@@ -182,5 +182,63 @@
     "defaultWelcome": "请问有什么可以帮您？",
     "user": "我的订单到哪了？",
     "plain": "（纯文本回复）"
+  },
+  "experience": {
+    "title": "{{type}} · 体验配置",
+    "chain": "继承链",
+    "save": "保存更改",
+    "restore": "恢复继承",
+    "loadFailed": "无法加载体验配置",
+    "preview": "实时预览",
+    "sampleCard": "订单进度 · 已发货 · 预计明日送达",
+    "quick1": "查询订单",
+    "quick2": "联系客服",
+    "action": "体验",
+    "editPlatform": "编辑平台默认",
+    "editTenant": "编辑租户默认",
+    "assistantTitle": "智能体渠道配置",
+    "assistantHint": "这些设置只对这个智能体的渠道生效，覆盖租户默认；渠道自己的“体验”还可以再覆盖。",
+    "configure": "配置",
+    "note": "修改后需要重新发布，已发布的渠道才会使用新体验。",
+    "kicker": {
+      "platform": "PLATFORM",
+      "tenant": "TENANT",
+      "assistant": "ASSISTANT",
+      "instance": "INSTANCE"
+    },
+    "level": {
+      "platform": "平台",
+      "tenant": "租户",
+      "assistant": "智能体",
+      "instance": "渠道"
+    },
+    "fields": {
+      "primary_color": "品牌主色",
+      "theme": "主题",
+      "radius": "圆角",
+      "entry": "入口形式",
+      "welcome": "欢迎语",
+      "quick_replies": "快捷回复",
+      "cards": "卡片",
+      "tables": "表格",
+      "forms": "表单",
+      "streaming": "流式输出"
+    },
+    "options": {
+      "theme": {
+        "light": "浅色",
+        "dark": "深色",
+        "auto": "自动"
+      },
+      "entry": {
+        "bottom-right": "右下角",
+        "bottom-left": "左下角",
+        "fullscreen": "全屏",
+        "drawer": "底部抽屉",
+        "conversation": "会话",
+        "official-account": "公众号",
+        "endpoint": "接口"
+      }
+    }
   }
 }

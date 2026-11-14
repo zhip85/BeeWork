@@ -29,7 +29,7 @@ CATALOG: dict[str, dict[str, Any]] = {
             {"key": "sdk_key", "label": "SDK Key", "kind": "generated", "required": False},
         ],
         "capabilities": ["Markdown", "表格", "卡片", "表单", "流式"],
-        "default_experience": {"primary_color": "#6558d9", "radius": 12, "welcome": "您好，请问有什么可以帮您？", "entry": "bottom-right", "streaming": True},
+        "default_experience": {"primary_color": "#6558d9", "theme": "light", "radius": 12, "welcome": "您好，请问有什么可以帮您？", "entry": "bottom-right", "quick_replies": True, "cards": True, "tables": True, "forms": True, "streaming": True},
     },
     "h5": {
         "name": "H5", "version": "1.0",
@@ -38,7 +38,7 @@ CATALOG: dict[str, dict[str, Any]] = {
             {"key": "allowed_origins", "label": "允许域名", "kind": "origins", "required": True},
         ],
         "capabilities": ["Markdown", "卡片", "表单", "移动布局"],
-        "default_experience": {"primary_color": "#3568d4", "radius": 16, "welcome": "您好，请描述您的问题", "entry": "fullscreen", "streaming": True},
+        "default_experience": {"primary_color": "#3568d4", "theme": "light", "radius": 16, "welcome": "您好，请描述您的问题", "entry": "fullscreen", "quick_replies": True, "cards": True, "tables": False, "forms": True, "streaming": True},
     },
     "whatsapp": {
         "name": "WhatsApp", "version": "1.0",
@@ -48,7 +48,7 @@ CATALOG: dict[str, dict[str, Any]] = {
             {"key": "verify_token", "label": "Webhook 校验 Token", "kind": "generated", "required": False},
         ],
         "capabilities": ["文本", "图片", "快捷回复", "模板卡片"],
-        "default_experience": {"primary_color": "#168a64", "radius": 10, "welcome": "Hi, how can we help?", "entry": "conversation", "streaming": False},
+        "default_experience": {"primary_color": "#168a64", "theme": "light", "radius": 8, "welcome": "Hi, how can we help?", "entry": "conversation", "quick_replies": True, "cards": True, "tables": False, "forms": False, "streaming": False},
     },
     "wechat": {
         "name": "微信", "version": "1.0",
@@ -58,7 +58,7 @@ CATALOG: dict[str, dict[str, Any]] = {
             {"key": "verify_token", "label": "服务器校验 Token", "kind": "generated", "required": False},
         ],
         "capabilities": ["文本", "图片", "富媒体", "小程序"],
-        "default_experience": {"primary_color": "#168a64", "radius": 8, "welcome": "您好，欢迎关注", "entry": "official-account", "streaming": False},
+        "default_experience": {"primary_color": "#168a64", "theme": "light", "radius": 8, "welcome": "您好，欢迎关注", "entry": "official-account", "quick_replies": True, "cards": True, "tables": False, "forms": False, "streaming": False},
     },
     "open-api": {
         "name": "开放 API", "version": "1.0",
@@ -67,7 +67,7 @@ CATALOG: dict[str, dict[str, Any]] = {
             {"key": "api_key", "label": "API Key", "kind": "generated", "required": False},
         ],
         "capabilities": ["JSON", "SSE", "Metadata", "组件 payload"],
-        "default_experience": {"entry": "endpoint", "streaming": True, "theme": {}},
+        "default_experience": {"entry": "endpoint", "quick_replies": True, "cards": True, "tables": True, "forms": True, "streaming": True},
     },
 }
 TYPE_CODES = tuple(CATALOG)

@@ -154,7 +154,8 @@
     "disableHint": "Disabling only affects new channels.",
     "disabledHint": "Disabled: tenants cannot create this type.",
     "saved": "Channel type saved",
-    "failed": "Save failed"
+    "failed": "Save failed",
+    "editDefault": "Edit platform default"
   },
   "widgetTemplates": "Widget templates"
 }

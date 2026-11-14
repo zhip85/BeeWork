@@ -213,8 +213,9 @@ class ChannelTests(ChannelBase):
         self.assertEqual(channel["allowed_origins"], ["https://www.example.com", "http://localhost:3000"])
         self.assertEqual((channel["status"], channel["published_version"], channel["embed_code"], channel["has_unpublished_changes"]), ("draft", "—", None, False))
         self.assertRegex(channel["site_key"], r"^bw_site_[a-z0-9]{20}$")
-        self.assertEqual(channel["experience"], {"primary_color": "#aabbcc", "assistant_name": "", "welcome": "Hello!"})
-        self.assertEqual(channel["effective_experience"], {"primary_color": "#aabbcc", "assistant_name": "Helper", "welcome": "Hello!"})
+        self.assertEqual(channel["experience"], {"primary_color": "#aabbcc", "welcome": "Hello!"})  # only what the channel overrides (T-042)
+        self.assertEqual({k: channel["effective_experience"][k] for k in ("primary_color", "welcome")}, {"primary_color": "#aabbcc", "welcome": "Hello!"})
+        self.assertEqual(channel["experience_sources"]["welcome"], "instance")
         with self.session_factory() as db:
             audit = db.scalar(select(AuditEvent).where(AuditEvent.action == "channel.created"))
             self.assertEqual(audit.category, "assistants")

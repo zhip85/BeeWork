@@ -55,7 +55,7 @@ def effective_experience(experience: dict[str, Any], assistant: Assistant, defau
     }
 
 
-def build_snapshot(channel: ChannelInstance, assistant: Assistant, defaults: dict[str, Any] | None = None, components: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def build_snapshot(channel: ChannelInstance, assistant: Assistant, defaults: dict[str, Any] | None = None, components: list[dict[str, Any]] | None = None, experience: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "components": list(components or []),
         "channel_id": str(channel.id),
@@ -65,7 +65,8 @@ def build_snapshot(channel: ChannelInstance, assistant: Assistant, defaults: dic
         "assistant_id": str(assistant.id),
         "environment": channel.environment,
         "allowed_origins": list(channel.allowed_origins or []),
-        "experience": effective_experience(channel.experience or {}, assistant, defaults),
+        # T-042: every applicable setting resolved through the four layers and frozen; the display name stays a channel-level choice.
+        "experience": {**effective_experience(channel.experience or {}, assistant, defaults), **(experience or {}), "assistant_name": (channel.experience or {}).get("assistant_name") or assistant.name},
     }
 
 
@@ -78,7 +79,7 @@ def _published_view(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def has_unpublished_changes(channel: ChannelInstance, components: list[tuple[str, str]] | None = None) -> bool:
+def has_unpublished_changes(channel: ChannelInstance, components: list[tuple[str, str]] | None = None, effective: dict[str, Any] | None = None) -> bool:
     """CHN-002: the draft differs from what is live (the list shows “有未发布修改”)."""
     if channel.published_snapshot is None:
         return False
@@ -87,7 +88,11 @@ def has_unpublished_changes(channel: ChannelInstance, components: list[tuple[str
         "allowed_origins": list(channel.allowed_origins or []), "overrides": dict(channel.experience or {}),
         "type": channel.type, "config": dict(channel.config or {}), "components": sorted(components or []),
     }
-    return draft != _published_view(channel.published_snapshot)
+    if draft != _published_view(channel.published_snapshot):
+        return True
+    # A change in a higher layer (platform, tenant, the agent's channel settings) changes what a publish would freeze, too.
+    frozen = channel.published_snapshot.get("experience") or {}
+    return any(key in frozen and frozen[key] != value for key, value in (effective or {}).items())
 
 
 def version_label(seq: int) -> str:
