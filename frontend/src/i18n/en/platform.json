@@ -141,5 +141,19 @@
       "smtp_unreachable": "Cannot reach the mail service",
       "invalid_message": "Invalid message (not retried)"
     }
+  },
+  "channelTypes": {
+    "nav": "Channel types",
+    "title": "Channel types",
+    "subtitle": "The five channel types the platform defines. Disabling one stops tenants from creating new channels of that type; existing channels are unaffected. A new type needs an adapter first.",
+    "params": "Connection: {{params}}",
+    "version": "Version",
+    "saveVersion": "Save version",
+    "enable": "Enable",
+    "disable": "Disable",
+    "disableHint": "Disabling only affects new channels.",
+    "disabledHint": "Disabled: tenants cannot create this type.",
+    "saved": "Channel type saved",
+    "failed": "Save failed"
   }
 }

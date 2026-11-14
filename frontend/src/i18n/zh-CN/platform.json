@@ -141,5 +141,19 @@
       "smtp_unreachable": "无法连接邮件服务",
       "invalid_message": "邮件内容无效（不会重试）"
     }
+  },
+  "channelTypes": {
+    "nav": "渠道类型",
+    "title": "渠道类型",
+    "subtitle": "平台定义的五种渠道类型。停用后租户不能新建该类型，已有渠道不受影响。新增类型需要先开发适配器。",
+    "params": "连接参数：{{params}}",
+    "version": "版本号",
+    "saveVersion": "保存版本",
+    "enable": "启用",
+    "disable": "停用",
+    "disableHint": "停用只影响新建。",
+    "disabledHint": "已停用：租户不能新建该类型。",
+    "saved": "渠道类型已保存",
+    "failed": "保存失败"
   }
 }

@@ -14,7 +14,7 @@ from sqlalchemy import select
 from beework.approvals import ApplyContext, approval_action
 from beework.errors import ApiError
 from beework.models.assistants import Assistant
-from beework.models.channels import ChannelInstance
+from beework.models.channels import ChannelInstance, ChannelSnapshot
 from beework.notifications import notify
 
 ACTION = "channel.publish"
@@ -44,24 +44,27 @@ def normalize_origins(values: list[str]) -> list[str]:
     return list(dict.fromkeys(normalize_origin(v) for v in values))
 
 
-def effective_experience(experience: dict[str, Any], assistant: Assistant) -> dict[str, str]:
-    """Inheritance for the website type: channel overrides → assistant (name, greeting) → platform defaults."""
+def effective_experience(experience: dict[str, Any], assistant: Assistant, defaults: dict[str, Any] | None = None) -> dict[str, str]:
+    """Inheritance: channel overrides → assistant (name, greeting) → the type's platform defaults (T-042 adds the tenant level)."""
     greeting = ((assistant.draft_config or {}).get("greeting") or "").strip()
+    base = defaults or {}
     return {
-        "primary_color": experience.get("primary_color") or DEFAULT_COLOR,
+        "primary_color": experience.get("primary_color") or base.get("primary_color") or DEFAULT_COLOR,
         "assistant_name": experience.get("assistant_name") or assistant.name,
-        "welcome": experience.get("welcome") or greeting or DEFAULT_WELCOME,
+        "welcome": experience.get("welcome") or greeting or base.get("welcome") or DEFAULT_WELCOME,
     }
 
 
-def build_snapshot(channel: ChannelInstance, assistant: Assistant) -> dict[str, Any]:
+def build_snapshot(channel: ChannelInstance, assistant: Assistant, defaults: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         "channel_id": str(channel.id),
+        "type": channel.type,
+        "config": dict(channel.config or {}),
         "name": channel.name,
         "assistant_id": str(assistant.id),
         "environment": channel.environment,
         "allowed_origins": list(channel.allowed_origins or []),
-        "experience": effective_experience(channel.experience or {}, assistant),
+        "experience": effective_experience(channel.experience or {}, assistant, defaults),
     }
 
 
@@ -69,6 +72,7 @@ def _published_view(snapshot: dict[str, Any]) -> dict[str, Any]:
     return {
         "name": snapshot.get("name"), "assistant_id": snapshot.get("assistant_id"), "environment": snapshot.get("environment"),
         "allowed_origins": snapshot.get("allowed_origins"), "overrides": snapshot.get("overrides", {}),
+        "type": snapshot.get("type", "website"), "config": snapshot.get("config", {}),
     }
 
 
@@ -79,6 +83,7 @@ def has_unpublished_changes(channel: ChannelInstance) -> bool:
     draft = {
         "name": channel.name, "assistant_id": str(channel.assistant_id), "environment": channel.environment,
         "allowed_origins": list(channel.allowed_origins or []), "overrides": dict(channel.experience or {}),
+        "type": channel.type, "config": dict(channel.config or {}),
     }
     return draft != _published_view(channel.published_snapshot)
 
@@ -114,6 +119,8 @@ def apply_publish(db, context: ApplyContext) -> None:
     channel.version_seq += 1
     channel.published_at = _now()
     channel.status = "active"
+    channel.health_failures, channel.health_error = 0, None
+    db.add(ChannelSnapshot(tenant_id=channel.tenant_id, channel_id=channel.id, version_seq=channel.version_seq, snapshot=snapshot, published_by=context.requester_id))
     channel.row_version += 1
     from beework.models import AuditEvent
 

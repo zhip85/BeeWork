@@ -357,6 +357,29 @@ class PostgresIntegrationTests(unittest.TestCase):
         with self.session_factory() as db:
             self.assertEqual(db.get(AssistantVersion, version_id).change_note, "")
 
+    def test_database_trigger_rejects_channel_snapshot_updates(self) -> None:
+        from sqlalchemy.exc import DBAPIError
+
+        from beework.models.channels import ChannelInstance, ChannelSnapshot
+
+        with self.session_factory.begin() as db:
+            assistant = Assistant(tenant_id=self.tenant_id, organization_id=self.organization_id, name="Channel bot", draft_config={})
+            db.add(assistant)
+            db.flush()
+            channel = ChannelInstance(tenant_id=self.tenant_id, name="Site", assistant_id=assistant.id, site_key="bw_site_pgtrigger0000000001")
+            db.add(channel)
+            db.flush()
+            snapshot = ChannelSnapshot(tenant_id=self.tenant_id, channel_id=channel.id, version_seq=1, snapshot={"k": "v"})
+            db.add(snapshot)
+            db.flush()
+            snapshot_id = snapshot.id
+        with self.engine.begin() as connection:
+            with self.assertRaises(DBAPIError) as caught:
+                connection.execute(text("UPDATE channel_snapshots SET snapshot = '{}' WHERE id = :id"), {"id": snapshot_id})
+            self.assertIn("immutable", str(caught.exception))
+        with self.session_factory() as db:
+            self.assertEqual(db.get(ChannelSnapshot, snapshot_id).snapshot, {"k": "v"})
+
     def _approval_fixture(self, approvers: int = 4) -> tuple[UUID, UUID, list[UUID]]:
         from beework.approvals import approval_action
 

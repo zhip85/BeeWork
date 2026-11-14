@@ -497,6 +497,11 @@
 - **无迁移**。路由阶段新增 span `l2.recall / l2.classify / l2.slots / path.a.<能力>`（Langfuse 里带 `oc.` 前缀）；调用追踪列表可按路径 A / B、转 B 原因、能力失败筛选；详情显示路由决策与能力调用链（次数、尝试、熔断，仅元数据）；`GET /api/v1/traces/route-summary` 给出近 N 天 A / B 占比、置信度、转 B 原因、失败的能力、按路径与按能力的成本；追踪页顶部有“路由概览”。
 - 验证：ruff；`test_traces` 15 项、`test_intent_runtime` span 用例；前端 tsc / lint / i18n / style / build；开发库（PostgreSQL）真实租户汇总可用。**页面未目视验收；路由评测、阈值校准、发布门禁未做（等 T-083）。**
 
+### T-041 渠道框架（已完成，待验收）
+
+- **迁移 `0057_channel_framework`**。五种渠道类型的目录与平台启用 / 停用（`channel_types` 只存平台改动）、套餐决定可建类型、`ChannelAdapter` 与网站 / H5 / 开放 API 适配器（WhatsApp / 微信为通用适配器）、连接配置与加密密钥（掩码、留空保持）、发布前适配器校验、每次发布追加不可变快照（PostgreSQL 触发器）、按类型的接入代码、发布预览接口、`channels.health` 健康检查（3 次失败置“异常”并通知，异常时继续服务）。前端：渠道页两个页签、两步向导与实时预览、发布弹窗三个页签、平台“渠道类型”页。
+- 验证：ruff；`test_channel_framework` 17 项；`test_channels`、`test_worker`；PostgreSQL 迁移升降级、`alembic check`、触发器用例；前端 tsc / lint / i18n / style / build。**页面未目视验收；组件选择、注入提示词、试跑（T-043 / T-059）、H5 / WhatsApp / 微信的运行时（T-044–T-046）未做；版本号沿用 v1.0 格式。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

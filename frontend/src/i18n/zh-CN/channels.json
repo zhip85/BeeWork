@@ -34,7 +34,8 @@
   "status": {
     "draft": "草稿",
     "active": "启用",
-    "disabled": "停用"
+    "disabled": "停用",
+    "error": "异常"
   },
   "columns": {
     "channel": "渠道",
@@ -44,8 +45,8 @@
     "status": "状态"
   },
   "dialog": {
-    "create": "新建网站渠道",
-    "edit": "编辑网站渠道"
+    "create": "新建渠道",
+    "edit": "编辑渠道"
   },
   "fields": {
     "name": "渠道名称",
@@ -59,25 +60,47 @@
     "color": "品牌主色",
     "assistantName": "智能体名称",
     "welcome": "欢迎语",
-    "inherit": "留空则继承智能体 / 平台默认"
+    "inherit": "留空则继承智能体 / 平台默认",
+    "type": "渠道类型",
+    "typeLocked": "已发布的渠道不能修改类型。",
+    "connection": "连接配置",
+    "generated": "由平台生成，发布后在“接入代码”里查看，可重置。",
+    "secretHint": "密钥加密保存，保存后只显示末四位。",
+    "secretKeep": "已设置；留空则保持不变。"
   },
   "publish": {
     "action": "发布",
     "done": "渠道已发布",
     "submitted": "已提交至审批中心，审批通过后生效。",
     "viewApproval": "查看审批",
-    "replaceBody": "已有待审批的申请，是否撤回并重新提交？"
+    "replaceBody": "已有待审批的申请，是否撤回并重新提交？",
+    "dialogTitle": "发布渠道",
+    "snapshotNote": "运行时只读取已发布的快照，草稿不影响线上。",
+    "tabs": {
+      "components": "组件清单",
+      "prompt": "注入提示词",
+      "trial": "试跑"
+    },
+    "first": "首次发布",
+    "against": "对比 {{version}}",
+    "noPrompt": "没有组件，不注入提示词。",
+    "confirm": "确认发布"
   },
   "embed": {
     "action": "获取接入代码",
     "title": "接入代码",
-    "body": "把下面这段代码放到网页的 </body> 之前即可。",
+    "body": {
+      "script": "把下面这段代码放到网页的 </body> 之前即可。",
+      "link": "把下面的访问链接发给用户或放进菜单。",
+      "webhook": "把下面的地址填到渠道方后台的回调配置里。",
+      "curl": "用租户 API 密钥调用这个接口。"
+    },
     "copy": "复制",
     "copied": "接入代码已复制",
     "origins": "允许的网站：{{origins}}"
   },
   "rotate": {
-    "action": "重置 SDK Key",
+    "action": "重置 Key",
     "body": "重置“{{name}}”的 SDK Key 后，已嵌入旧代码的页面将停止服务，需要换成新的接入代码。继续？",
     "done": "SDK Key 已重置，请更新网页上的接入代码"
   },
@@ -122,5 +145,35 @@
       "expired": "已过期",
       "revoked": "已吊销"
     }
+  },
+  "loading": "正在加载…",
+  "allTypes": "全部类型",
+  "tabs": {
+    "instances": "渠道实例",
+    "types": "渠道类型"
+  },
+  "typeStatus": {
+    "enabled": "已启用"
+  },
+  "typeParams": "连接参数：{{params}}",
+  "unavailable": {
+    "disabled": "平台已停用",
+    "plan": "套餐未开通"
+  },
+  "wizard": {
+    "steps": "向导步骤",
+    "step1": "基础信息",
+    "step2": "组件与体验",
+    "next": "下一步",
+    "back": "上一步",
+    "components": "组件",
+    "componentsPending": "组件库上线后可在这里选择渠道可用的组件；目前渠道以纯文本回复。"
+  },
+  "preview": {
+    "title": "实时预览 · {{type}}",
+    "unnamed": "未命名渠道",
+    "defaultWelcome": "请问有什么可以帮您？",
+    "user": "我的订单到哪了？",
+    "plain": "（纯文本回复）"
   }
 }
