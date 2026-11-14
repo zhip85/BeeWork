@@ -23,6 +23,13 @@ def conversations_retention(db: Session, _payload: dict) -> None:
     purge_expired_conversations(db)
 
 
+@job_handler("traces.retention")
+def traces_retention(db: Session, _payload: dict) -> None:
+    from beework.traces import purge_expired_traces
+
+    purge_expired_traces(db)
+
+
 @job_handler("capabilities.mcp_health")
 def capabilities_mcp_health(db: Session, payload: dict) -> None:
     from beework.capability_service import mcp_health_job
@@ -46,6 +53,7 @@ def enqueue_scheduled_jobs(db: Session, *, now: datetime | None = None) -> None:
     current_time = now or datetime.now(UTC)
     window = current_time.date().isoformat()
     enqueue(db, "audit.retention", {}, idempotency_key=f"audit.retention:{window}")
+    enqueue(db, "traces.retention", {}, idempotency_key=f"traces.retention:{window}")
     enqueue(db, "conversations.retention", {}, idempotency_key=f"conversations.retention:{window}")
     enqueue(db, "memory.retention", {}, idempotency_key=f"memory.retention:{window}")
     enqueue(db, "portal.reclaim_idle_seats", {}, idempotency_key=f"portal.reclaim_idle_seats:{window}")

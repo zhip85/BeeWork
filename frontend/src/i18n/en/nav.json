@@ -28,5 +28,6 @@
     "build": "Build",
     "run": "Run & operate"
   },
-  "aiPortal": "AI Portal"
+  "aiPortal": "AI Portal",
+  "traces": "Call traces"
 }

@@ -486,6 +486,12 @@
 - **无新迁移**。`POST /api/v1/assistants/prompt-suggestions` 用当前环境默认对话模型经 LiteLLM 生成系统指令（中英模板按界面语言选），`source=debug` 计 1 点、30 秒超时、输出去 Markdown 围栏并截断 8000 字、成功写审计；结果只填「基础」页表单，保存草稿时写 `draft_config.prompt_ai_optimized`，概览基础配置卡片显示「AI 已优化」（AST-052）。规格写的「向导第 2 步」在 T-021 重构时已删除，按钮改放智能体「基础」页提示词字段旁，见任务文件「完成记录」。
 - 验证：ruff 全量；PostgreSQL 一次性库 `alembic upgrade → check → downgrade base → upgrade`（`MIGRATE_EXIT=0`）；`test_prompt_suggestions` 11 项（假模型：截断、模板按语言、422 / 403 / 跨租户 404 / 504 / 502 / 配额 409 / 审计 / 草稿标记往返）；前端 tsc / lint / i18n / style / build；全量后端套件 1248 项（本任务 11 项全 ok，3 项流式用例补 Valkey 后重跑通过，1 项 0051 迁移用例在纯 main 基线上同样失败，见任务文件「完成记录」）。**未连过真实第三方模型；`check_gateway_e2e.py` 未实跑**（共享 Compose 开发库被并行分支迁移推进导致 api 服务启动失败，隔离栈 API 未监听；与 T-014 记录的问题同类，详见任务文件「遗留问题」）。
 
+### T-084 调用追踪（已完成，待验收）
+
+- **无迁移**。`GET /api/v1/traces`（来自 `runs` 表：智能体、渠道、状态 成功 / 错误 / 慢、来源 线上 / 调试 / 试运行 / 评测、时间、延迟下限；Trace / 运行 / 会话 ID 精确搜索；按智能体可见范围过滤，员工门户私有对话与平台管理员都看不到）与 `GET /api/v1/traces/{run_id}`（服务端按需读 Langfuse v2 observations 组装瀑布：开始偏移、耗时、状态、模型、Token、成本、脱敏后的输入输出；Langfuse 不可用 / 已过期时返回提示与 BeeWork 自己的运行事件时间线）。前端新增“调用追踪”页（侧边栏，`traces:view`）。
+- 保留期：`traces.retention` 每日任务，保留天数 = min(套餐 `trace_retention_days`（缺省 标准 7 / 专业 30 / 企业 90），租户会话保留期)；先在 Langfuse 批量删除（`DELETE /api/public/traces`，实测可用）再清 `runs.trace_url` 并写审计，失败次日重试。
+- 验证：ruff；`test_traces` 12 项；前端 tsc / lint / i18n / style / build；用开发库里一次真实对话的 trace 读取并组装（17 个 span）。**页面未目视验收；删除接口只用不存在的 id 试过；路径 A / B、能力调用链、按路径成本归 T-168。**
+
 ## 4. 下一步
 
 **优先线（2026-10-28 起）**：先做“闭环切片”——T-010a → T-020 → T-025 → T-026 → T-054a → T-056a，见 [`tasks/README.md`](./tasks/README.md)“闭环切片”。知识检索用 `Retriever` 协议 + 桩实现，**未接真实 RAGFlow**，桩存在期间不得把知识问答记为完成。

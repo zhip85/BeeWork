@@ -1,0 +1,61 @@
+{
+  "eyebrow": "Operations · Call traces",
+  "title": "Call traces",
+  "subtitle": "One row per agent run; open one to see stage timings, models and tokens. Trace retention follows the plan; after it only the run record stays.",
+  "list": "Calls",
+  "count": "{{count}} rows",
+  "loading": "Loading…",
+  "empty": "No matching calls",
+  "failed": "Could not load the calls",
+  "expired": "(trace expired)",
+  "page": "Page {{page}} / {{pages}}",
+  "prev": "Previous",
+  "next": "Next",
+  "filters": {
+    "search": "Trace / run / conversation ID",
+    "searchHint": "Exact match",
+    "assistant": "Agent",
+    "channel": "Channel",
+    "status": "Status",
+    "origin": "Origin",
+    "minLatency": "Min latency (s)",
+    "from": "From",
+    "to": "To",
+    "apply": "Filter",
+    "all": "All"
+  },
+  "status": {
+    "success": "Success",
+    "error": "Error",
+    "slow": "Slow",
+    "running": "Running"
+  },
+  "origin": {
+    "online": "Live",
+    "debug": "Debug",
+    "trial": "Trial run",
+    "eval": "Evaluation"
+  },
+  "columns": {
+    "status": "Status",
+    "time": "Time",
+    "assistant": "Agent",
+    "origin": "Origin",
+    "latency": "Latency",
+    "tokens": "Tokens (in/out)",
+    "traceId": "Trace ID"
+  },
+  "detail": {
+    "title": "Call detail",
+    "close": "Close",
+    "conversation": "Open conversation",
+    "timeline": "Run event timeline",
+    "start": "Start",
+    "model": "Model",
+    "tokens": "Tokens (in/out)",
+    "cost": "Cost",
+    "error": "Error",
+    "input": "Input",
+    "output": "Output"
+  }
+}

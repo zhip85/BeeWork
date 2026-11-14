@@ -28,5 +28,6 @@
     "build": "构建",
     "run": "发布与运营"
   },
-  "aiPortal": "AI 门户"
+  "aiPortal": "AI 门户",
+  "traces": "调用追踪"
 }

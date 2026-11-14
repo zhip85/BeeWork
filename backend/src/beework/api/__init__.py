@@ -44,6 +44,7 @@ from beework.api import (
     tenant_models,
     tenant_pii_rules,
     test_cases,
+    traces,
     usage,
 )
 
@@ -73,6 +74,7 @@ for module in (
     portal_profile,
     portal_seats,
     prompt_suggestions,
+    traces,
     platform_plans,
     platform_glossary,
     platform_governance,

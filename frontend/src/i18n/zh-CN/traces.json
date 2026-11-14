@@ -1,0 +1,61 @@
+{
+  "eyebrow": "运营 · 调用追踪",
+  "title": "调用追踪",
+  "subtitle": "每次智能体运行一条记录；点开可看各阶段耗时、模型与 Token。追踪保留期随套餐，过期后只保留运行记录。",
+  "list": "调用记录",
+  "count": "{{count}} 条",
+  "loading": "正在加载…",
+  "empty": "没有匹配的调用",
+  "failed": "调用记录加载失败",
+  "expired": "（追踪已过期）",
+  "page": "第 {{page}} / {{pages}} 页",
+  "prev": "上一页",
+  "next": "下一页",
+  "filters": {
+    "search": "Trace / 运行 / 会话 ID",
+    "searchHint": "精确匹配",
+    "assistant": "智能体",
+    "channel": "渠道",
+    "status": "状态",
+    "origin": "来源",
+    "minLatency": "延迟下限（秒）",
+    "from": "开始日期",
+    "to": "结束日期",
+    "apply": "筛选",
+    "all": "全部"
+  },
+  "status": {
+    "success": "成功",
+    "error": "错误",
+    "slow": "慢",
+    "running": "进行中"
+  },
+  "origin": {
+    "online": "线上",
+    "debug": "调试",
+    "trial": "试运行",
+    "eval": "评测"
+  },
+  "columns": {
+    "status": "状态",
+    "time": "时间",
+    "assistant": "智能体",
+    "origin": "来源",
+    "latency": "延迟",
+    "tokens": "Token（入/出）",
+    "traceId": "Trace ID"
+  },
+  "detail": {
+    "title": "调用详情",
+    "close": "关闭",
+    "conversation": "查看会话",
+    "timeline": "运行事件时间线",
+    "start": "开始",
+    "model": "模型",
+    "tokens": "Token（入/出）",
+    "cost": "成本",
+    "error": "错误",
+    "input": "输入",
+    "output": "输出"
+  }
+}

@@ -147,6 +147,7 @@ AUDIT_ACTION_DESCRIPTIONS = {
     "assistant.run_started": "发起智能体调试运行",
     "compliance.updated": "更新数据与隐私设置",
     "conversation.retention_purged": "清理过期会话",
+    "trace.retention_purged": "清理过期调用追踪",
     "memory.user_deleted": "删除终端用户的全部记忆",
     "memory.retention_purged": "清理过期记忆",
     "assistant.run_cancelled": "取消智能体运行",

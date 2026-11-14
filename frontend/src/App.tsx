@@ -37,6 +37,7 @@ import { VersionsPage } from './pages/assistants/VersionsPage'
 import { OrchestrationPage } from './pages/orchestration/OrchestrationPage'
 import { ConversationsPage } from './pages/assistants/ConversationsPage'
 import { AuditLogPage } from './pages/audit/AuditLogPage'
+import { TracesPage } from './pages/traces/TracesPage'
 import { InviteAcceptancePage } from './pages/auth/InviteAcceptancePage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { NoTenantAccessPage } from './pages/auth/NoTenantAccessPage'
@@ -134,6 +135,8 @@ function App() {
   const currentPage =
     location.pathname === '/members'
       ? t('nav:members')
+      : location.pathname === '/traces'
+      ? t('nav:traces')
       : location.pathname === '/audit'
       ? t('nav:audit')
       : location.pathname === '/platform/tenants'
@@ -367,6 +370,12 @@ function App() {
             <span>{t('nav:settings')}</span>
           </NavLink>
         )}
+        {hasPermission('traces:view') && (
+          <NavLink className="nav-link" to="/traces">
+            <Activity size={18} strokeWidth={1.8} />
+            <span>{t('nav:traces')}</span>
+          </NavLink>
+        )}
         {hasPermission('audit:view') && (
           <NavLink className="nav-link" to="/audit">
             <FileText size={18} strokeWidth={1.8} />
@@ -448,6 +457,7 @@ function App() {
             <Route path="/knowledge" element={hasPermission('knowledge:view') && activeTenant ? <KnowledgeListPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/knowledge/new" element={hasPermission('knowledge:edit') && activeTenant && activeTenant.access_mode === 'full' ? <KnowledgeCreatePage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/knowledge/:kbId" element={hasPermission('knowledge:view') && activeTenant ? <KnowledgeDetailPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
+            <Route path="/traces" element={hasPermission('traces:view') && activeTenant ? <TracesPage key={activeTenant.id} tenantId={activeTenant.id} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/audit" element={hasPermission('audit:view') && activeTenant ? <AuditLogPage key={activeTenant.id} tenantId={activeTenant.id} canExport={hasPermission('audit:export')} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/notifications" element={activeTenant ? <NotificationsPage key={activeTenant.id} tenantId={activeTenant.id} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
             <Route path="/channels" element={hasPermission('channels:view') && activeTenant ? <ChannelsPage key={activeTenant.id} tenant={activeTenant} /> : <SectionPlaceholder denied icon={<ShieldCheck size={22} />} />} />
